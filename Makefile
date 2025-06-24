@@ -18,7 +18,7 @@ help:
 
 # Start all services
 up:
-	docker-compose up -d
+	docker compose up -d
 	@echo "Services started!"
 	@echo "Frontend: http://localhost:5173"
 	@echo "Backend:  http://localhost:8080"
@@ -26,11 +26,11 @@ up:
 
 # Stop all services
 down:
-	docker-compose down
+	docker compose down
 
 # View logs
 logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 # Run all tests
 test: test-backend test-frontend test-integration
@@ -52,13 +52,13 @@ test-integration:
 
 # Run database migrations manually
 migrate:
-	@echo "Running database migrations..."
-	docker-compose exec db psql -U postgres -d ookkee -f /docker-entrypoint-initdb.d/001_initial_schema.sql
+	@echo "Migrations run automatically by Go backend on startup"
+	@echo "No manual migration needed!"
 
 # Clean up everything
 clean:
-	docker-compose down -v
-	docker-compose rm -f
+	docker compose down -v
+	docker compose rm -f
 	docker volume prune -f
 
 # Development helpers
