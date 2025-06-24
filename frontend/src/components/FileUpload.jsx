@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 
-const FileUpload = () => {
+const FileUpload = ({ onUploadSuccess }) => {
   const [file, setFile] = useState(null)
   const [uploadStatus, setUploadStatus] = useState('')
   const [isUploading, setIsUploading] = useState(false)
@@ -69,6 +69,10 @@ const FileUpload = () => {
         const result = await response.json()
         setUploadStatus('success')
         console.log('Upload successful:', result)
+        // Call success callback if provided
+        if (onUploadSuccess) {
+          setTimeout(() => onUploadSuccess(result), 1000)
+        }
       } else {
         const errorText = await response.text()
         throw new Error(errorText)
