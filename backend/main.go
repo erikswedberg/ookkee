@@ -22,9 +22,10 @@ import (
 
 const (
 	PORT         = ":8080"
-	UPLOADS_DIR  = "../uploads"
 	TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 )
+
+var UPLOADS_DIR = getEnv("UPLOADS_DIR", "uploads")
 
 var dbPool *pgxpool.Pool
 
@@ -55,7 +56,16 @@ func main() {
 
 	// Initialize database connection pool
 	var err error
-	dbPool, err = pgxpool.New(ctx, "host=localhost port=5432 user=postgres password=postgres dbname=ookkee sslmode=disable")
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "5432")
+	dbName := getEnv("DB_NAME", "ookkee")
+	dbUser := getEnv("DB_USER", "postgres")
+	dbPassword := getEnv("DB_PASSWORD", "postgres")
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dbHost, dbPort, dbUser, dbPassword, dbName)
+
+	dbPool, err = pgxpool.New(ctx, connStr)
 	if err != nil {
 		log.Fatalf("Failed to create connection pool: %v", err)
 	}
@@ -80,7 +90,7 @@ func main() {
 
 	// CORS configuration
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"}, // Vite default port
+		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000"}, // Vite and serve ports
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
 		ExposedHeaders:   []string{"Link"},
@@ -430,4 +440,11 @@ func processCSVFile(ctx context.Context, filePath, originalName string) (*Projec
 	}
 
 	return &project, nil
+}
+
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
 }

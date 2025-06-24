@@ -20,6 +20,9 @@ git clone <repository-url>
 cd ookkee
 make up
 
+# Or directly with Docker (macOS)
+docker compose up -d
+
 # Access the application
 open http://localhost:5173
 ```
@@ -67,18 +70,17 @@ npm run test:coverage  # With coverage report
 
 ## Database Migrations
 
-Migrations run automatically when the database container starts. To run manually:
+**Migrations run automatically** when the Go backend starts up. No manual steps needed!
 
 ```bash
-# Using make command
-make migrate
+# Just start the services and migrations happen automatically
+make up
 
-# Or run the script directly
-./scripts/run-migrations.sh
-
-# Or manually via Docker
-docker-compose exec db psql -U postgres -d ookkee -f /docker-entrypoint-initdb.d/001_initial_schema.sql
+# Check that migrations worked
+curl http://localhost:8080/api/health
 ```
+
+The backend creates all tables, indexes, and default data on first startup.
 
 ## Project Structure
 
