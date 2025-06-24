@@ -1,141 +1,174 @@
-# AI Bookkeeping Assistant
+# Ookkee
 
-A modern web application for AI-powered bookkeeping with human oversight. Built with React + Vite frontend and Go + Chi backend, designed to process CSV financial data with PostgreSQL storage.
+> The only word in English with three consecutive double letters: bo**okk**eeper
+
+A modern AI bookkeeping assistant with PostgreSQL backend and Google Sheets-like interface for processing CSV financial data.
 
 ## Features
 
-- **File Upload**: Drag-and-drop CSV file upload with validation
-- **Real-time Processing**: Visual feedback during file upload with progress tracking
-- **Secure Storage**: Files stored securely on the local filesystem with timestamped naming
-- **Modern UI**: Clean, responsive interface built with React
-- **RESTful API**: Well-structured Go backend with proper error handling
+- **PostgreSQL Integration**: Full database storage with pgx driver
+- **Google Sheets Interface**: Infinite scrolling spreadsheet view
+- **Project Management**: Left navigation for multiple CSV uploads
+- **Smart CSV Processing**: Automatic parsing and database import
+- **Modern Architecture**: React + Vite frontend, Go + Chi backend
+
+## Quick Start with Docker
+
+```bash
+# Clone and start all services
+git clone <repository-url>
+cd ookkee
+make up
+
+# Access the application
+open http://localhost:5173
+```
+
+That's it! The application will be running with:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8080
+- PostgreSQL: localhost:5432
+
+## Running Tests
+
+```bash
+# Run all tests (unit + integration)
+make test
+
+# Run individual test suites
+make test-backend      # Go unit tests
+make test-frontend     # React component tests
+make test-integration  # Full stack API tests
+
+# Frontend test options
+cd frontend
+npm run test           # Run tests once
+npm run test:ui        # Interactive test UI
+npm run test:coverage  # With coverage report
+```
+
+### Test Coverage
+
+**Backend Tests:**
+- API endpoint validation
+- CORS configuration
+- Database integration (when available)
+
+**Frontend Tests:**
+- Component rendering
+- File upload validation
+- User interactions
+
+**Integration Tests:**
+- API health checks
+- Database connectivity
+- Frontend accessibility
+- File upload workflow
+
+## Database Migrations
+
+Migrations run automatically when the database container starts. To run manually:
+
+```bash
+# Using make command
+make migrate
+
+# Or run the script directly
+./scripts/run-migrations.sh
+
+# Or manually via Docker
+docker-compose exec db psql -U postgres -d ookkee -f /docker-entrypoint-initdb.d/001_initial_schema.sql
+```
 
 ## Project Structure
 
 ```
-├── frontend/          # React + Vite frontend application
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── FileUpload.jsx
-│   │   ├── App.jsx
-│   │   └── App.css
-│   └── package.json
-├── backend/           # Go + Chi backend application
-│   ├── main.go
-│   └── go.mod
-├── uploads/           # Directory for uploaded CSV files
-└── README.md
+├── frontend/              # React + Vite frontend
+│   ├── src/components/
+│   │   ├── FileUpload.jsx     # Drag-and-drop CSV upload
+│   │   ├── ProjectsSidebar.jsx # Left navigation
+│   │   └── SpreadsheetView.jsx # Google Sheets-like table
+│   └── Dockerfile
+├── backend/               # Go + Chi + pgx backend
+│   ├── main.go           # API server with database integration
+│   └── Dockerfile
+├── db/migrations/         # Database schema
+├── docker-compose.yml     # Full stack orchestration
+└── uploads/               # CSV file storage
 ```
 
-## Getting Started
+## Manual Development Setup
+
+If you prefer to run without Docker:
 
 ### Prerequisites
+- Node.js 18+
+- Go 1.21+
+- PostgreSQL 15+
 
-- Node.js (v16 or higher)
-- Go (v1.19 or higher)
-- PostgreSQL (for future database functionality)
+### Backend Setup
+```bash
+cd backend
+go mod tidy
 
-### Installation
+# Set up PostgreSQL database
+creatdb ookkee
+psql ookkee < ../db/migrations/001_initial_schema.sql
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd bookkeeping-assistant
-   ```
+# Start backend
+go run main.go
+```
 
-2. **Install frontend dependencies**
-   ```bash
-   cd frontend
-   npm install
-   ```
+### Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-3. **Install backend dependencies**
-   ```bash
-   cd ../backend
-   go mod tidy
-   ```
+## Usage
 
-### Running the Application
-
-1. **Start the backend server** (from the `backend` directory):
-   ```bash
-   go run main.go
-   ```
-   The server will start on `http://localhost:8080`
-
-2. **Start the frontend development server** (from the `frontend` directory):
-   ```bash
-   npm run dev
-   ```
-   The frontend will be available at `http://localhost:5173`
-
-3. **Access the application**
-   Open your browser and navigate to `http://localhost:5173`
+1. **Upload CSV**: Click "+ Upload CSV" or drag files to the upload area
+2. **View Projects**: All uploaded CSVs appear in the left sidebar
+3. **Browse Data**: Click any project to see the spreadsheet view
+4. **Infinite Scroll**: Large datasets load progressively (50 rows at a time)
 
 ## API Endpoints
 
-### Health Check
-- **GET** `/api/health`
-- Returns server status and service information
+- `GET /api/health` - Service health check
+- `GET /api/projects` - List all projects
+- `GET /api/projects/{id}/expenses` - Get expense data with pagination
+- `POST /api/upload` - Upload and process CSV files
 
-### File Upload
-- **POST** `/api/upload`
-- Accepts multipart form data with `csvFile` field
-- Validates CSV file format
-- Saves files to the `uploads/` directory with timestamp prefix
-- Returns upload confirmation with file details
+## Database Schema
 
-## File Upload Features
-
-- **Drag & Drop**: Users can drag CSV files directly onto the upload area
-- **File Browser**: Click to browse and select files
-- **Validation**: Only CSV files are accepted
-- **Progress Tracking**: Visual progress indicator during upload
-- **File Information**: Display file name, size, and type before upload
-- **Success/Error Feedback**: Clear status messages for user feedback
+- **project**: Metadata for each uploaded CSV
+- **expense**: Individual rows from CSV files
+- **expense_category**: Categories for AI classification (future)
+- **expense_history**: Audit trail for AI suggestions (future)
 
 ## Technical Stack
 
-### Frontend
-- **React 18**: Modern React with hooks
-- **Vite**: Fast build tool and development server
-- **Modern CSS**: Custom CSS with smooth animations and transitions
+- **Frontend**: React 18, Vite, Modern CSS
+- **Backend**: Go 1.21, Chi router, pgx PostgreSQL driver
+- **Database**: PostgreSQL 15 with JSONB support
+- **Infrastructure**: Docker Compose for orchestration
 
-### Backend
-- **Go**: High-performance backend language
-- **Chi Router**: Lightweight HTTP router
-- **CORS**: Configured for frontend-backend communication
-- **File Handling**: Secure multipart form handling
+## Performance
 
-### Planned Features
-- **PostgreSQL Integration**: Database storage for processed data
-- **AI Processing**: Automated categorization and analysis
-- **User Authentication**: Secure user management
-- **Data Visualization**: Charts and reports
-- **Export Functionality**: Generate reports in various formats
+- Handles 2000+ row CSV files efficiently
+- Pagination prevents memory issues with large datasets
+- Infinite scrolling provides smooth UX
+- PostgreSQL JSONB for flexible CSV schema storage
 
-## Development
+## Future Roadmap
 
-### File Upload Flow
-
-1. User selects or drags a CSV file
-2. Frontend validates file type
-3. File is uploaded via POST request to `/api/upload`
-4. Backend validates and saves file with timestamp
-5. Success confirmation returned to user
-6. File stored in `uploads/` directory for further processing
-
-### CORS Configuration
-
-The backend is configured to accept requests from the Vite development server (`http://localhost:5173`) with appropriate CORS headers.
-
-### Error Handling
-
-- Frontend provides user-friendly error messages
-- Backend returns appropriate HTTP status codes
-- File validation prevents non-CSV uploads
-- Progress tracking with timeout handling
+- AI-powered expense categorization
+- User authentication and multi-tenancy
+- Advanced filtering and search
+- Export functionality
+- Dashboard and analytics
 
 ## Contributing
 
-This is the initial implementation focusing on the file upload functionality. Future contributions will expand the AI processing capabilities and database integration.
+This is the foundation release with core CSV processing and UI. Ready for AI features and advanced bookkeeping functionality.
