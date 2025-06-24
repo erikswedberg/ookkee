@@ -1,3 +1,4 @@
+# Build stage
 FROM node:18-alpine AS builder
 
 WORKDIR /app
@@ -5,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev deps needed for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -19,7 +20,7 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install a simple HTTP server
+# Install serve globally
 RUN npm install -g serve
 
 # Copy built application
