@@ -5,6 +5,7 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
   const [projectName, setProjectName] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false)
   const modalRef = useRef(null)
   const nameInputRef = useRef(null)
 
@@ -44,6 +45,11 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
     }
 
     const handleClickOutside = (e) => {
+      // Don't close modal if file picker is open
+      if (isFilePickerOpen) {
+        return
+      }
+      
       if (modalRef.current && !modalRef.current.contains(e.target)) {
         onClose()
       }
@@ -58,7 +64,7 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
       document.removeEventListener('keydown', handleEscape)
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, isFilePickerOpen])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -117,6 +123,8 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
               <FileUpload 
                 onUploadSuccess={handleFileUploadSuccess}
                 projectName={projectName}
+                onFilePickerOpen={() => setIsFilePickerOpen(true)}
+                onFilePickerClose={() => setIsFilePickerOpen(false)}
               />
             </div>
           )}
