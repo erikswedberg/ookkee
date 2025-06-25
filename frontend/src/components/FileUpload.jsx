@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 
-const FileUpload = ({ onUploadSuccess, projectName }) => {
+const FileUpload = ({ onUploadSuccess, projectName, onFilePickerOpen, onFilePickerClose }) => {
   const [file, setFile] = useState(null)
   const [uploadStatus, setUploadStatus] = useState('')
   const [isUploading, setIsUploading] = useState(false)
@@ -20,6 +20,7 @@ const FileUpload = ({ onUploadSuccess, projectName }) => {
   }
 
   const handleFileChange = (e) => {
+    onFilePickerClose?.()
     const selectedFile = e.target.files[0]
     handleFileSelect(selectedFile)
   }
@@ -100,8 +101,22 @@ const FileUpload = ({ onUploadSuccess, projectName }) => {
   }
 
   const handleButtonClick = () => {
+    onFilePickerOpen?.()
     fileInputRef.current?.click()
   }
+
+  // Handle focus returning to window (file picker closed)
+  useEffect(() => {
+    const handleFocus = () => {
+      // Small delay to ensure file change event fires first if file was selected
+      setTimeout(() => {
+        onFilePickerClose?.()
+      }, 50)
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [onFilePickerClose])
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes'
