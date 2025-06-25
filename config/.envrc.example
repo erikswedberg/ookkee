@@ -7,8 +7,8 @@
 DB_HOST=db
 DB_PORT=5432
 DB_NAME=ookkee
-DB_USER=postgres
-DB_PASSWORD=postgres
+DB_USER=your_db_user_here
+DB_PASSWORD=your_db_pw_here
 
 # Server Configuration
 SERVER_PORT=8080
