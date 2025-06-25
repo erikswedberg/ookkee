@@ -22,7 +22,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     volumes:
-      - ./backend:/app:ro
+      - ./backend:/app
+      - ./uploads:/app/uploads
     command: go run main.go
     environment:
       - CGO_ENABLED=0
