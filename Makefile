@@ -1,6 +1,6 @@
 # Ookkee Makefile
 
-.PHONY: help up down logs test test-backend test-frontend migrate clean dev-setup
+.PHONY: help up up-dev down logs test test-backend test-frontend migrate clean dev-setup
 
 # Default target
 help:
@@ -8,6 +8,7 @@ help:
 	@echo ""
 	@echo "  dev-setup       Set up development environment"
 	@echo "  up              Start all services with Docker Compose"
+	@echo "  up-dev          Start with hot reload (git pull will update automatically)"
 	@echo "  down            Stop all services"
 	@echo "  logs            View logs from all services"
 	@echo "  test            Run all tests"
@@ -35,6 +36,19 @@ up:
 	@echo "Frontend: http://localhost:5173"
 	@echo "Backend:  http://localhost:8080"
 	@echo "Database: localhost:5432"
+
+# Start with hot reload for development
+up-dev:
+	@if [ ! -f config/.envrc.docker ]; then \
+		cp config/.envrc.example config/.envrc.docker; \
+		echo "Created config/.envrc.docker from template"; \
+		echo "Please edit config/.envrc.docker with your settings if needed"; \
+	fi
+	@echo "Starting with hot reload..."
+	@bash -c 'source ./env.sh docker && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d'
+	@echo "Development services started with hot reload!"
+	@echo "Frontend: http://localhost:5173 (hot reload enabled)"
+	@echo "Backend:  http://localhost:8080 (hot reload enabled)"
 
 # Stop all services
 down:

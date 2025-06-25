@@ -218,9 +218,15 @@ make logs
 
 **Environment Management**:
 ```bash
-source ./env.sh development  # Local development
-source ./env.sh docker       # Docker environment  
-source ./env.sh production   # Production settings
+# Load environment and run commands
+source ./env.sh development && go run backend/main.go
+source ./env.sh docker && docker compose up
+source ./env.sh production && docker compose -f docker-compose.prod.yml up
+
+# Or use make commands (loads environment automatically)
+make up                      # Docker with auto environment loading
+make dev-backend            # Local backend development
+make dev-frontend           # Local frontend development
 ```
 
 **Testing**:

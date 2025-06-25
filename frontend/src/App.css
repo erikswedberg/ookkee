@@ -34,10 +34,13 @@
 /* Projects Sidebar */
 .projects-sidebar {
   width: 280px;
+  min-width: 280px;
+  max-width: 280px;
   background: #f8f9fa;
   border-right: 1px solid #dee2e6;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -112,6 +115,9 @@
   font-size: 0.95rem;
   margin-bottom: 0.25rem;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-meta {
@@ -411,6 +417,10 @@
   opacity: 1;
 }
 
+.project-menu-trigger:focus {
+  opacity: 1;
+}
+
 .project-menu-trigger:hover {
   background: rgba(0, 0, 0, 0.1);
 }
@@ -543,6 +553,12 @@
   outline: none;
   border-color: #3498db;
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.form-input-disabled {
+  background: #f8f9fa !important;
+  color: #6c757d !important;
+  cursor: not-allowed !important;
 }
 
 .modal-actions {
