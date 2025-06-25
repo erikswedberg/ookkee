@@ -23,8 +23,10 @@ cd ookkee
 make dev-setup
 # Edit config/.envrc.development with your settings
 
-# Load environment and start
-source ./env.sh development
+# Start with Docker (recommended)
+source ./env.sh docker && docker compose up
+
+# Or start with make (which loads environment automatically)
 make up
 
 # Access the application
