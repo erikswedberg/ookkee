@@ -1,0 +1,42 @@
+# Environment files (secrets)
+config/.envrc.*
+!config/.envrc.example
+
+# Local environment
+.env
+.env.local
+.envrc
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+*.lcov
+
+# Uploads
+uploads/*
+!uploads/.gitkeep

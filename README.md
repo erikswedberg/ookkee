@@ -15,13 +15,17 @@ A modern AI bookkeeping assistant with PostgreSQL backend and Google Sheets-like
 ## Quick Start with Docker
 
 ```bash
-# Clone and start all services
+# Clone and setup
 git clone <repository-url>
 cd ookkee
-make up
 
-# Or directly with Docker (macOS)
-docker compose up -d
+# Setup environment (first time)
+make dev-setup
+# Edit config/.envrc.development with your settings
+
+# Load environment and start
+source ./env.sh development
+make up
 
 # Access the application
 open http://localhost:5173

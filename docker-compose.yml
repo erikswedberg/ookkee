@@ -4,15 +4,15 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_DB: ookkee
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ookkee"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,13 +22,16 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "${SERVER_PORT}:8080"
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: ookkee
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SERVER_PORT: ${SERVER_PORT}
+      UPLOADS_DIR: ${UPLOADS_DIR}
+      CORS_ORIGINS: ${CORS_ORIGINS}
     volumes:
       - ./uploads:/app/uploads
     depends_on:
