@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import ProjectsSidebar from './components/ProjectsSidebar'
 import SpreadsheetView from './components/SpreadsheetView'
-import FileUpload from './components/FileUpload'
+import ProjectModal from './components/ProjectModal'
 import './App.css'
 
 function App() {
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState(null)
-  const [showUpload, setShowUpload] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingProject, setEditingProject] = useState(null)
 
   useEffect(() => {
     fetchProjects()
@@ -25,17 +26,82 @@ function App() {
 
   const handleProjectSelect = (project) => {
     setSelectedProject(project)
-    setShowUpload(false)
+  }
+
+  const handleNewProject = () => {
+    setEditingProject(null)
+    setIsModalOpen(true)
+  }
+
+  const handleEditProject = (project) => {
+    setEditingProject(project)
+    setIsModalOpen(true)
+  }
+
+  const handleDeleteProject = async (projectId) => {
+    try {
+      const response = await fetch(`http://localhost:8080/api/projects/${projectId}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        // Remove from local state
+        setProjects(projects.filter(p => p.id !== projectId))
+        // Clear selection if deleted project was selected
+        if (selectedProject?.id === projectId) {
+          setSelectedProject(null)
+        }
+      } else {
+        throw new Error('Failed to delete project')
+      }
+    } catch (error) {
+      console.error('Failed to delete project:', error)
+      alert('Failed to delete project. Please try again.')
+    }
+  }
+
+  const handleModalClose = () => {
+    setIsModalOpen(false)
+    setEditingProject(null)
+  }
+
+  const handleModalSave = async (projectData) => {
+    try {
+      if (editingProject) {
+        // Update existing project
+        const response = await fetch(`http://localhost:8080/api/projects/${editingProject.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: projectData.name })
+        })
+        
+        if (response.ok) {
+          // Update local state
+          setProjects(projects.map(p => 
+            p.id === editingProject.id 
+              ? { ...p, name: projectData.name }
+              : p
+          ))
+          setIsModalOpen(false)
+        } else {
+          throw new Error('Failed to update project')
+        }
+      } else {
+        // For new projects, the modal will handle file upload
+        // and refresh will happen via onUploadSuccess
+        fetchProjects()
+        setIsModalOpen(false)
+      }
+    } catch (error) {
+      console.error('Failed to save project:', error)
+      alert('Failed to save project. Please try again.')
+    }
   }
 
   const handleUploadSuccess = () => {
     fetchProjects()
-    setShowUpload(false)
-  }
-
-  const handleNewUpload = () => {
-    setShowUpload(true)
-    setSelectedProject(null)
   }
 
   return (
@@ -50,28 +116,28 @@ function App() {
           projects={projects}
           selectedProject={selectedProject}
           onProjectSelect={handleProjectSelect}
-          onNewUpload={handleNewUpload}
+          onNewProject={handleNewProject}
+          onEditProject={handleEditProject}
+          onDeleteProject={handleDeleteProject}
         />
         
         <div className="main-panel">
-          {showUpload ? (
-            <div className="upload-panel">
-              <h2>Upload New CSV File</h2>
-              <FileUpload onUploadSuccess={handleUploadSuccess} />
-            </div>
-          ) : selectedProject ? (
+          {selectedProject ? (
             <SpreadsheetView project={selectedProject} />
           ) : (
             <div className="welcome-panel">
-              <h2>Welcome to Ookkee</h2>
-              <p>Select a project from the sidebar or upload a new CSV file to get started.</p>
-              <button className="upload-button" onClick={handleNewUpload}>
-                Upload CSV File
-              </button>
+              <p className="welcome-message">Select a project to see its contents</p>
             </div>
           )}
         </div>
       </div>
+
+      <ProjectModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSave={handleModalSave}
+        project={editingProject}
+      />
     </div>
   )
 }

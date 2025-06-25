@@ -1,11 +1,12 @@
 # Ookkee Makefile
 
-.PHONY: help up down logs test test-backend test-frontend migrate clean
+.PHONY: help up down logs test test-backend test-frontend migrate clean dev-setup
 
 # Default target
 help:
 	@echo "Ookkee Development Commands:"
 	@echo ""
+	@echo "  dev-setup       Set up development environment"
 	@echo "  up              Start all services with Docker Compose"
 	@echo "  down            Stop all services"
 	@echo "  logs            View logs from all services"
@@ -14,6 +15,11 @@ help:
 	@echo "  test-frontend   Run React tests"
 	@echo "  migrate         Run database migrations"
 	@echo "  clean           Remove all containers and volumes"
+	@echo ""
+	@echo "Environment Management:"
+	@echo "  source ./env.sh development  # Load dev environment"
+	@echo "  source ./env.sh docker       # Load docker environment"
+	@echo "  source ./env.sh production   # Load prod environment"
 	@echo ""
 
 # Start all services
@@ -61,12 +67,27 @@ clean:
 	docker compose rm -f
 	docker volume prune -f
 
+# Set up development environment
+dev-setup:
+	@echo "Setting up Ookkee development environment..."
+	@if [ ! -f config/.envrc.development ]; then \
+		cp config/.envrc.example config/.envrc.development; \
+		echo "Created config/.envrc.development - please edit with your settings"; \
+	fi
+	@echo "Environment setup complete!"
+	@echo "Next steps:"
+	@echo "  1. Edit config/.envrc.development with your settings"
+	@echo "  2. Run: source ./env.sh development"
+	@echo "  3. Run: make up"
+
 # Development helpers
 dev-backend:
-	cd backend && go run main.go
+	@echo "Loading development environment..."
+	@source ./env.sh development && cd backend && go run main.go
 
 dev-frontend:
-	cd frontend && npm run dev
+	@echo "Loading development environment..."
+	@source ./env.sh development && cd frontend && npm run dev
 
 dev-db:
 	docker run --rm -d --name ookkee-dev-db \
@@ -74,5 +95,4 @@ dev-db:
 		-e POSTGRES_USER=postgres \
 		-e POSTGRES_PASSWORD=postgres \
 		-p 5432:5432 \
-		-v $(PWD)/db/migrations:/docker-entrypoint-initdb.d \
 		postgres:15
