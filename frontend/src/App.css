@@ -299,7 +299,7 @@
   border-radius: 12px;
   padding: 3rem;
   max-width: 500px;
-  width: 100%;
+  /* width: 100%; */
   transition: all 0.3s ease;
 }
 
@@ -393,6 +393,7 @@
   margin: 0.25rem 0;
   color: #6c757d;
   font-size: 0.9rem;
+  word-wrap: break-word;
 }
 
 /* Project Menu Styles */
@@ -478,6 +479,7 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  background-color: red;
 }
 
 .modal-content {

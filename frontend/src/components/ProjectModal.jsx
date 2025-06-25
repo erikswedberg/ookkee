@@ -6,8 +6,8 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
   const [selectedFile, setSelectedFile] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
   const modalRef = useRef(null)
-  const nameInputRef = useRef(null)
-  const fileInputRef = useRef(null)
+  // const nameInputRef = useRef(null)
+  // const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (project) {
@@ -31,11 +31,11 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
     }
   }, [isOpen])
 
-  useEffect(() => {
-    if (isOpen && nameInputRef.current) {
-      nameInputRef.current.focus()
-    }
-  }, [isOpen])
+  // useEffect(() => {
+  //   if (isOpen && nameInputRef.current) {
+  //     nameInputRef.current.focus()
+  //   }
+  // }, [isOpen])
 
   useEffect(() => {
     const handleEscape = (e) => {
@@ -44,25 +44,25 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
       }
     }
 
-    const handleClickOutside = (e) => {
-      // Don't close modal if click is on file input
-      if (fileInputRef.current && e.target === fileInputRef.current) {
-        return
-      }
+    // const handleClickOutside = (e) => {
+    //   // Don't close modal if click is on file input
+    //   // if (fileInputRef.current && e.target === fileInputRef.current) {
+    //   //   return
+    //   // }
       
-      if (modalRef.current && !modalRef.current.contains(e.target)) {
-        onClose()
-      }
-    }
+    //   if (modalRef.current && !modalRef.current.contains(e.target)) {
+    //     onClose()
+    //   }
+    // }
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape)
-      document.addEventListener('mousedown', handleClickOutside)
+      //document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape)
-      document.removeEventListener('mousedown', handleClickOutside)
+      //document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen, onClose])
 
@@ -81,10 +81,20 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
     setSelectedFile(result.filename)
   }
 
-  if (!isOpen) return null
+  const handleOverlayClick = (e) => {
+    // Prevent closing modal if click is on the modal content
+    if (modalRef.current && modalRef.current.contains(e.target)) {
+      return
+    }
+    onClose()
+  }
+
+  if (!isOpen) {
+    return null
+  }
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content" ref={modalRef}>
         <div className="modal-header">
           <h2>{isEditing ? 'Edit Project' : 'Add New Project'}</h2>
@@ -97,7 +107,7 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
           <div className="form-group">
             <label htmlFor="projectName">Project Name</label>
             <input
-              ref={nameInputRef}
+              //ref={nameInputRef}
               type="text"
               id="projectName"
               value={projectName}
@@ -123,7 +133,7 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
               <FileUpload 
                 onUploadSuccess={handleFileUploadSuccess}
                 projectName={projectName}
-                fileInputRef={fileInputRef}
+                //fileInputRef={fileInputRef}
               />
             </div>
           )}

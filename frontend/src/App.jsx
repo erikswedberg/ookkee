@@ -63,8 +63,8 @@ function App() {
   }
 
   const handleModalClose = () => {
-    setIsModalOpen(false)
-    setEditingProject(null)
+    setIsModalOpen(false);
+    setEditingProject(null);
   }
 
   const handleModalSave = async (projectData) => {
