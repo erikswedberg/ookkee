@@ -4,6 +4,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
 const ProjectMenu = ({ project, onEdit, onDelete }) => {
@@ -12,9 +23,7 @@ const ProjectMenu = ({ project, onEdit, onDelete }) => {
   };
 
   const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete "${project.name}"?`)) {
-      onDelete(project.id);
-    }
+    onDelete(project.id);
   };
 
   return (
@@ -38,14 +47,35 @@ const ProjectMenu = ({ project, onEdit, onDelete }) => {
             <Edit className="mr-2 h-4 w-4" />
             Edit
           </Button>
-          <Button
-            variant="ghost"
-            className="justify-start px-3 py-2 text-sm text-destructive hover:text-destructive"
-            onClick={handleDelete}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="justify-start px-3 py-2 text-sm text-destructive hover:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the
+                  project "{project.name}" and all its data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </PopoverContent>
     </Popover>

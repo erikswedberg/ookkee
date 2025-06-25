@@ -2,6 +2,9 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, XCircle, Upload } from "lucide-react";
 
 const FileUpload = ({ onUploadSuccess, projectName }) => {
   const [file, setFile] = useState(null);
@@ -134,26 +137,24 @@ const FileUpload = ({ onUploadSuccess, projectName }) => {
       )}
 
       {uploadProgress > 0 && (
-        <div className="w-full bg-secondary rounded-full h-2">
-          <div
-            className="bg-primary h-2 rounded-full transition-all duration-300"
-            style={{ width: `${uploadProgress}%` }}
-          />
-        </div>
+        <Progress value={uploadProgress} className="w-full" />
       )}
 
       {uploadStatus && (
-        <div
-          className={`text-sm p-2 rounded ${
+        <Alert
+          variant={
             uploadStatus === "success"
-              ? "bg-green-100 text-green-800"
+              ? "success"
               : uploadStatus === "error"
-                ? "bg-red-100 text-red-800"
-                : "bg-blue-100 text-blue-800"
-          }`}
+                ? "destructive"
+                : "default"
+          }
         >
-          {getStatusMessage()}
-        </div>
+          {uploadStatus === "success" && <CheckCircle className="h-4 w-4" />}
+          {uploadStatus === "error" && <XCircle className="h-4 w-4" />}
+          {uploadStatus === "loading" && <Upload className="h-4 w-4" />}
+          <AlertDescription>{getStatusMessage()}</AlertDescription>
+        </Alert>
       )}
     </div>
   );
