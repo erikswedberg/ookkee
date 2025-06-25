@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 
-const FileUpload = ({ onUploadSuccess }) => {
+const FileUpload = ({ onUploadSuccess, projectName }) => {
   const [file, setFile] = useState(null)
   const [uploadStatus, setUploadStatus] = useState('')
   const [isUploading, setIsUploading] = useState(false)
@@ -50,6 +50,9 @@ const FileUpload = ({ onUploadSuccess }) => {
 
     const formData = new FormData()
     formData.append('csvFile', file)
+    if (projectName) {
+      formData.append('projectName', projectName)
+    }
 
     try {
       // Simulate progress

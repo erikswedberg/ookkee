@@ -21,11 +21,13 @@ import (
 )
 
 const (
-	PORT         = ":8080"
 	TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 )
 
-var UPLOADS_DIR = getEnv("UPLOADS_DIR", "uploads")
+var (
+	PORT        = ":" + getEnv("SERVER_PORT", "8080")
+	UPLOADS_DIR = getEnv("UPLOADS_DIR", "uploads")
+)
 
 var dbPool *pgxpool.Pool
 
@@ -104,6 +106,8 @@ func main() {
 		r.Get("/health", handleHealth)
 		r.Get("/projects", handleGetProjects)
 		r.Get("/projects/{projectID}/expenses", handleGetExpenses)
+		r.Put("/projects/{projectID}", handleUpdateProject)
+		r.Delete("/projects/{projectID}", handleDeleteProject)
 	})
 
 	// Ensure uploads directory exists
@@ -299,6 +303,9 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	// Get project name from form (optional)
+	projectName := r.FormValue("projectName")
+
 	// Validate file extension
 	if filepath.Ext(handler.Filename) != ".csv" {
 		http.Error(w, "Only CSV files are allowed", http.StatusBadRequest)
@@ -326,7 +333,7 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process CSV and create project
-	project, err := processCSVFile(r.Context(), filePath, handler.Filename)
+	project, err := processCSVFile(r.Context(), filePath, handler.Filename, projectName)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to process CSV: %v", err), http.StatusInternalServerError)
 		return
@@ -346,7 +353,7 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	log.Printf("CSV processed: %s (project ID: %d, %d rows)", filename, project.ID, project.RowCount)
 }
 
-func processCSVFile(ctx context.Context, filePath, originalName string) (*Project, error) {
+func processCSVFile(ctx context.Context, filePath, originalName, projectName string) (*Project, error) {
 	// Open and read CSV file
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -367,8 +374,10 @@ func processCSVFile(ctx context.Context, filePath, originalName string) (*Projec
 	headers := records[0]
 	dataRows := records[1:]
 
-	// Create project name from filename
-	projectName := strings.TrimSuffix(originalName, filepath.Ext(originalName))
+	// Use provided project name or create from filename
+	if projectName == "" {
+		projectName = strings.TrimSuffix(originalName, filepath.Ext(originalName))
+	}
 
 	// Start transaction
 	tx, err := dbPool.Begin(ctx)
@@ -440,6 +449,68 @@ func processCSVFile(ctx context.Context, filePath, originalName string) (*Projec
 	}
 
 	return &project, nil
+}
+
+func handleUpdateProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectID := chi.URLParam(r, "projectID")
+	if projectID == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	var requestData struct {
+		Name string `json:"name"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if requestData.Name == "" {
+		http.Error(w, "Project name is required", http.StatusBadRequest)
+		return
+	}
+
+	// Update project name
+	_, err := dbPool.Exec(ctx, `
+		UPDATE project 
+		SET name = $1, updated_at = NOW() 
+		WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL
+	`, requestData.Name, projectID, TEST_USER_ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to update project: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message": "Project updated successfully"}`))
+}
+
+func handleDeleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectID := chi.URLParam(r, "projectID")
+	if projectID == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Soft delete project
+	_, err := dbPool.Exec(ctx, `
+		UPDATE project 
+		SET deleted_at = NOW() 
+		WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+	`, projectID, TEST_USER_ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to delete project: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message": "Project deleted successfully"}`))
 }
 
 func getEnv(key, defaultValue string) string {

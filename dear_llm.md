@@ -104,6 +104,42 @@ This file documents the key decisions and steps taken during the development of 
 - `Makefile` - Development commands
 - `test/integration_test.sh` - End-to-end testing
 
+### Phase 4: Environment Management & Enhanced UX (Commits: 57a4a8e → 4a6b295)
+
+**Goal**: Add professional project management UI and environment configuration
+
+**Major Additions**:
+1. **Environment Configuration System**:
+   - `env.sh` script for loading different environments
+   - `config/` directory with `.envrc.*` files for dev/docker/prod
+   - Makefile integration with `make dev-setup`
+   - Backend support for environment variables (DB_HOST, SERVER_PORT, etc.)
+
+2. **Enhanced Project Management UI**:
+   - Modal-based project creation/editing with custom names
+   - "⋮" hover menu on projects with Edit/Delete options
+   - Better visual hierarchy (project names prominent, filenames in gray)
+   - Improved placeholders and empty states
+   - Keyboard shortcuts (Escape) and click-outside-to-close
+
+3. **New API Endpoints**:
+   - `PUT /api/projects/{id}` - Update project name
+   - `DELETE /api/projects/{id}` - Soft delete projects
+   - Enhanced upload endpoint accepts custom project names
+
+**Key Files Created**:
+- `env.sh` - Environment loading script
+- `config/.envrc.{example,development,docker}` - Environment configurations
+- `frontend/src/components/ProjectModal.jsx` - Modal for project create/edit
+- `frontend/src/components/ProjectMenu.jsx` - Dropdown menu for project actions
+
+**UX Improvements**:
+- Replaced simple upload button with professional "+" button
+- Added project name field in upload workflow  
+- Left-aligned project names with right-aligned action menu
+- Proper modal focus management and accessibility
+- Soft delete preserves data while hiding from UI
+
 ## Architecture Decisions
 
 ### Why PostgreSQL + pgx?
@@ -164,8 +200,12 @@ This file documents the key decisions and steps taken during the development of 
 
 ## Development Environment
 
-**Local Development**:
+**Setup**:
 ```bash
+# First-time setup
+make dev-setup
+source ./env.sh development
+
 # Start all services
 make up
 
@@ -174,6 +214,13 @@ make test
 
 # View logs
 make logs
+```
+
+**Environment Management**:
+```bash
+source ./env.sh development  # Local development
+source ./env.sh docker       # Docker environment  
+source ./env.sh production   # Production settings
 ```
 
 **Testing**:

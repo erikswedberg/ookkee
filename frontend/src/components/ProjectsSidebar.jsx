@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import ProjectMenu from './ProjectMenu'
 
-const ProjectsSidebar = ({ projects, selectedProject, onProjectSelect, onNewUpload }) => {
+const ProjectsSidebar = ({ projects, selectedProject, onProjectSelect, onNewProject, onEditProject, onDeleteProject }) => {
   const formatDate = (dateString) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -19,15 +19,15 @@ const ProjectsSidebar = ({ projects, selectedProject, onProjectSelect, onNewUplo
     <div className="projects-sidebar">
       <div className="sidebar-header">
         <h3>Projects</h3>
-        <button className="new-upload-btn" onClick={onNewUpload}>
-          + Upload CSV
+        <button className="new-project-btn" onClick={onNewProject} title="Add new project">
+          +
         </button>
       </div>
       
       <div className="projects-list">
         {projects.length === 0 ? (
           <div className="projects-empty">
-            No projects yet. Upload a CSV file to get started.
+            Add a project
           </div>
         ) : (
           projects.map((project) => (
@@ -36,12 +36,24 @@ const ProjectsSidebar = ({ projects, selectedProject, onProjectSelect, onNewUplo
               className={`project-item ${
                 selectedProject?.id === project.id ? 'selected' : ''
               }`}
-              onClick={() => onProjectSelect(project)}
             >
-              <div className="project-name">{project.name}</div>
-              <div className="project-meta">
-                {formatRowCount(project.row_count)} • {formatDate(project.created_at)}
+              <div 
+                className="project-main"
+                onClick={() => onProjectSelect(project)}
+              >
+                <div className="project-name">{project.name}</div>
+                <div className="project-meta">
+                  <span className="project-filename">{project.original_name}</span>
+                  <span className="project-details">
+                    {formatRowCount(project.row_count)} • {formatDate(project.created_at)}
+                  </span>
+                </div>
               </div>
+              <ProjectMenu 
+                project={project}
+                onEdit={onEditProject}
+                onDelete={onDeleteProject}
+              />
             </div>
           ))
         )}
