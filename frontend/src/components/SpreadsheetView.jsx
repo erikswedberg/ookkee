@@ -31,8 +31,9 @@ const SpreadsheetView = ({ project }) => {
     setError(null)
 
     try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
       const response = await fetch(
-        `http://localhost:8080/api/projects/${project.id}/expenses?offset=${currentOffset}&limit=${LIMIT}`
+        `${API_URL}/api/projects/${project.id}/expenses?offset=${currentOffset}&limit=${LIMIT}`
       )
       
       if (!response.ok) {

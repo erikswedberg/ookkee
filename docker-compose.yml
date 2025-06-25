@@ -3,16 +3,18 @@ version: '3.8'
 services:
   db:
     image: postgres:15
+    env_file:
+      - config/.envrc.docker
     environment:
-      POSTGRES_DB: ookkee
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ookkee"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,12 +25,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: ookkee
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+    env_file:
+      - config/.envrc.docker
     volumes:
       - ./uploads:/app/uploads
     depends_on:

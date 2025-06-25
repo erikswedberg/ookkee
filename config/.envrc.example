@@ -15,6 +15,9 @@ UPLOADS_DIR=uploads
 # Frontend Configuration
 VITE_API_URL=http://localhost:8080
 
+# CORS Configuration
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
 # Future API Keys (uncomment when needed)
 # OPENAI_API_KEY=your_openai_key_here
 # ANTHROPIC_API_KEY=your_anthropic_key_here
@@ -22,4 +25,3 @@ VITE_API_URL=http://localhost:8080
 
 # Security (for production)
 # JWT_SECRET=your_jwt_secret_here
-# CORS_ORIGINS=https://yourdomain.com

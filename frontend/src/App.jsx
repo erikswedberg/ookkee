@@ -16,7 +16,8 @@ function App() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/projects')
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+      const response = await fetch(`${API_URL}/api/projects`)
       const data = await response.json()
       setProjects(data || [])
     } catch (error) {
@@ -40,7 +41,8 @@ function App() {
 
   const handleDeleteProject = async (projectId) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/projects/${projectId}`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+      const response = await fetch(`${API_URL}/api/projects/${projectId}`, {
         method: 'DELETE'
       })
       
@@ -69,7 +71,8 @@ function App() {
     try {
       if (editingProject) {
         // Update existing project
-        const response = await fetch(`http://localhost:8080/api/projects/${editingProject.id}`, {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+        const response = await fetch(`${API_URL}/api/projects/${editingProject.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
