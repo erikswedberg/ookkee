@@ -1,12 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 
-const FileUpload = ({ onUploadSuccess, projectName, onFilePickerOpen, onFilePickerClose }) => {
+const FileUpload = ({ onUploadSuccess, projectName, fileInputRef }) => {
   const [file, setFile] = useState(null)
   const [uploadStatus, setUploadStatus] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const fileInputRef = useRef(null)
+  const internalFileInputRef = useRef(null)
+  const actualFileInputRef = fileInputRef || internalFileInputRef
 
   const handleFileSelect = (selectedFile) => {
     if (selectedFile && selectedFile.type === 'text/csv') {
@@ -20,7 +21,6 @@ const FileUpload = ({ onUploadSuccess, projectName, onFilePickerOpen, onFilePick
   }
 
   const handleFileChange = (e) => {
-    onFilePickerClose?.()
     const selectedFile = e.target.files[0]
     handleFileSelect(selectedFile)
   }
@@ -92,8 +92,8 @@ const FileUpload = ({ onUploadSuccess, projectName, onFilePickerOpen, onFilePick
         if (uploadStatus === 'success') {
           setFile(null)
           setUploadStatus('')
-          if (fileInputRef.current) {
-            fileInputRef.current.value = ''
+          if (actualFileInputRef.current) {
+            actualFileInputRef.current.value = ''
           }
         }
       }, 2000)
@@ -101,22 +101,8 @@ const FileUpload = ({ onUploadSuccess, projectName, onFilePickerOpen, onFilePick
   }
 
   const handleButtonClick = () => {
-    onFilePickerOpen?.()
-    fileInputRef.current?.click()
+    actualFileInputRef.current?.click()
   }
-
-  // Handle focus returning to window (file picker closed)
-  useEffect(() => {
-    const handleFocus = () => {
-      // Small delay to ensure file change event fires first if file was selected
-      setTimeout(() => {
-        onFilePickerClose?.()
-      }, 50)
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [onFilePickerClose])
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes'
@@ -156,7 +142,7 @@ const FileUpload = ({ onUploadSuccess, projectName, onFilePickerOpen, onFilePick
       </div>
       
       <input
-        ref={fileInputRef}
+        ref={actualFileInputRef}
         type="file"
         accept=".csv"
         onChange={handleFileChange}
