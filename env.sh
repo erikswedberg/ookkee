@@ -16,13 +16,20 @@ fi
 
 echo "Loading environment from $ENV_FILE..."
 
+# Enable auto-export of variables
+set -a
+
 # Load and export each variable
 while IFS= read -r line; do
   # Skip empty lines and comments
   if [[ -n "$line" && ! "$line" =~ ^[[:space:]]*# ]]; then
     echo "Setting: $line"
-    export "$line"
+    # Use eval to properly set the variable in current shell
+    eval "$line"
   fi
-done < "$ENV_FILE"
+done < <(grep -v '^[[:space:]]*#' "$ENV_FILE" | grep -v '^[[:space:]]*$')
+
+# Disable auto-export
+set +a
 
 echo "Environment loaded successfully!"
