@@ -3,6 +3,7 @@ config/.envrc.*
 !config/.envrc.example
 
 # Local environment
+.env
 .env.local
 .envrc
 

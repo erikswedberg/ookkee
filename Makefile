@@ -24,7 +24,13 @@ help:
 
 # Start all services
 up:
-	docker compose up -d
+	@if [ ! -f config/.envrc.docker ]; then \
+		cp config/.envrc.example config/.envrc.docker; \
+		echo "Created config/.envrc.docker from template"; \
+		echo "Please edit config/.envrc.docker with your settings if needed"; \
+	fi
+	@echo "Loading Docker environment and starting services..."
+	@bash -c 'source ./env.sh docker && docker compose up -d'
 	@echo "Services started!"
 	@echo "Frontend: http://localhost:5173"
 	@echo "Backend:  http://localhost:8080"
@@ -32,11 +38,11 @@ up:
 
 # Stop all services
 down:
-	docker compose down
+	@bash -c 'source ./env.sh docker && docker compose down'
 
 # View logs
 logs:
-	docker compose logs -f
+	@bash -c 'source ./env.sh docker && docker compose logs -f'
 
 # Run all tests
 test: test-backend test-frontend test-integration
