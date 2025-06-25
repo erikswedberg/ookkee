@@ -3,6 +3,7 @@ import FileUpload from './FileUpload'
 
 const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
   const [projectName, setProjectName] = useState('')
+  const [selectedFile, setSelectedFile] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
   const modalRef = useRef(null)
   const nameInputRef = useRef(null)
@@ -15,7 +16,19 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
       setProjectName('')
       setIsEditing(false)
     }
+    
+    // Clear file when project changes
+    setSelectedFile(null)
   }, [project])
+
+  useEffect(() => {
+    if (!isOpen) {
+      // Clear all state when modal closes
+      setProjectName('')
+      setSelectedFile(null)
+      setIsEditing(false)
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (isOpen && nameInputRef.current) {
@@ -57,10 +70,9 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
   }
 
   const handleFileUploadSuccess = (result) => {
-    // For new projects, close modal after upload
-    if (!isEditing) {
-      onClose()
-    }
+    // For new projects, don't close modal - let user submit the form
+    // For existing projects (editing), we're not showing file upload anyway
+    setSelectedFile(result.filename)
   }
 
   if (!isOpen) return null
@@ -89,7 +101,17 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
             />
           </div>
 
-          {!isEditing && (
+          {isEditing ? (
+            <div className="form-group">
+              <label>Original File</label>
+              <input
+                type="text"
+                value={project?.original_name || ''}
+                disabled
+                className="form-input-disabled"
+              />
+            </div>
+          ) : (
             <div className="form-group">
               <label>CSV File</label>
               <FileUpload 
