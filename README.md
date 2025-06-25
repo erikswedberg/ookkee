@@ -29,6 +29,17 @@ source ./env.sh docker && docker compose up
 # Or start with make (which loads environment automatically)
 make up
 
+# For development with hot reload (changes update automatically)
+make up-dev
+
+# Or run services separately for development:
+# Terminal 1:
+source ./env.sh docker && docker compose -f docker-compose.yml -f docker-compose.dev.yml -p local up db
+# Terminal 2: 
+source ./env.sh docker && docker compose -f docker-compose.yml -f docker-compose.dev.yml -p local up backend
+# Terminal 3:
+source ./env.sh docker && docker compose -f docker-compose.yml -f docker-compose.dev.yml -p local up frontend
+
 # Access the application
 open http://localhost:5173
 ```
