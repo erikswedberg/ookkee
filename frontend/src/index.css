@@ -92,3 +92,26 @@
   border-width: 1px;
   border-color: hsl(var(--border));
 }
+.bg-input {
+  background-color: hsl(var(--input));
+}
+
+.bg-card-foreground {
+  color: hsl(var(--card-foreground));
+}
+
+.bg-popover-foreground {
+  color: hsl(var(--popover-foreground));
+}
+
+.text-card-foreground {
+  color: hsl(var(--card-foreground));
+}
+
+.text-popover-foreground {
+  color: hsl(var(--popover-foreground));
+}
+
+.ring-offset-background {
+  --tw-ring-offset-color: hsl(var(--background));
+}
