@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const SpreadsheetView = ({ project }) => {
   const [expenses, setExpenses] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -69,12 +70,27 @@ const SpreadsheetView = ({ project }) => {
     }
   };
 
-  // Load initial data
+  // Load initial data and categories
   useEffect(() => {
     if (project) {
       loadExpenses(0, true);
+      fetchCategories();
     }
   }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch categories
+  const fetchCategories = async () => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/categories`);
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    }
+  };
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -139,7 +155,7 @@ const SpreadsheetView = ({ project }) => {
     // Handle special columns
     switch (column) {
       case "Category":
-        // For now, return empty - will be populated by dropdown
+        // Return the category ID for the dropdown
         return expense.accepted_category_id || "";
       case "Status":
         // Simple status based on whether category is assigned
@@ -160,6 +176,11 @@ const SpreadsheetView = ({ project }) => {
             return "";
         }
     }
+  };
+
+  const getCategoryName = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    return category ? category.name : "";
   };
 
   // Get all columns including data columns plus Category and Status
@@ -268,9 +289,21 @@ const SpreadsheetView = ({ project }) => {
                               }
                             >
                               {isCategory ? (
-                                // Category dropdown - placeholder for now
-                                <select className="w-full p-1 border rounded text-sm">
+                                // Category dropdown with actual categories
+                                <select 
+                                  className="w-full p-1 border rounded text-sm"
+                                  value={value || ""}
+                                  onChange={(e) => {
+                                    // For now, just log the change - will implement update later
+                                    console.log(`Would update expense ${expense.id} to category ${e.target.value}`);
+                                  }}
+                                >
                                   <option value="">Select category...</option>
+                                  {categories.map(category => (
+                                    <option key={category.id} value={category.id}>
+                                      {category.name}
+                                    </option>
+                                  ))}
                                 </select>
                               ) : isStatus ? (
                                 // Status badge
