@@ -265,3 +265,54 @@ cd frontend && npm test
 ---
 
 *This document should be updated as the project evolves. Each major feature addition or architectural change should be documented here for future developers.*
+
+## Phase 5: Migration System Refactor (Commits: 4a6b295 → ac83162)
+
+**Goal**: Fix migration architecture to properly use Flyway instead of mixed Go/Flyway approach
+
+**Problem Identified**:
+- Previous refactor incorrectly introduced Go-based migrations in `backend/database/database.go`
+- This conflicted with existing Flyway migrations in `db/migrations/`
+- Inconsistent schema definitions between V1, V2, and V3 migrations
+- Backend was attempting to run migrations instead of relying on Flyway
+
+**Solution Implemented**:
+1. **Migration System Cleanup**:
+   - Deprecated `RunMigrations()` function in `backend/database/database.go`
+   - Deprecated `SeedDefaultCategories()` function in `backend/database/seed.go`
+   - Both functions now return early with log messages for backwards compatibility
+
+2. **Flyway Integration**:
+   - Added `flyway` service to `docker-compose.yml`
+   - Backend service now depends on flyway completion (`service_completed_successfully`)
+   - Flyway automatically runs migrations before backend starts
+
+3. **Schema Consistency**:
+   - Fixed V1 migration to include `sort_order` column in `expense_category` table
+   - Added missing `idx_expense_category_sort` index to V1 migration
+   - Removed redundant V3 migration since V1 now includes sort_order
+   - Ensured V2 seed data is compatible with V1 schema
+
+4. **Environment Configuration**:
+   - Created `config/.envrc.docker` with postgres/postgres credentials
+   - Updated docker-compose.yml to remove obsolete version declaration
+
+**Key Files Modified**:
+- `backend/database/database.go` - Deprecated Go migrations
+- `backend/database/seed.go` - Deprecated Go seeding
+- `db/migrations/V1__Initial_schema.sql` - Added sort_order column and index
+- `db/migrations/V3__Add_category_sort_order.sql` - Removed (redundant)
+- `docker-compose.yml` - Added Flyway service and dependency chain
+- `config/.envrc.docker` - Created with proper postgres credentials
+
+**Architecture Decision**:
+- **Pure Flyway Approach**: All database changes managed through Flyway migrations
+- **No Go Migrations**: Backend only connects to database, doesn't manage schema
+- **Dependency Chain**: db → flyway → backend → frontend
+- **Version Control**: Migration files tracked in git, .envrc files ignored
+
+**Benefits**:
+- Clean separation of concerns (app logic vs. schema management)
+- Consistent migration versioning and rollback capability
+- No risk of Go code overriding Flyway-managed schema
+- Better development experience with proper dependency management
