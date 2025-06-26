@@ -16,6 +16,7 @@ const SpreadsheetView = ({ project }) => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const loadMoreRef = useRef(null);
+  const containerRef = useRef(null);
   const loadingRef = useRef(false); // Prevent race conditions
   const LIMIT = 50;
 
@@ -80,6 +81,13 @@ const SpreadsheetView = ({ project }) => {
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
+    const currentLoadMoreRef = loadMoreRef.current;
+    const currentContainerRef = containerRef.current;
+    
+    if (!currentLoadMoreRef || !currentContainerRef) {
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
@@ -89,22 +97,18 @@ const SpreadsheetView = ({ project }) => {
         }
       },
       {
+        root: currentContainerRef, // Use the scrollable container as root
         threshold: 0.1,
-        rootMargin: '100px'
+        rootMargin: '50px'
       }
     );
 
-    const currentLoadMoreRef = loadMoreRef.current;
-    if (currentLoadMoreRef) {
-      observer.observe(currentLoadMoreRef);
-    }
+    observer.observe(currentLoadMoreRef);
 
     return () => {
-      if (currentLoadMoreRef) {
-        observer.unobserve(currentLoadMoreRef);
-      }
+      observer.unobserve(currentLoadMoreRef);
     };
-  }, [hasMore, page]);
+  }, [hasMore, page, expenses.length]); // Add expenses.length to re-run when data changes
 
   const formatAmount = amount => {
     if (amount === null || amount === undefined) return "";
@@ -210,7 +214,7 @@ const SpreadsheetView = ({ project }) => {
         </CardHeader>
 
         <CardContent>
-          <div className="max-h-[600px] overflow-auto">
+          <div className="max-h-[600px] overflow-auto" ref={containerRef}>
             {columns.length === 0 ? (
               <div className="flex items-center justify-center p-8">
                 <span className="text-muted-foreground">Loading...</span>
@@ -218,11 +222,11 @@ const SpreadsheetView = ({ project }) => {
             ) : (
               <>
                 <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-background">
-                    <TableRow>
-                      <TableHead className="w-16 sticky top-0 bg-background">#</TableHead>
+                  <TableHeader>
+                    <TableRow className="sticky top-0 z-10 bg-background">
+                      <TableHead className="w-16 bg-background">#</TableHead>
                       {columns.map(column => (
-                        <TableHead key={column} className="sticky top-0 bg-background">{column}</TableHead>
+                        <TableHead key={column} className="bg-background">{column}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -265,16 +269,30 @@ const SpreadsheetView = ({ project }) => {
                 {hasMore && (
                   <div
                     ref={loadMoreRef}
-                    className="flex items-center justify-center p-4"
+                    className="flex flex-col items-center justify-center p-4 space-y-2"
                   >
                     {loading ? (
                       <span className="text-muted-foreground">
                         Loading more rows...
                       </span>
                     ) : (
-                      <span className="text-muted-foreground">
-                        Scroll to load more...
-                      </span>
+                      <>
+                        <span className="text-muted-foreground text-sm">
+                          Scroll to load more automatically...
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (!loadingRef.current) {
+                              const nextPage = page + 1;
+                              loadExpenses(nextPage);
+                            }
+                          }}
+                          className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
+                          disabled={loadingRef.current}
+                        >
+                          Or click to load more
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
