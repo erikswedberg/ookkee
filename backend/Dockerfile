@@ -20,8 +20,8 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Install ca-certificates for SSL/TLS, Java (for Flyway), bash, and netcat
-RUN apk --no-cache add ca-certificates openjdk11-jre bash curl netcat-openbsd
+# Install ca-certificates for SSL/TLS, Java (for Flyway), bash, netcat, and postgresql-client
+RUN apk --no-cache add ca-certificates openjdk11-jre bash curl netcat-openbsd postgresql-client
 
 # Install Flyway CLI
 RUN curl -L https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/10.18.2/flyway-commandline-10.18.2-linux-x64.tar.gz \
@@ -31,9 +31,9 @@ RUN curl -L https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/10.18
 # Copy the binary from builder stage
 COPY --from=builder /app/main .
 
-# Copy startup script
-COPY startup.sh .
-RUN chmod +x startup.sh
+# Copy migration script
+COPY ../migrate.sh .
+RUN chmod +x migrate.sh
 
 # Create uploads directory
 RUN mkdir -p uploads
@@ -41,5 +41,5 @@ RUN mkdir -p uploads
 # Expose port
 EXPOSE 8080
 
-# Run startup script (migrations + app)
-CMD ["./startup.sh"]
+# Run migrations then start app
+CMD ["sh", "-c", "./migrate.sh && ./main"]

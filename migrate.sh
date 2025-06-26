@@ -17,17 +17,27 @@ if ! command -v flyway &> /dev/null; then
     exit 1
 fi
 
-# Check if database is accessible
-echo "Checking database connection..."
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT version();" > /dev/null 2>&1
-
-if [ $? -ne 0 ]; then
-    echo "Error: Cannot connect to database"
-    echo "Make sure PostgreSQL is running and accessible at $DB_HOST:$DB_PORT"
-    exit 1
+# Wait for database to be ready (if running in container)
+if command -v nc >/dev/null 2>&1; then
+    echo "⏳ Waiting for database to be ready..."
+    while ! nc -z "$DB_HOST" "$DB_PORT"; do
+      echo "Database not ready, waiting..."
+      sleep 2
+    done
+    echo "✅ Database is ready!"
+else
+    # Fallback to psql check for local development
+    echo "Checking database connection..."
+    PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT version();" > /dev/null 2>&1
+    
+    if [ $? -ne 0 ]; then
+        echo "Error: Cannot connect to database"
+        echo "Make sure PostgreSQL is running and accessible at $DB_HOST:$DB_PORT"
+        exit 1
+    fi
+    
+    echo "Database connection successful!"
 fi
-
-echo "Database connection successful!"
 
 # Run Flyway migrations
 echo "Running Flyway migrations..."
