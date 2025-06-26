@@ -2,7 +2,7 @@
 
 @theme {
   /* Define color palette using Tailwind v4 syntax */
-  --color-*: initial;
+  /* Remove --color-*: initial as it overrides default colors like black */
   
   /* shadcn/ui color system - Light mode by default */
   --color-background: hsl(0 0% 100%);
@@ -55,7 +55,7 @@
   --color-ring: hsl(212.7 26.8% 83.9%);
 }
 
-@layer base {
+/* Base styles - v4 syntax */
   * {
     border-color: theme(colors.border);
   }
@@ -74,8 +74,3 @@
     font-weight: 600;
     color: theme(colors.foreground);
   }
-}
-/* Dialog overlay fix for Tailwind v4 */
-.dialog-overlay {
-  background-color: rgba(0, 0, 0, 0.8);
-}
