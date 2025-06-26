@@ -28,7 +28,7 @@ CREATE TABLE expense_category (
   created_at  TIMESTAMPTZ   DEFAULT NOW(),
   updated_at  TIMESTAMPTZ   DEFAULT NOW(),
   deleted_at  TIMESTAMPTZ,
-  CONSTRAINT uniq_user_cat UNIQUE (user_id, name, COALESCE(deleted_at,'epoch'))
+  CONSTRAINT uniq_user_cat UNIQUE (user_id, name, COALESCE(deleted_at,'epoch'::TIMESTAMPTZ))
 );
 
 -- 3. expense – one row per CSV line
