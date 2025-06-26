@@ -75,3 +75,7 @@
     color: theme(colors.foreground);
   }
 }
+/* Dialog overlay fix for Tailwind v4 */
+.dialog-overlay {
+  background-color: rgba(0, 0, 0, 0.8);
+}

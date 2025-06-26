@@ -10,7 +10,7 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -49,5 +49,5 @@ services:
       - backend
     restart: unless-stopped
 
-volumes:
-  postgres_data:
+# volumes:
+#   postgres_data:

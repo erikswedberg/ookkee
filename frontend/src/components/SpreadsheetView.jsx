@@ -67,7 +67,7 @@ const SpreadsheetView = ({ project }) => {
     }
   };
 
-  // Infinite scroll handler
+  // Infinite scroll handler - fixed to use latest offset
   const handleScroll = useCallback(() => {
     if (!containerRef.current || loading || !hasMore) return;
 
@@ -76,9 +76,13 @@ const SpreadsheetView = ({ project }) => {
 
     // Load more when user scrolls past 80%
     if (scrollPercentage > 0.8) {
-      loadExpenses(offset);
+      // Use functional update to get the latest offset value
+      setOffset(currentOffset => {
+        loadExpenses(currentOffset);
+        return currentOffset; // Don't change offset here, loadExpenses will handle it
+      });
     }
-  }, [loading, hasMore, offset]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loading, hasMore]); // Remove offset from dependencies to avoid stale closure
 
   // Set up scroll listener
   useEffect(() => {
@@ -200,11 +204,11 @@ const SpreadsheetView = ({ project }) => {
               </div>
             ) : (
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-background">
                   <TableRow>
-                    <TableHead className="w-16">#</TableHead>
+                    <TableHead className="w-16 sticky top-0 bg-background">#</TableHead>
                     {columns.map(column => (
-                      <TableHead key={column}>{column}</TableHead>
+                      <TableHead key={column} className="sticky top-0 bg-background">{column}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
