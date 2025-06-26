@@ -323,7 +323,7 @@ const SpreadsheetView = ({ project }) => {
                               )}
                             </TableCell>
                           );
-                        })
+                        })}
                       </TableRow>
                     ))}
                   </tbody>
