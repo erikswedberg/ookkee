@@ -42,10 +42,8 @@ func main() {
 	}
 	defer database.Close()
 
-	// Run migrations
-	if err := database.RunMigrations(ctx); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
+	// Migrations are now handled by Flyway in startup.sh
+	log.Println("Database migrations handled by Flyway at startup")
 
 	// Setup router
 	r := chi.NewRouter()

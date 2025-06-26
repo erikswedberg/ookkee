@@ -15,15 +15,6 @@ services:
       timeout: 5s
       retries: 5
 
-  flyway:
-    image: flyway/flyway:10
-    command: -url=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME} -user=${DB_USER} -password=${DB_PASSWORD} -connectRetries=60 migrate
-    volumes:
-      - ./db/migrations:/flyway/sql
-    depends_on:
-      db:
-        condition: service_healthy
-
   backend:
     build:
       context: ./backend
@@ -41,11 +32,10 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS}
     volumes:
       - ./uploads:/app/uploads
+      - ./db/migrations:/app/migrations
     depends_on:
       db:
         condition: service_healthy
-      flyway:
-        condition: service_completed_successfully
     restart: unless-stopped
 
   frontend:

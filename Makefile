@@ -78,7 +78,7 @@ test-integration:
 
 # Run database migrations manually
 migrate:
-	@echo "Migrations run automatically by Go backend on startup"
+	@echo "Migrations run automatically by Flyway in backend container on startup"
 	@echo "No manual migration needed!"
 
 # Clean up everything
