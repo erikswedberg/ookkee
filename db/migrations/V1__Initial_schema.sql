@@ -25,6 +25,7 @@ CREATE TABLE expense_category (
   user_id     UUID          NOT NULL,
   name        TEXT          NOT NULL,
   is_personal BOOLEAN       DEFAULT FALSE,
+  sort_order  INTEGER       NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ   DEFAULT NOW(),
   updated_at  TIMESTAMPTZ   DEFAULT NOW(),
   deleted_at  TIMESTAMPTZ,
@@ -60,6 +61,7 @@ CREATE INDEX idx_expense_project         ON expense(project_id);
 CREATE INDEX idx_expense_desc_trgm       ON expense USING gin (lower(description) gin_trgm_ops);
 CREATE INDEX idx_expense_accepted_cat    ON expense(accepted_category_id);
 CREATE INDEX idx_expense_suggested_cat   ON expense(suggested_category_id);
+CREATE INDEX idx_expense_category_sort   ON expense_category(user_id, sort_order, deleted_at);
 
 -- 4. expense_history – optional audit trail
 CREATE TABLE expense_history (
