@@ -292,13 +292,13 @@ const SpreadsheetView = ({ project }) => {
                                 // Category dropdown with actual categories
                                 <select 
                                   className="w-full p-1 border rounded text-sm"
-                                  value={value || ""}
+                                  value={value ? value.toString() : ""}
                                   onChange={(e) => {
                                     // For now, just log the change - will implement update later
                                     console.log(`Would update expense ${expense.id} to category ${e.target.value}`);
                                   }}
                                 >
-                                  <option value="">Select category...</option>
+                                  <option value=""></option>
                                   {categories.map(category => (
                                     <option key={category.id} value={category.id}>
                                       {category.name}
