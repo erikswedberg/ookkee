@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import ProjectsSidebar from "./components/ProjectsSidebar";
 import SpreadsheetView from "./components/SpreadsheetView";
 import ProjectModal from "./components/ProjectModal";
+import CategoryModal from "./components/CategoryModal";
 import { Card, CardContent } from "@/components/ui/card";
 import "./App.css";
 
@@ -10,6 +11,7 @@ function App() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -107,6 +109,10 @@ function App() {
     }
   };
 
+  const handleManageCategories = () => {
+    setIsCategoryModalOpen(true);
+  };
+
   // Removed unused handleUploadSuccess function
 
   return (
@@ -126,6 +132,7 @@ function App() {
           onNewProject={handleNewProject}
           onEditProject={handleEditProject}
           onDeleteProject={handleDeleteProject}
+          onManageCategories={handleManageCategories}
         />
 
         <div className="flex-1 overflow-auto">
@@ -150,6 +157,11 @@ function App() {
         onClose={handleModalClose}
         onSave={handleModalSave}
         project={editingProject}
+      />
+      
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
       />
     </div>
   );

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const SpreadsheetView = ({ project }) => {
   const [expenses, setExpenses] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -69,12 +70,27 @@ const SpreadsheetView = ({ project }) => {
     }
   };
 
-  // Load initial data
+  // Load initial data and categories
   useEffect(() => {
     if (project) {
       loadExpenses(0, true);
+      fetchCategories();
     }
   }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch categories
+  const fetchCategories = async () => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/categories`);
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    }
+  };
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -136,23 +152,38 @@ const SpreadsheetView = ({ project }) => {
   };
 
   const getColumnValue = (expense, column) => {
-    // First check if it's in the raw_data
-    if (expense.raw_data && expense.raw_data[column]) {
-      return expense.raw_data[column];
-    }
-
-    // Then check direct properties
-    switch (column.toLowerCase()) {
-      case "description":
-        return expense.description || "";
-      case "amount":
-        return expense.amount;
+    // Handle special columns
+    switch (column) {
+      case "Category":
+        // Return the category ID for the dropdown
+        return expense.accepted_category_id || "";
+      case "Status":
+        // Simple status based on whether category is assigned
+        return expense.accepted_category_id ? "Categorized" : "Uncategorized";
       default:
-        return "";
+        // Check if it's in the raw_data
+        if (expense.raw_data && expense.raw_data[column]) {
+          return expense.raw_data[column];
+        }
+
+        // Then check direct properties
+        switch (column.toLowerCase()) {
+          case "description":
+            return expense.description || "";
+          case "amount":
+            return expense.amount;
+          default:
+            return "";
+        }
     }
   };
 
-  // Get all unique columns from the data
+  const getCategoryName = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    return category ? category.name : "";
+  };
+
+  // Get all columns including data columns plus Category and Status
   const getColumns = () => {
     if (expenses.length === 0) return [];
 
@@ -166,9 +197,10 @@ const SpreadsheetView = ({ project }) => {
 
     // Convert to array and sort, putting common columns first
     const columns = Array.from(columnSet);
-    const priority = ["Date", "Description", "Amount", "Category"];
+    const priority = ["Date", "Description", "Amount"];
 
-    return columns.sort((a, b) => {
+    // Sort data columns
+    const sortedDataColumns = columns.sort((a, b) => {
       const aIndex = priority.indexOf(a);
       const bIndex = priority.indexOf(b);
 
@@ -177,6 +209,9 @@ const SpreadsheetView = ({ project }) => {
       if (bIndex !== -1) return 1;
       return a.localeCompare(b);
     });
+
+    // Add Category and Status columns at the end
+    return [...sortedDataColumns, "Category", "Status"];
   };
 
   const columns = getColumns();
@@ -239,6 +274,8 @@ const SpreadsheetView = ({ project }) => {
                             .toLowerCase()
                             .includes("amount");
                           const isDate = column.toLowerCase().includes("date");
+                          const isCategory = column === "Category";
+                          const isStatus = column === "Status";
 
                           return (
                             <TableCell
@@ -246,17 +283,47 @@ const SpreadsheetView = ({ project }) => {
                               className={
                                 isAmount
                                   ? `font-mono ${getAmountClass(value)}`
-                                  : ""
+                                  : isStatus
+                                    ? "text-sm"
+                                    : ""
                               }
                             >
-                              {isAmount && typeof value === "number"
-                                ? formatAmount(value)
-                                : isDate
-                                  ? formatDate(value)
-                                  : value || ""}
+                              {isCategory ? (
+                                // Category dropdown with actual categories
+                                <select 
+                                  className="w-full p-1 border rounded text-sm"
+                                  value={value ? value.toString() : ""}
+                                  onChange={(e) => {
+                                    // For now, just log the change - will implement update later
+                                    console.log(`Would update expense ${expense.id} to category ${e.target.value}`);
+                                  }}
+                                >
+                                  <option value=""></option>
+                                  {categories.map(category => (
+                                    <option key={category.id} value={category.id}>
+                                      {category.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : isStatus ? (
+                                // Status badge
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  value === "Categorized" 
+                                    ? "bg-green-100 text-green-800" 
+                                    : "bg-gray-100 text-gray-600"
+                                }`}>
+                                  {value}
+                                </span>
+                              ) : isAmount && typeof value === "number" ? (
+                                formatAmount(value)
+                              ) : isDate ? (
+                                formatDate(value)
+                              ) : (
+                                value || ""
+                              )}
                             </TableCell>
                           );
-                        })}
+                        })
                       </TableRow>
                     ))}
                   </tbody>

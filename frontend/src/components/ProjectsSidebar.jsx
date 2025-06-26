@@ -10,9 +10,21 @@ const ProjectsSidebar = ({
   onNewProject,
   onEditProject,
   onDeleteProject,
+  onManageCategories,
 }) => {
   return (
     <div className="w-64 bg-card border-r p-4 space-y-4">
+      {/* Categories link */}
+      <div className="pb-2 border-b">
+        <Button
+          variant="ghost"
+          onClick={onManageCategories}
+          className="w-full justify-start text-sm"
+        >
+          Categories
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Projects</h2>
         <Button

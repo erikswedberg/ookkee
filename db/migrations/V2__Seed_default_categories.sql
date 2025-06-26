@@ -1,14 +1,33 @@
 -- V2__Seed_default_categories.sql
--- Add default expense categories for testing
+-- Add default expense categories with sort order
 
--- Insert default categories for test user
-INSERT INTO expense_category (user_id, name, is_personal) VALUES 
-  ('00000000-0000-0000-0000-000000000001', 'Office Supplies', false),
-  ('00000000-0000-0000-0000-000000000001', 'Software', false),
-  ('00000000-0000-0000-0000-000000000001', 'Meals & Entertainment', false),
-  ('00000000-0000-0000-0000-000000000001', 'Utilities', false),
-  ('00000000-0000-0000-0000-000000000001', 'Income', false),
-  ('00000000-0000-0000-0000-000000000001', 'Travel', false),
-  ('00000000-0000-0000-0000-000000000001', 'Marketing', false),
-  ('00000000-0000-0000-0000-000000000001', 'Professional Services', false),
-  ('00000000-0000-0000-0000-000000000001', 'Uncategorized', false);
+-- Insert default categories for test user with specified sort order
+INSERT INTO expense_category (user_id, name, is_personal, sort_order) VALUES 
+  ('00000000-0000-0000-0000-000000000001', 'Gasoline', false, 1),
+  ('00000000-0000-0000-0000-000000000001', 'Meals', false, 2),
+  ('00000000-0000-0000-0000-000000000001', 'Parking', false, 3),
+  ('00000000-0000-0000-0000-000000000001', 'Water', false, 4),
+  ('00000000-0000-0000-0000-000000000001', 'Travel', false, 5),
+  ('00000000-0000-0000-0000-000000000001', 'Computer', false, 6),
+  ('00000000-0000-0000-0000-000000000001', 'Tolls', false, 7),
+  ('00000000-0000-0000-0000-000000000001', 'Payroll', false, 8),
+  ('00000000-0000-0000-0000-000000000001', 'Hosting', false, 9),
+  ('00000000-0000-0000-0000-000000000001', 'Auto Insurance', false, 10),
+  ('00000000-0000-0000-0000-000000000001', 'Renter''s Insurance', false, 11),
+  ('00000000-0000-0000-0000-000000000001', 'Phone', false, 12),
+  ('00000000-0000-0000-0000-000000000001', 'Internet', false, 13),
+  ('00000000-0000-0000-0000-000000000001', 'Rent', false, 14),
+  ('00000000-0000-0000-0000-000000000001', 'Home Improvement', false, 15),
+  ('00000000-0000-0000-0000-000000000001', 'Auto Maintenance', false, 16),
+  ('00000000-0000-0000-0000-000000000001', 'Medical', false, 17),
+  ('00000000-0000-0000-0000-000000000001', 'Tax Prep', false, 18),
+  ('00000000-0000-0000-0000-000000000001', 'Office Supplies', false, 19),
+  ('00000000-0000-0000-0000-000000000001', 'Education/Training', false, 20),
+  ('00000000-0000-0000-0000-000000000001', 'Project Supplies', false, 21),
+  ('00000000-0000-0000-0000-000000000001', 'Postage', false, 22),
+  ('00000000-0000-0000-0000-000000000001', 'Business Filings', false, 23),
+  ('00000000-0000-0000-0000-000000000001', 'Fees', false, 24),
+  ('00000000-0000-0000-0000-000000000001', 'Auto Registration', false, 25),
+  ('00000000-0000-0000-0000-000000000001', 'Gas Utility Bill', false, 26),
+  ('00000000-0000-0000-0000-000000000001', 'Electric', false, 27),
+  ('00000000-0000-0000-0000-000000000001', 'Software', false, 28);
