@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Table,
-  TableBody,
   TableCell,
   TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -221,16 +218,16 @@ const SpreadsheetView = ({ project }) => {
               </div>
             ) : (
               <>
-                <Table>
-                  <TableHeader>
+                <table className="w-full caption-bottom text-sm">
+                  <thead className="[&_tr]:border-b">
                     <TableRow className="sticky top-0 z-10 bg-background">
                       <TableHead className="w-16 bg-background">#</TableHead>
                       {columns.map(column => (
                         <TableHead key={column} className="bg-background">{column}</TableHead>
                       ))}
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                  </thead>
+                  <tbody className="[&_tr:last-child]:border-0">
                     {expenses.map(expense => (
                       <TableRow key={expense.id}>
                         <TableCell className="font-mono text-xs text-muted-foreground">
@@ -262,8 +259,8 @@ const SpreadsheetView = ({ project }) => {
                         })}
                       </TableRow>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
                 
                 {/* Load more sentinel */}
                 {hasMore && (
