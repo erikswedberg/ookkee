@@ -1,59 +1,85 @@
-import { useState, useRef, useEffect } from 'react'
+import { MoreVertical, Edit, Trash2 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 const ProjectMenu = ({ project, onEdit, onDelete }) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const menuRef = useRef(null)
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsOpen(false)
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen])
-
   const handleEdit = () => {
-    setIsOpen(false)
-    onEdit(project)
-  }
+    onEdit(project);
+  };
 
   const handleDelete = () => {
-    setIsOpen(false)
-    if (window.confirm(`Are you sure you want to delete "${project.name}"?`)) {
-      onDelete(project.id)
-    }
-  }
+    onDelete(project.id);
+  };
 
   return (
-    <div className="project-menu" ref={menuRef}>
-      <button 
-        className="project-menu-trigger"
-        onClick={() => setIsOpen(!isOpen)}
-        title="Project options"
-      >
-        ⋮
-      </button>
-      
-      {isOpen && (
-        <div className="project-menu-dropdown">
-          <button className="menu-item" onClick={handleEdit}>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-0" align="end">
+        <div className="flex flex-col">
+          <Button
+            variant="ghost"
+            className="justify-start px-3 py-2 text-sm"
+            onClick={handleEdit}
+          >
+            <Edit className="mr-2 h-4 w-4" />
             Edit
-          </button>
-          <button className="menu-item menu-item-danger" onClick={handleDelete}>
-            Delete
-          </button>
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="justify-start px-3 py-2 text-sm text-destructive hover:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the
+                  project "{project.name}" and all its data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
-      )}
-    </div>
-  )
-}
+      </PopoverContent>
+    </Popover>
+  );
+};
 
-export default ProjectMenu
+export default ProjectMenu;

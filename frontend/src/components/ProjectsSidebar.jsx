@@ -1,65 +1,76 @@
-import ProjectMenu from './ProjectMenu'
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import ProjectMenu from "./ProjectMenu";
 
-const ProjectsSidebar = ({ projects, selectedProject, onProjectSelect, onNewProject, onEditProject, onDeleteProject }) => {
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
-  const formatRowCount = (count) => {
-    return `${count} row${count !== 1 ? 's' : ''}`
-  }
-
+const ProjectsSidebar = ({
+  projects,
+  selectedProject,
+  onProjectSelect,
+  onNewProject,
+  onEditProject,
+  onDeleteProject,
+}) => {
   return (
-    <div className="projects-sidebar">
-      <div className="sidebar-header">
-        <h3>Projects</h3>
-        <button className="new-project-btn" onClick={onNewProject} title="Add new project">
-          +
-        </button>
+    <div className="w-64 bg-card border-r p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Projects</h2>
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={onNewProject}
+          className="h-8 w-8"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
-      
-      <div className="projects-list">
+
+      <div className="space-y-2">
         {projects.length === 0 ? (
-          <div className="projects-empty">
-            Add a project
-          </div>
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No projects yet.
+            <br />
+            Click the + button to create one.
+          </p>
         ) : (
-          projects.map((project) => (
-            <div
+          projects.map(project => (
+            <Card
               key={project.id}
-              className={`project-item ${
-                selectedProject?.id === project.id ? 'selected' : ''
+              className={`cursor-pointer transition-colors group hover:bg-accent ${
+                selectedProject?.id === project.id ? "bg-accent" : ""
               }`}
             >
-              <div 
-                className="project-main"
-                onClick={() => onProjectSelect(project)}
-              >
-                <div className="project-name">{project.name}</div>
-                <div className="project-meta">
-                  <span className="project-filename">{project.original_name}</span>
-                  <span className="project-details">
-                    {formatRowCount(project.row_count)} • {formatDate(project.created_at)}
-                  </span>
+              <CardContent className="p-3">
+                <div
+                  className="flex items-center justify-between"
+                  onClick={() => onProjectSelect(project)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-sm truncate">
+                      {project.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {project.original_name}
+                    </p>
+                  </div>
+                  <div
+                    className="flex-shrink-0 ml-2"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <ProjectMenu
+                      project={project}
+                      onEdit={onEditProject}
+                      onDelete={onDeleteProject}
+                    />
+                  </div>
                 </div>
-              </div>
-              <ProjectMenu 
-                project={project}
-                onEdit={onEditProject}
-                onDelete={onDeleteProject}
-              />
-            </div>
+              </CardContent>
+            </Card>
           ))
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ProjectsSidebar
+export default ProjectsSidebar;
