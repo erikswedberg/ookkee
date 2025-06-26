@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -14,35 +14,34 @@ const SpreadsheetView = ({ project }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
-  const [offset, setOffset] = useState(0);
-  const containerRef = useRef(null);
+  const [page, setPage] = useState(0);
+  const loadMoreRef = useRef(null);
+  const loadingRef = useRef(false); // Prevent race conditions
   const LIMIT = 50;
 
   // Reset when project changes
   useEffect(() => {
     setExpenses([]);
-    setOffset(0);
+    setPage(0);
     setHasMore(true);
     setError(null);
+    loadingRef.current = false;
   }, [project.id]);
 
-  // Load initial data
-  useEffect(() => {
-    if (project) {
-      loadExpenses(0, true);
-    }
-  }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadExpenses = async (currentOffset, isInitial = false) => {
-    if (loading) return;
-
+  // Load expenses function
+  const loadExpenses = async (pageNum = 0, isInitial = false) => {
+    // Prevent multiple simultaneous requests
+    if (loadingRef.current) return;
+    
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const offset = pageNum * LIMIT;
       const response = await fetch(
-        `${API_URL}/api/projects/${project.id}/expenses?offset=${currentOffset}&limit=${LIMIT}`
+        `${API_URL}/api/projects/${project.id}/expenses?offset=${offset}&limit=${LIMIT}`
       );
 
       if (!response.ok) {
@@ -51,47 +50,61 @@ const SpreadsheetView = ({ project }) => {
 
       const newExpenses = await response.json();
 
+      // If we got fewer than LIMIT results, we've reached the end
       if (newExpenses.length < LIMIT) {
         setHasMore(false);
       }
 
-      setExpenses(prev =>
+      setExpenses(prev => 
         isInitial ? newExpenses : [...prev, ...newExpenses]
       );
-      setOffset(currentOffset + newExpenses.length);
+      
+      if (!isInitial) {
+        setPage(pageNum);
+      }
     } catch (err) {
       console.error("Failed to fetch expenses:", err);
       setError(`Failed to load expenses: ${err.message}`);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   };
 
-  // Infinite scroll handler - fixed to use latest offset
-  const handleScroll = useCallback(() => {
-    if (!containerRef.current || loading || !hasMore) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
-
-    // Load more when user scrolls past 80%
-    if (scrollPercentage > 0.8) {
-      // Use functional update to get the latest offset value
-      setOffset(currentOffset => {
-        loadExpenses(currentOffset);
-        return currentOffset; // Don't change offset here, loadExpenses will handle it
-      });
-    }
-  }, [loading, hasMore]); // Remove offset from dependencies to avoid stale closure
-
-  // Set up scroll listener
+  // Load initial data
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    if (project) {
+      loadExpenses(0, true);
+    }
+  }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && hasMore && !loadingRef.current) {
+          const nextPage = page + 1;
+          loadExpenses(nextPage);
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '100px'
+      }
+    );
+
+    const currentLoadMoreRef = loadMoreRef.current;
+    if (currentLoadMoreRef) {
+      observer.observe(currentLoadMoreRef);
+    }
+
+    return () => {
+      if (currentLoadMoreRef) {
+        observer.unobserve(currentLoadMoreRef);
+      }
+    };
+  }, [hasMore, page]);
 
   const formatAmount = amount => {
     if (amount === null || amount === undefined) return "";
@@ -197,71 +210,83 @@ const SpreadsheetView = ({ project }) => {
         </CardHeader>
 
         <CardContent>
-          <div className="max-h-[600px] overflow-auto" ref={containerRef}>
+          <div className="max-h-[600px] overflow-auto">
             {columns.length === 0 ? (
               <div className="flex items-center justify-center p-8">
                 <span className="text-muted-foreground">Loading...</span>
               </div>
             ) : (
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-background">
-                  <TableRow>
-                    <TableHead className="w-16 sticky top-0 bg-background">#</TableHead>
-                    {columns.map(column => (
-                      <TableHead key={column} className="sticky top-0 bg-background">{column}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {expenses.map(expense => (
-                    <TableRow key={expense.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {expense.row_index + 1}
-                      </TableCell>
-                      {columns.map(column => {
-                        const value = getColumnValue(expense, column);
-                        const isAmount = column
-                          .toLowerCase()
-                          .includes("amount");
-                        const isDate = column.toLowerCase().includes("date");
-
-                        return (
-                          <TableCell
-                            key={column}
-                            className={
-                              isAmount
-                                ? `font-mono ${getAmountClass(value)}`
-                                : ""
-                            }
-                          >
-                            {isAmount && typeof value === "number"
-                              ? formatAmount(value)
-                              : isDate
-                                ? formatDate(value)
-                                : value || ""}
-                          </TableCell>
-                        );
-                      })}
+              <>
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
+                    <TableRow>
+                      <TableHead className="w-16 sticky top-0 bg-background">#</TableHead>
+                      {columns.map(column => (
+                        <TableHead key={column} className="sticky top-0 bg-background">{column}</TableHead>
+                      ))}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+                  </TableHeader>
+                  <TableBody>
+                    {expenses.map(expense => (
+                      <TableRow key={expense.id}>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {expense.row_index + 1}
+                        </TableCell>
+                        {columns.map(column => {
+                          const value = getColumnValue(expense, column);
+                          const isAmount = column
+                            .toLowerCase()
+                            .includes("amount");
+                          const isDate = column.toLowerCase().includes("date");
 
-            {loading && (
-              <div className="flex items-center justify-center p-4">
-                <span className="text-muted-foreground">
-                  Loading more rows...
-                </span>
-              </div>
-            )}
-
-            {!hasMore && expenses.length > 0 && (
-              <div className="flex items-center justify-center p-4">
-                <span className="text-muted-foreground">
-                  All {expenses.length} rows loaded
-                </span>
-              </div>
+                          return (
+                            <TableCell
+                              key={column}
+                              className={
+                                isAmount
+                                  ? `font-mono ${getAmountClass(value)}`
+                                  : ""
+                              }
+                            >
+                              {isAmount && typeof value === "number"
+                                ? formatAmount(value)
+                                : isDate
+                                  ? formatDate(value)
+                                  : value || ""}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                
+                {/* Load more sentinel */}
+                {hasMore && (
+                  <div
+                    ref={loadMoreRef}
+                    className="flex items-center justify-center p-4"
+                  >
+                    {loading ? (
+                      <span className="text-muted-foreground">
+                        Loading more rows...
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Scroll to load more...
+                      </span>
+                    )}
+                  </div>
+                )}
+                
+                {!hasMore && expenses.length > 0 && (
+                  <div className="flex items-center justify-center p-4">
+                    <span className="text-muted-foreground">
+                      All {expenses.length} rows loaded
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </CardContent>
