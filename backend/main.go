@@ -16,7 +16,6 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
 
 	// Get configuration from environment
 	DBHost := getEnv("DB_HOST", "localhost")
