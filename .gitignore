@@ -40,3 +40,6 @@ coverage/
 # Uploads
 uploads/*
 !uploads/.gitkeep
+
+# Database data
+data/
