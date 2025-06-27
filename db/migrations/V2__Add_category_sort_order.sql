@@ -1,4 +1,4 @@
--- V3__Add_category_sort_order.sql
+-- V2__Add_category_sort_order.sql
 -- Add sort_order field to expense_category table
 
 ALTER TABLE expense_category 

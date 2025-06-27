@@ -1,4 +1,4 @@
--- V4__Seed_categories_with_sort_order.sql
+-- V3__Seed_categories_with_sort_order.sql
 -- Seed expense categories with sort order
 
 -- Insert default categories for test user with sort order
