@@ -19,6 +19,17 @@ A modern AI bookkeeping assistant with PostgreSQL backend and Google Sheets-like
 git clone <repository-url>
 cd ookkee
 
+## Quick Start
+
+```bash
+sudo ./dev-setup.sh
+```
+
+**See [SETUP.md](SETUP.md) for detailed installation instructions and troubleshooting.**
+
+## Docker Setup (Alternative)
+
+```bash
 # Setup environment (first time)
 make dev-setup
 # Edit config/.envrc.development with your settings
@@ -31,6 +42,7 @@ make up
 
 # For development with hot reload (changes update automatically)
 make up-dev
+```
 
 # Or run services separately for development:
 # Terminal 1:
@@ -116,34 +128,7 @@ The backend creates all tables, indexes, and default data on first startup.
 └── uploads/               # CSV file storage
 ```
 
-## Manual Development Setup
 
-If you prefer to run without Docker:
-
-### Prerequisites
-- Node.js 18+
-- Go 1.21+
-- PostgreSQL 15+
-
-### Backend Setup
-```bash
-cd backend
-go mod tidy
-
-# Set up PostgreSQL database
-creatdb ookkee
-psql ookkee < ../db/migrations/001_initial_schema.sql
-
-# Start backend
-go run main.go
-```
-
-### Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
 
 ## Usage
 

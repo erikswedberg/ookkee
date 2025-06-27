@@ -1,5 +1,19 @@
 # Dear LLM - Ookkee Development Journal
 
+## 🚀 QUICK START FOR AGENTS
+
+**To start the development environment quickly:**
+
+```bash
+./dev-setup.sh
+```
+
+This will install all dependencies, start services, and give you working URLs.
+
+**If the script fails, use the manual fallback recipe in SETUP.md.**
+
+---
+
 This file documents the key decisions and steps taken during the development of Ookkee, the AI bookkeeping assistant.
 
 ## Project Overview

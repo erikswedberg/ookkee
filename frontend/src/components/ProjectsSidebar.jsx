@@ -20,6 +20,7 @@ const ProjectsSidebar = ({
           variant="ghost"
           onClick={onManageCategories}
           className="w-full justify-start text-sm"
+          data-testid="categories-button"
         >
           Categories
         </Button>
@@ -32,6 +33,7 @@ const ProjectsSidebar = ({
           variant="outline"
           onClick={onNewProject}
           className="h-8 w-8"
+          data-testid="add-project-button"
         >
           <Plus className="h-4 w-4" />
         </Button>
