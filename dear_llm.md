@@ -266,7 +266,7 @@ cd frontend && npm test
 
 *This document should be updated as the project evolves. Each major feature addition or architectural change should be documented here for future developers.*
 
-## Phase 5: Migration System Refactor (Commits: 4a6b295 → 9a22535)
+## Phase 5: Migration System Refactor (Commits: 4a6b295 → ee57fe8)
 
 **Goal**: Implement proper Flyway-based migrations with dedicated container
 
@@ -276,3 +276,5 @@ cd frontend && npm test
 • **Proper dependency chain** - Backend waits for migration completion via `service_completed_successfully`
 • **Flyway migration files** - All schema changes in `db/migrations/V*.sql` tracked by Flyway's schema history
 • **Integrated workflow** - `make up` and `make migrate` automatically run migration container before services
+
+**⚠️ CRITICAL MIGRATION RULE**: From this point forward, **NEVER modify existing migration files**. Always add new migrations (V5, V6, etc.) to make changes. This maintains database migration integrity and prevents conflicts in production environments.
