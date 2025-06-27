@@ -1,0 +1,29 @@
+# Ookkee Environment Configuration Template
+# Copy this file to .envrc.development, .envrc.docker, .envrc.production, etc.
+# DO NOT commit actual environment files with real values!
+
+# Database Configuration
+# For Docker: use DB_HOST=db, for local development: use DB_HOST=localhost
+DB_HOST=db
+DB_PORT=5432
+DB_NAME=ookkee
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+# Server Configuration
+SERVER_PORT=8080
+UPLOADS_DIR=uploads
+
+# Frontend Configuration
+VITE_API_URL=http://localhost:8080
+
+# CORS Configuration  
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# API Keys (add your actual keys when needed)
+# OPENAI_API_KEY=your_openai_key_here
+# ANTHROPIC_API_KEY=your_anthropic_key_here
+# GOOGLE_AI_API_KEY=your_google_ai_key_here
+
+# Security (generate secure values for production)
+# JWT_SECRET=your_jwt_secret_here

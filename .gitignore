@@ -1,6 +1,7 @@
 # Environment files (secrets)
 config/.envrc.*
 !config/.envrc.example
+!config/.envrc.docker
 
 # Local environment
 .env
