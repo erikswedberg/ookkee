@@ -26,8 +26,8 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Install ca-certificates for SSL/TLS, Java (for Flyway), bash, and netcat
-RUN apk --no-cache add ca-certificates openjdk11-jre bash netcat-openbsd
+# Install ca-certificates for SSL/TLS, Java 17 (for Flyway), bash, and netcat
+RUN apk --no-cache add ca-certificates openjdk17-jre bash netcat-openbsd
 
 # Copy Flyway from official image
 COPY --from=flyway /flyway /flyway
