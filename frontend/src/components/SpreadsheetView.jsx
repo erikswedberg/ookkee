@@ -211,7 +211,7 @@ const SpreadsheetView = ({ project }) => {
     });
 
     // Add Category column at the end
-    return [...sortedDataColumns, "Category"];
+    return [...sortedDataColumns, "Status"];
   };
 
   const columns = getColumns();
