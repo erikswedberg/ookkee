@@ -210,8 +210,8 @@ const SpreadsheetView = ({ project }) => {
       return a.localeCompare(b);
     });
 
-    // Add Category and Status columns at the end
-    return [...sortedDataColumns, "Category", "Status"];
+    // Add Category column at the end
+    return [...sortedDataColumns, "Category"];
   };
 
   const columns = getColumns();

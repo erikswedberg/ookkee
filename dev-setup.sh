@@ -36,10 +36,19 @@ fi
 # Step 1: Install dependencies
 log_info "Installing system dependencies..."
 apt update
+
+# Create man directory to fix Java installation issue
+log_info "Creating man directories to fix Java installation..."
+mkdir -p /usr/share/man/man1
+
 apt install -y postgresql postgresql-contrib golang nodejs npm default-jre wget
 
 if [ $? -ne 0 ]; then
     log_error "Failed to install system packages"
+    # Try to fix any Java installation issues
+    log_info "Attempting to fix Java installation issues..."
+    dpkg --configure -a
+    apt-get install -f
     exit 1
 fi
 
