@@ -18,7 +18,7 @@ func GetProjects(w http.ResponseWriter, r *http.Request) {
 		FROM project 
 		WHERE user_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
-	`, TEST_USER_ID)
+	`, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch projects: %v", err), http.StatusInternalServerError)
 		return
@@ -116,7 +116,7 @@ func UpdateProject(w http.ResponseWriter, r *http.Request) {
 		UPDATE project 
 		SET name = $1, updated_at = NOW() 
 		WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL
-	`, requestData.Name, projectID, TEST_USER_ID)
+	`, requestData.Name, projectID, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update project: %v", err), http.StatusInternalServerError)
 		return
@@ -140,7 +140,7 @@ func DeleteProject(w http.ResponseWriter, r *http.Request) {
 		UPDATE project 
 		SET deleted_at = NOW() 
 		WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-	`, projectID, TEST_USER_ID)
+	`, projectID, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to delete project: %v", err), http.StatusInternalServerError)
 		return
