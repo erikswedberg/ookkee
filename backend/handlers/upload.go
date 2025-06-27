@@ -119,7 +119,7 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 		INSERT INTO project (user_id, name, original_name, csv_path, row_count) 
 		VALUES ($1, $2, $3, $4, $5) 
 		RETURNING id, user_id, name, original_name, csv_path, row_count, created_at, updated_at
-	`, TEST_USER_ID, projectName, originalName, filepath, len(dataRows)).Scan(
+	`, models.TEST_USER_ID, projectName, originalName, filepath, len(dataRows)).Scan(
 		&project.ID, &project.UserID, &project.Name, &project.OriginalName, 
 		&project.CSVPath, &project.RowCount, &project.CreatedAt, &project.UpdatedAt)
 	if err != nil {

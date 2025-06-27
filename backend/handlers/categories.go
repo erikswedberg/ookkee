@@ -10,8 +10,6 @@ import (
 	"ookkee/models"
 )
 
-const TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
-
 func GetCategories(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -20,7 +18,7 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 		FROM expense_category 
 		WHERE user_id = $1 AND deleted_at IS NULL 
 		ORDER BY sort_order ASC
-	`, TEST_USER_ID)
+	`, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch categories: %v", err), http.StatusInternalServerError)
 		return
@@ -65,7 +63,7 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 		SELECT COALESCE(MAX(sort_order), 0) 
 		FROM expense_category 
 		WHERE user_id = $1 AND deleted_at IS NULL
-	`, TEST_USER_ID).Scan(&maxSortOrder)
+	`, models.TEST_USER_ID).Scan(&maxSortOrder)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get max sort order: %v", err), http.StatusInternalServerError)
 		return
@@ -77,7 +75,7 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO expense_category (user_id, name, sort_order, is_personal) 
 		VALUES ($1, $2, $3, false) 
 		RETURNING id, name, sort_order, created_at
-	`, TEST_USER_ID, requestData.Name, maxSortOrder+1).Scan(
+	`, models.TEST_USER_ID, requestData.Name, maxSortOrder+1).Scan(
 		&newCategory.ID, &newCategory.Name, &newCategory.SortOrder, &newCategory.CreatedAt)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create category: %v", err), http.StatusInternalServerError)
@@ -116,7 +114,7 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		UPDATE expense_category 
 		SET name = $1, updated_at = NOW() 
 		WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL
-	`, requestData.Name, categoryID, TEST_USER_ID)
+	`, requestData.Name, categoryID, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update category: %v", err), http.StatusInternalServerError)
 		return
@@ -140,7 +138,7 @@ func DeleteCategory(w http.ResponseWriter, r *http.Request) {
 		UPDATE expense_category 
 		SET deleted_at = NOW() 
 		WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-	`, categoryID, TEST_USER_ID)
+	`, categoryID, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to delete category: %v", err), http.StatusInternalServerError)
 		return
@@ -179,7 +177,7 @@ func MoveCategory(w http.ResponseWriter, r *http.Request) {
 		SELECT sort_order 
 		FROM expense_category 
 		WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-	`, categoryID, TEST_USER_ID).Scan(&currentSortOrder)
+	`, categoryID, models.TEST_USER_ID).Scan(&currentSortOrder)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get category: %v", err), http.StatusInternalServerError)
 		return
@@ -206,7 +204,7 @@ func MoveCategory(w http.ResponseWriter, r *http.Request) {
 		UPDATE expense_category 
 		SET sort_order = $1 
 		WHERE sort_order = $2 AND user_id = $3 AND deleted_at IS NULL AND id != $4
-	`, currentSortOrder, targetSortOrder, TEST_USER_ID, categoryID)
+	`, currentSortOrder, targetSortOrder, models.TEST_USER_ID, categoryID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update other category: %v", err), http.StatusInternalServerError)
 		return
@@ -217,7 +215,7 @@ func MoveCategory(w http.ResponseWriter, r *http.Request) {
 		UPDATE expense_category 
 		SET sort_order = $1 
 		WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL
-	`, targetSortOrder, categoryID, TEST_USER_ID)
+	`, targetSortOrder, categoryID, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update category: %v", err), http.StatusInternalServerError)
 		return

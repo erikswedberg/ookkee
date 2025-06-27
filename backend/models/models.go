@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// TEST_USER_ID is a placeholder for user authentication
+const TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
+
 type Project struct {
 	ID           int64     `json:"id"`
 	UserID       string    `json:"user_id"`
