@@ -71,6 +71,7 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
               onChange={e => setProjectName(e.target.value)}
               placeholder="Enter project name..."
               required
+              data-testid="project-name-input"
             />
           </div>
 
@@ -94,10 +95,10 @@ const ProjectModal = ({ isOpen, onClose, onSave, project = null }) => {
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} data-testid="cancel-button">
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" data-testid="create-project-button">
               {isEditing ? "Save Changes" : "Create Project"}
             </Button>
           </DialogFooter>

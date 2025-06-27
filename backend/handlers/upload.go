@@ -32,7 +32,7 @@ func FileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("file")
+	file, header, err := r.FormFile("csvFile")
 	if err != nil {
 		http.Error(w, "No file uploaded", http.StatusBadRequest)
 		return

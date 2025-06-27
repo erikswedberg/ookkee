@@ -113,6 +113,7 @@ const FileUpload = ({ onUploadSuccess, projectName }) => {
           accept=".csv"
           onChange={handleFileChange}
           className="file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+          data-testid="csv-file-input"
         />
         {file && (
           <div className="text-sm text-muted-foreground space-y-1">
@@ -131,6 +132,7 @@ const FileUpload = ({ onUploadSuccess, projectName }) => {
           onClick={handleUpload}
           disabled={isUploading}
           className="w-full"
+          data-testid="upload-file-button"
         >
           {isUploading ? "Uploading..." : "Upload File"}
         </Button>
