@@ -1,7 +1,7 @@
--- V2__Seed_default_categories.sql
--- Add default expense categories with sort order
+-- V3__Seed_categories_with_sort_order.sql
+-- Seed expense categories with sort order
 
--- Insert default categories for test user with specified sort order
+-- Insert default categories for test user with sort order
 INSERT INTO expense_category (user_id, name, is_personal, sort_order) VALUES 
   ('00000000-0000-0000-0000-000000000001', 'Gasoline', false, 1),
   ('00000000-0000-0000-0000-000000000001', 'Meals', false, 2),

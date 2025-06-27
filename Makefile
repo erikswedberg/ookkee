@@ -31,7 +31,7 @@ up:
 		echo "Please edit config/.envrc.docker with your settings if needed"; \
 	fi
 	@echo "Loading Docker environment and starting services..."
-	@bash -c 'source ./env.sh docker && docker compose up -d'
+	@bash -c 'source ./env.sh docker && docker compose up migration --build && docker compose up -d'
 	@echo "Services started!"
 	@echo "Frontend: http://localhost:5173"
 	@echo "Backend:  http://localhost:8080"
@@ -45,7 +45,7 @@ up-dev:
 		echo "Please edit config/.envrc.docker with your settings if needed"; \
 	fi
 	@echo "Starting with hot reload..."
-	@bash -c 'source ./env.sh docker && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d'
+	@bash -c 'source ./env.sh docker && docker compose -f docker-compose.yml -f docker-compose.dev.yml up migration --build && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d'
 	@echo "Development services started with hot reload!"
 	@echo "Frontend: http://localhost:5173 (hot reload enabled)"
 	@echo "Backend:  http://localhost:8080 (hot reload enabled)"
@@ -78,8 +78,13 @@ test-integration:
 
 # Run database migrations manually
 migrate:
-	@echo "Migrations run automatically by Go backend on startup"
-	@echo "No manual migration needed!"
+	@if [ ! -f config/.envrc.docker ]; then \
+		cp config/.envrc.example config/.envrc.docker; \
+		echo "Created config/.envrc.docker from template"; \
+	fi
+	@echo "Running database migrations..."
+	@bash -c 'source ./env.sh docker && docker compose up migration --build'
+	@echo "Migrations completed!"
 
 # Clean up everything
 clean:

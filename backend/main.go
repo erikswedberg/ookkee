@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
 
 	// Get configuration from environment
 	DBHost := getEnv("DB_HOST", "localhost")
@@ -42,10 +40,8 @@ func main() {
 	}
 	defer database.Close()
 
-	// Run migrations
-	if err := database.RunMigrations(ctx); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
+	// Migrations are now handled by dedicated migration container
+	log.Println("Database migrations handled by migration container at startup")
 
 	// Setup router
 	r := chi.NewRouter()

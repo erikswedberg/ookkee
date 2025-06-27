@@ -1,8 +1,6 @@
 # Development override for hot reloading
 # Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -27,3 +25,8 @@ services:
     command: go run main.go
     environment:
       - CGO_ENABLED=0
+
+  migration:
+    # Use same migration service in dev mode
+    volumes:
+      - ./db/migrations:/flyway/sql

@@ -1,0 +1,41 @@
+# Migration container with Flyway
+# Based on the main backend Dockerfile but with Flyway for migrations
+
+FROM golang:1.24.3-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Copy go mod files (not needed for migration-only container, but keeps Dockerfile similar)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code (not needed for migration-only container, but keeps Dockerfile similar)
+COPY . .
+
+# Build the application (not needed for migration-only container, but keeps Dockerfile similar)
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+
+# Flyway stage - get Flyway from official image
+FROM flyway/flyway:10-alpine AS flyway
+
+# Final stage
+FROM alpine:latest
+
+WORKDIR /app
+
+# Install ca-certificates for SSL/TLS, Java 17 (for Flyway), bash, and netcat
+RUN apk --no-cache add ca-certificates openjdk17-jre bash netcat-openbsd
+
+# Copy Flyway from official image
+COPY --from=flyway /flyway /flyway
+RUN ln -s /flyway/flyway /usr/local/bin/flyway && flyway --version
+
+# Copy migration entrypoint script
+COPY migration-entrypoint.sh .
+RUN chmod +x ./migration-entrypoint.sh
+
+# Set entrypoint
+ENTRYPOINT ["./migration-entrypoint.sh"]
