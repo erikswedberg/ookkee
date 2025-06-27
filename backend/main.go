@@ -40,8 +40,8 @@ func main() {
 	}
 	defer database.Close()
 
-	// Migrations are now handled by Flyway in startup.sh
-	log.Println("Database migrations handled by Flyway at startup")
+	// Migrations are now handled by dedicated migration container
+	log.Println("Database migrations handled by migration container at startup")
 
 	// Setup router
 	r := chi.NewRouter()

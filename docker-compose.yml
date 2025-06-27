@@ -15,6 +15,22 @@ services:
       timeout: 5s
       retries: 5
 
+  migration:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.migration
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./db/migrations:/flyway/sql
+    depends_on:
+      db:
+        condition: service_healthy
+
   backend:
     build:
       context: ./backend
@@ -32,10 +48,11 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS}
     volumes:
       - ./uploads:/app/uploads
-      - ./db/migrations:/app/migrations
     depends_on:
       db:
         condition: service_healthy
+      migration:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   frontend:
