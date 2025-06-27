@@ -72,6 +72,7 @@ func main() {
 		r.Get("/projects/{projectID}/expenses", handlers.GetExpenses)
 		r.Put("/projects/{projectID}", handlers.UpdateProject)
 		r.Delete("/projects/{projectID}", handlers.DeleteProject)
+		r.Post("/projects/{projectID}/ai-categorize", handlers.AICategorizeExpenses)
 		
 		// Categories
 		r.Get("/categories", handlers.GetCategories)

@@ -5,6 +5,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import { useAiCategorizer } from "../hooks/useAiCategorizer";
 
 const SpreadsheetView = ({ project }) => {
   const [expenses, setExpenses] = useState([]);
@@ -17,6 +20,16 @@ const SpreadsheetView = ({ project }) => {
   const containerRef = useRef(null);
   const loadingRef = useRef(false); // Prevent race conditions
   const LIMIT = 50;
+
+  // AI Categorization hook
+  const {
+    isLoading: aiCategorizing,
+    error: aiError,
+    suggestions: aiSuggestions,
+    categorizeExpenses,
+    getSuggestionForRow,
+    getAvailableModels
+  } = useAiCategorizer(expenses, categories);
 
   // Reset when project changes
   useEffect(() => {
@@ -89,6 +102,33 @@ const SpreadsheetView = ({ project }) => {
       }
     } catch (error) {
       console.error("Failed to fetch categories:", error);
+    }
+  };
+
+  // AI Categorization function using the custom hook
+  const handleAiCategorization = async () => {
+    try {
+      const suggestions = await categorizeExpenses(project.id, 'openai');
+      
+      // Update the local state with suggestions
+      const updatedExpenses = expenses.map(expense => {
+        const suggestion = getSuggestionForRow(expense.id);
+        if (suggestion) {
+          return {
+            ...expense,
+            suggested_category_id: suggestion.categoryId,
+            ai_confidence: suggestion.confidence,
+            ai_reasoning: suggestion.reasoning
+          };
+        }
+        return expense;
+      });
+      
+      setExpenses(updatedExpenses);
+      alert(`AI categorized ${suggestions.length} expenses!`);
+      
+    } catch (error) {
+      alert(`AI categorization failed: ${error}`);
     }
   };
 
@@ -238,11 +278,25 @@ const SpreadsheetView = ({ project }) => {
     <div className="p-6">
       <Card>
         <CardHeader>
-          <CardTitle>{project.name}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {project.row_count} rows • {project.original_name} • Showing{" "}
-            {expenses.length} of {project.row_count}
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{project.name}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {project.row_count} rows • {project.original_name} • Showing{" "}
+                {expenses.length} of {project.row_count}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAiCategorization}
+              disabled={aiCategorizing || loading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`} />
+              {aiCategorizing ? 'AI Categorizing...' : 'AI Categorize'}
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent>
@@ -289,22 +343,34 @@ const SpreadsheetView = ({ project }) => {
                               }
                             >
                               {isCategory ? (
-                                // Category dropdown with actual categories
-                                <select 
-                                  className="w-full p-1 border rounded text-sm"
-                                  value={value ? value.toString() : ""}
-                                  onChange={(e) => {
-                                    // For now, just log the change - will implement update later
-                                    console.log(`Would update expense ${expense.id} to category ${e.target.value}`);
-                                  }}
-                                >
-                                  <option value=""></option>
-                                  {categories.map(category => (
-                                    <option key={category.id} value={category.id}>
-                                      {category.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                // Category dropdown with AI suggestions
+                                <div className="relative">
+                                  <select 
+                                    className={`w-full p-1 border rounded text-sm ${
+                                      expense.suggested_category_id ? 'border-blue-300 bg-blue-50' : ''
+                                    }`}
+                                    value={value ? value.toString() : expense.suggested_category_id ? expense.suggested_category_id.toString() : ""}
+                                    onChange={(e) => {
+                                      // For now, just log the change - will implement update later
+                                      console.log(`Would update expense ${expense.id} to category ${e.target.value}`);
+                                    }}
+                                  >
+                                    <option value=""></option>
+                                    {categories.map(category => {
+                                      const isAiSuggested = expense.suggested_category_id === category.id;
+                                      return (
+                                        <option key={category.id} value={category.id}>
+                                          {category.name}{isAiSuggested ? ' (AI Suggested)' : ''}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                  {expense.suggested_category_id && (
+                                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                                      <span className="text-white text-xs font-bold">AI</span>
+                                    </div>
+                                  )}
+                                </div>
                               ) : isStatus ? (
                                 // Status badge
                                 <span className={`px-2 py-1 rounded-full text-xs ${
