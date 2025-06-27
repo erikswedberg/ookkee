@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "test:e2e": "node test/e2e-automation.cjs",
+    "test:e2e:headless": "node test/e2e-automation.cjs --headless"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -48,6 +50,7 @@
     "globals": "^16.0.0",
     "jsdom": "^26.1.0",
     "prettier": "^3.6.1",
+    "selenium-webdriver": "^4.33.0",
     "tailwindcss": "^4.1.10",
     "vite": "^6.3.5",
     "vitest": "^3.2.4"
