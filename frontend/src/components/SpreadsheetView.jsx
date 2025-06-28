@@ -16,6 +16,7 @@ const SpreadsheetView = ({ project }) => {
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
+  const [processingRows, setProcessingRows] = useState(new Set()); // Track rows being AI processed
   const loadMoreRef = useRef(null);
   const containerRef = useRef(null);
   const loadingRef = useRef(false); // Prevent race conditions
@@ -107,8 +108,30 @@ const SpreadsheetView = ({ project }) => {
 
   // AI Categorization function using the custom hook
   const handleAiCategorization = async () => {
+    // Ensure we have data before proceeding
+    if (!expenses.length || !categories.length) {
+      console.warn('Cannot categorize: expenses or categories not loaded yet');
+      return;
+    }
+
+    // Get next 20 uncategorized expenses that haven't been AI processed yet
+    const uncategorizedExpenses = expenses.filter(expense => 
+      !expense.accepted_category_id && 
+      !expense.suggested_category_id &&
+      !processingRows.has(expense.id)
+    ).slice(0, 20);
+
+    if (uncategorizedExpenses.length === 0) {
+      console.log('No more uncategorized expenses to process');
+      return;
+    }
+
+    // Mark these rows as being processed
+    const processingIds = new Set(uncategorizedExpenses.map(e => e.id));
+    setProcessingRows(prev => new Set([...prev, ...processingIds]));
+
     try {
-      const suggestions = await categorizeExpenses(project.id, 'openai');
+      const suggestions = await categorizeExpenses(project.id, 'openai', uncategorizedExpenses);
       
       // Update the local state with suggestions
       const updatedExpenses = expenses.map(expense => {
@@ -125,10 +148,17 @@ const SpreadsheetView = ({ project }) => {
       });
       
       setExpenses(updatedExpenses);
-      alert(`AI categorized ${suggestions.length} expenses!`);
+      console.log(`AI categorized ${suggestions.length} expenses`);
       
     } catch (error) {
-      alert(`AI categorization failed: ${error}`);
+      console.error(`AI categorization failed:`, error);
+    } finally {
+      // Remove from processing state
+      setProcessingRows(prev => {
+        const newSet = new Set(prev);
+        processingIds.forEach(id => newSet.delete(id));
+        return newSet;
+      });
     }
   };
 
@@ -137,7 +167,7 @@ const SpreadsheetView = ({ project }) => {
     const currentLoadMoreRef = loadMoreRef.current;
     const currentContainerRef = containerRef.current;
     
-    if (!currentLoadMoreRef || !currentContainerRef) {
+    if (!currentLoadMoreRef || !currentContainerRef || expenses.length === 0) {
       return;
     }
 
@@ -161,7 +191,7 @@ const SpreadsheetView = ({ project }) => {
     return () => {
       observer.unobserve(currentLoadMoreRef);
     };
-  }, [hasMore, page, expenses.length]); // Add expenses.length to re-run when data changes
+  }, [hasMore, page]); // Remove expenses.length dependency to prevent re-triggering
 
   const formatAmount = amount => {
     if (amount === null || amount === undefined) return "";
@@ -290,17 +320,24 @@ const SpreadsheetView = ({ project }) => {
               variant="outline"
               size="sm"
               onClick={handleAiCategorization}
-              disabled={aiCategorizing || loading}
+              disabled={aiCategorizing || loading || expenses.length === 0 || categories.length === 0}
               className="flex items-center gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`} />
-              {aiCategorizing ? 'AI Categorizing...' : 'AI Categorize'}
+              {aiCategorizing ? 'AI Categorizing...' : (() => {
+                const uncategorizedCount = expenses.filter(e => 
+                  !e.accepted_category_id && 
+                  !e.suggested_category_id &&
+                  !processingRows.has(e.id)
+                ).length;
+                return uncategorizedCount > 0 ? `AI Categorize (${Math.min(uncategorizedCount, 20)})` : 'AI Categorize';
+              })()}
             </Button>
           </div>
         </CardHeader>
 
         <CardContent>
-          <div className="overflow-auto" ref={containerRef}>
+          <div className="overflow-auto relative" ref={containerRef}>
             {columns.length === 0 ? (
               <div className="flex items-center justify-center p-8">
                 <span className="text-muted-foreground">Loading...</span>
@@ -308,8 +345,8 @@ const SpreadsheetView = ({ project }) => {
             ) : (
               <>
                 <table className="w-full caption-bottom text-sm">
-                  <thead className="[&_tr]:border-b">
-                    <TableRow className="sticky top-0 z-10 bg-background">
+                  <thead className="[&_tr]:border-b sticky top-0 z-10">
+                    <TableRow className="bg-background border-b">
                       <TableHead className="w-16 bg-background">#</TableHead>
                       {columns.map(column => (
                         <TableHead key={column} className="bg-background">{column}</TableHead>
@@ -372,14 +409,25 @@ const SpreadsheetView = ({ project }) => {
                                   )}
                                 </div>
                               ) : isStatus ? (
-                                // Status badge
-                                <span className={`px-2 py-1 rounded-full text-xs ${
-                                  value === "Categorized" 
-                                    ? "bg-green-100 text-green-800" 
-                                    : "bg-gray-100 text-gray-600"
-                                }`}>
-                                  {value}
-                                </span>
+                                // Status badge with spinners for processing
+                                processingRows.has(expense.id) ? (
+                                  <div className="flex items-center gap-1">
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                                    <span className="text-xs text-blue-600">Processing...</span>
+                                  </div>
+                                ) : (
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    expense.suggested_category_id && !expense.accepted_category_id
+                                      ? "bg-blue-100 text-blue-800" 
+                                      : value === "Categorized" 
+                                        ? "bg-green-100 text-green-800" 
+                                        : "bg-gray-100 text-gray-600"
+                                  }`}>
+                                    {expense.suggested_category_id && !expense.accepted_category_id 
+                                      ? "Suggested" 
+                                      : value}
+                                  </span>
+                                )
                               ) : isAmount && typeof value === "number" ? (
                                 formatAmount(value)
                               ) : isDate ? (

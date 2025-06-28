@@ -20,9 +20,9 @@ import (
 
 // AICategorizeRequest represents the request payload for AI categorization
 type AICategorizeRequest struct {
-	Expenses   []ExpenseForAI           `json:"expenses"`
-	Categories []models.ExpenseCategory `json:"categories"`
-	Model      string                   `json:"model,omitempty"` // "openai" or "anthropic"
+	Expenses   []ExpenseForAI `json:"expenses"`
+	Categories []string       `json:"categories"`      // Array of category names
+	Model      string         `json:"model,omitempty"` // "openai" or "anthropic"
 }
 
 // ExpenseForAI represents an expense to be categorized by AI
@@ -75,6 +75,14 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		req.Expenses = req.Expenses[:20]
 	}
 
+	// Get category details for the prompt
+	categoryDetails, err := getCategoryDetails(req.Categories)
+	if err != nil {
+		log.Printf("Failed to get category details: %v", err)
+		http.Error(w, "Failed to get category details", http.StatusInternalServerError)
+		return
+	}
+
 	// Determine which AI model to use
 	modelProvider := req.Model
 	if modelProvider == "" {
@@ -86,14 +94,14 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Failed to initialize %s client: %v", modelProvider, err)
 		// Fallback to mock responses if no AI service is available
-		mockResponses := generateMockAIResponses(req.Expenses, req.Categories)
+		mockResponses := generateMockAIResponses(req.Expenses, categoryDetails)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponses)
 		return
 	}
 
 	// Create categorization prompt
-	prompt := buildCategorizationPrompt(req.Expenses, req.Categories)
+	prompt := buildCategorizationPrompt(req.Expenses, categoryDetails)
 
 	// Call AI model
 	ctx := context.Background()
@@ -124,6 +132,34 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 	// Return AI categorization results
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(aiResponses)
+}
+
+// getCategoryDetails fetches category details from database by names
+func getCategoryDetails(categoryNames []string) ([]models.ExpenseCategory, error) {
+	if len(categoryNames) == 0 {
+		return nil, fmt.Errorf("no categories provided")
+	}
+
+	// Build SQL query with placeholders
+	query := "SELECT id, name, sort_order, created_at FROM expense_category WHERE name = ANY($1) ORDER BY sort_order"
+
+	rows, err := database.Pool.Query(context.Background(), query, categoryNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []models.ExpenseCategory
+	for rows.Next() {
+		var cat models.ExpenseCategory
+		err := rows.Scan(&cat.ID, &cat.Name, &cat.SortOrder, &cat.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		categories = append(categories, cat)
+	}
+
+	return categories, nil
 }
 
 // buildCategorizationPrompt creates the prompt for AI categorization
