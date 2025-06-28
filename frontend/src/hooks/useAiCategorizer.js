@@ -53,7 +53,7 @@ export const useAiCategorizer = (rows = [], categories = [], learnedMap = {}) =>
         },
         body: JSON.stringify({
           expenses: expensesForAI,
-          categories: categories,
+          categories: categories.map(cat => cat.name), // Send only category names
           model: model
         })
       });
