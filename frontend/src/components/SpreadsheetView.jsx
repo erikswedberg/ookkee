@@ -32,15 +32,6 @@ const SpreadsheetView = ({ project }) => {
     getAvailableModels
   } = useAiCategorizer(expenses, categories);
 
-  // Reset when project changes
-  useEffect(() => {
-    setExpenses([]);
-    setPage(0);
-    setHasMore(true);
-    setError(null);
-    loadingRef.current = false;
-  }, [project.id]);
-
   // Load expenses function
   const loadExpenses = async (pageNum = 0, isInitial = false) => {
     // Prevent multiple simultaneous requests
@@ -84,15 +75,69 @@ const SpreadsheetView = ({ project }) => {
     }
   };
 
-  // Load initial data and categories
+  // Reset and load data when project changes
   useEffect(() => {
-    if (project) {
-      loadExpenses(0, true);
-      fetchCategories();
-    }
-  }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!project?.id) return;
+    
+    const abortController = new AbortController();
+    
+    // Reset state
+    setExpenses([]);
+    setPage(0);
+    setHasMore(true);
+    setError(null);
+    setProcessingRows(new Set());
+    loadingRef.current = false;
+    
+    // Load initial data with abort signal
+    const loadInitialData = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        
+        // Load expenses and categories in parallel
+        const [expensesResponse, categoriesResponse] = await Promise.all([
+          fetch(`${API_URL}/api/projects/${project.id}/expenses?offset=0&limit=${LIMIT}`, {
+            signal: abortController.signal
+          }),
+          fetch(`${API_URL}/api/categories`, {
+            signal: abortController.signal
+          })
+        ]);
+        
+        if (abortController.signal.aborted) return;
+        
+        // Handle expenses
+        if (expensesResponse.ok) {
+          const expensesData = await expensesResponse.json();
+          if (expensesData.length < LIMIT) {
+            setHasMore(false);
+          }
+          setExpenses(expensesData);
+        }
+        
+        // Handle categories
+        if (categoriesResponse.ok) {
+          const categoriesData = await categoriesResponse.json();
+          setCategories(categoriesData || []);
+        }
+        
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Failed to load initial data:', err);
+          setError(`Failed to load data: ${err.message}`);
+        }
+      }
+    };
+    
+    loadInitialData();
+    
+    // Cleanup function to abort requests if component unmounts or project changes
+    return () => {
+      abortController.abort();
+    };
+  }, [project?.id]); // Only depend on project.id to avoid duplicate calls
 
-  // Fetch categories
+  // Fetch categories (used for refreshing categories after updates)
   const fetchCategories = async () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
