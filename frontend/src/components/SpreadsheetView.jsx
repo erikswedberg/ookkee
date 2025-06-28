@@ -275,7 +275,7 @@ const SpreadsheetView = ({ project }) => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 h-full">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -300,7 +300,7 @@ const SpreadsheetView = ({ project }) => {
         </CardHeader>
 
         <CardContent>
-          <div className="max-h-[600px] overflow-auto" ref={containerRef}>
+          <div className="overflow-auto" ref={containerRef}>
             {columns.length === 0 ? (
               <div className="flex items-center justify-center p-8">
                 <span className="text-muted-foreground">Loading...</span>
