@@ -124,7 +124,7 @@ function App() {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-100px)]">
+      <div className="flex">
         <ProjectsSidebar
           projects={projects}
           selectedProject={selectedProject}
