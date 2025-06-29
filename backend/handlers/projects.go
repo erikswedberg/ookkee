@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"ookkee/database"
@@ -61,7 +62,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 	// Fetch expenses with pagination
 	rows, err := database.Pool.Query(ctx, `
 		SELECT id, project_id, row_index, raw_data, description, amount, 
-		       suggested_category_id, accepted_category_id
+		       suggested_category_id, accepted_category_id, is_personal
 		FROM expense 
 		WHERE project_id = $1 AND deleted_at IS NULL
 		ORDER BY row_index ASC
@@ -77,7 +78,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var expense models.Expense
 		err := rows.Scan(&expense.ID, &expense.ProjectID, &expense.RowIndex, &expense.RawData,
-			&expense.Description, &expense.Amount, &expense.SuggestedCategoryID, &expense.AcceptedCategoryID)
+			&expense.Description, &expense.Amount, &expense.SuggestedCategoryID, &expense.AcceptedCategoryID, &expense.IsPersonal)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to scan expense: %v", err), http.StatusInternalServerError)
 			return
@@ -163,7 +164,8 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req struct {
-		AcceptedCategoryID *int `json:"accepted_category_id"`
+		AcceptedCategoryID *int  `json:"accepted_category_id"`
+		IsPersonal         *bool `json:"is_personal"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -171,12 +173,40 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update the expense
-	_, err := database.Pool.Exec(ctx, `
+	// Build dynamic update query based on provided fields
+	updateFields := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if req.AcceptedCategoryID != nil {
+		updateFields = append(updateFields, fmt.Sprintf("accepted_category_id = $%d", argIndex))
+		args = append(args, req.AcceptedCategoryID)
+		argIndex++
+		updateFields = append(updateFields, "accepted_at = CURRENT_TIMESTAMP")
+	}
+
+	if req.IsPersonal != nil {
+		updateFields = append(updateFields, fmt.Sprintf("is_personal = $%d", argIndex))
+		args = append(args, *req.IsPersonal)
+		argIndex++
+	}
+
+	if len(updateFields) == 0 {
+		http.Error(w, "No fields to update", http.StatusBadRequest)
+		return
+	}
+
+	// Add expense ID as final parameter
+	args = append(args, expenseID)
+
+	// Execute update
+	updateQuery := fmt.Sprintf(`
 		UPDATE expense 
-		SET accepted_category_id = $1, accepted_at = CURRENT_TIMESTAMP
-		WHERE id = $2
-	`, req.AcceptedCategoryID, expenseID)
+		SET %s
+		WHERE id = $%d
+	`, strings.Join(updateFields, ", "), argIndex)
+
+	_, err := database.Pool.Exec(ctx, updateQuery, args...)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update expense: %v", err), http.StatusInternalServerError)
@@ -185,9 +215,16 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	response := map[string]interface{}{
-		"message":              "Expense updated successfully",
-		"expense_id":           expenseID,
-		"accepted_category_id": req.AcceptedCategoryID,
+		"message":    "Expense updated successfully",
+		"expense_id": expenseID,
+	}
+
+	if req.AcceptedCategoryID != nil {
+		response["accepted_category_id"] = req.AcceptedCategoryID
+	}
+
+	if req.IsPersonal != nil {
+		response["is_personal"] = *req.IsPersonal
 	}
 
 	w.Header().Set("Content-Type", "application/json")

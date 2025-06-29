@@ -4,6 +4,14 @@ import SpreadsheetView from "./components/SpreadsheetView";
 import ProjectModal from "./components/ProjectModal";
 import CategoryModal from "./components/CategoryModal";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import "./App.css";
 
 function App() {
@@ -12,6 +20,7 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -118,9 +127,60 @@ function App() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="p-6">
-          <h1 className="text-3xl font-bold">Ookkee</h1>
-          <p className="text-muted-foreground">AI Bookkeeping Assistant</p>
+        <div className="p-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Ookkee</h1>
+            <p className="text-muted-foreground">AI Bookkeeping Assistant</p>
+          </div>
+          <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
+            <DialogTrigger asChild>
+              <button className="text-blue-600 hover:text-blue-800 underline">
+                Help
+              </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Keyboard Shortcuts</DialogTitle>
+                <DialogDescription>
+                  Available shortcuts when interacting with the table
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 items-center gap-4">
+                  <div className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+                    ↑ / ↓
+                  </div>
+                  <div className="text-sm">
+                    Navigate between rows
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 items-center gap-4">
+                  <div className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+                    A
+                  </div>
+                  <div className="text-sm">
+                    Accept AI suggestion
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 items-center gap-4">
+                  <div className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+                    P
+                  </div>
+                  <div className="text-sm">
+                    Toggle Personal expense
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 items-center gap-4">
+                  <div className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+                    Esc
+                  </div>
+                  <div className="text-sm">
+                    Deactivate table
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </header>
 

@@ -28,6 +28,7 @@ type Expense struct {
 	Amount              *float64        `json:"amount"`
 	SuggestedCategoryID *int64          `json:"suggested_category_id"`
 	AcceptedCategoryID  *int64          `json:"accepted_category_id"`
+	IsPersonal          bool            `json:"is_personal"`
 }
 
 type Category struct {

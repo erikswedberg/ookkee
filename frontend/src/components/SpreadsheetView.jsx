@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw } from "lucide-react";
 import { useAiCategorizer } from "../hooks/useAiCategorizer";
 
@@ -17,8 +18,11 @@ const SpreadsheetView = ({ project }) => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [processingRows, setProcessingRows] = useState(new Set()); // Track rows being AI processed
+  const [isTableActive, setIsTableActive] = useState(false);
+  const [activeRowIndex, setActiveRowIndex] = useState(null);
   const loadMoreRef = useRef(null);
   const containerRef = useRef(null);
+  const tableRef = useRef(null);
   const loadingRef = useRef(false); // Prevent race conditions
   const LIMIT = 50;
 
@@ -31,6 +35,64 @@ const SpreadsheetView = ({ project }) => {
     getSuggestionForRow,
     getAvailableModels
   } = useAiCategorizer(expenses, categories);
+
+  // Keyboard navigation handlers
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!isTableActive) return;
+      
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          setActiveRowIndex(prev => {
+            if (prev === null || prev === 0) return expenses.length - 1;
+            return prev - 1;
+          });
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setActiveRowIndex(prev => {
+            if (prev === null || prev >= expenses.length - 1) return 0;
+            return prev + 1;
+          });
+          break;
+        case 'Escape':
+          setIsTableActive(false);
+          setActiveRowIndex(null);
+          break;
+        case 'a':
+        case 'A':
+          if (activeRowIndex !== null) {
+            e.preventDefault();
+            handleAcceptSuggestion(expenses[activeRowIndex]);
+          }
+          break;
+        case 'p':
+        case 'P':
+          if (activeRowIndex !== null) {
+            e.preventDefault();
+            handleTogglePersonal(expenses[activeRowIndex]);
+          }
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isTableActive, activeRowIndex, expenses]);
+
+  // Click outside handler
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (tableRef.current && !tableRef.current.contains(e.target)) {
+        setIsTableActive(false);
+        setActiveRowIndex(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Load expenses function
   const loadExpenses = async (pageNum = 0, isInitial = false) => {
@@ -150,8 +212,8 @@ const SpreadsheetView = ({ project }) => {
     }
   };
 
-  // Update expense category function
-  const updateExpenseCategory = async (expenseId, categoryId) => {
+  // Update expense function (handles both category and personal)
+  const updateExpense = async (expenseId, updates) => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
       const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
@@ -159,9 +221,7 @@ const SpreadsheetView = ({ project }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          accepted_category_id: categoryId || null
-        })
+        body: JSON.stringify(updates)
       });
 
       if (!response.ok) {
@@ -172,16 +232,34 @@ const SpreadsheetView = ({ project }) => {
       setExpenses(currentExpenses => 
         currentExpenses.map(expense => 
           expense.id === expenseId 
-            ? { ...expense, accepted_category_id: categoryId || null }
+            ? { ...expense, ...updates }
             : expense
         )
       );
 
-      console.log(`Updated expense ${expenseId} to category ${categoryId}`);
+      console.log(`Updated expense ${expenseId}:`, updates);
     } catch (error) {
-      console.error('Failed to update expense category:', error);
-      // You might want to show a toast notification here
+      console.error('Failed to update expense:', error);
     }
+  };
+
+  // Convenience functions for specific actions
+  const updateExpenseCategory = (expenseId, categoryId) => {
+    return updateExpense(expenseId, { accepted_category_id: categoryId || null });
+  };
+
+  const handleAcceptSuggestion = (expense) => {
+    if (expense.suggested_category_id && !expense.accepted_category_id) {
+      updateExpenseCategory(expense.id, expense.suggested_category_id);
+    }
+  };
+
+  const handleTogglePersonal = (expense) => {
+    updateExpense(expense.id, { is_personal: !expense.is_personal });
+  };
+
+  const handleClearCategory = (expense) => {
+    updateExpenseCategory(expense.id, null);
   };
 
   // AI Categorization function using the custom hook
@@ -314,6 +392,9 @@ const SpreadsheetView = ({ project }) => {
       case "Category":
         // Return accepted category first, then suggested category as fallback
         return expense.accepted_category_id || expense.suggested_category_id || "";
+      case "Action":
+        // Action column doesn't return a simple value
+        return null;
       case "Status":
         // Status based on accepted vs suggested vs uncategorized
         if (expense.accepted_category_id) {
@@ -373,8 +454,8 @@ const SpreadsheetView = ({ project }) => {
       return a.localeCompare(b);
     });
 
-    // Add Category column at the end
-    return [...sortedDataColumns, "Status"];
+    // Add Category, Action, and Status columns at the end
+    return [...sortedDataColumns, "Category", "Action", "Status"];
   };
 
   const columns = getColumns();
@@ -437,18 +518,36 @@ const SpreadsheetView = ({ project }) => {
               </div>
             ) : (
               <>
-                <table className="w-full caption-bottom text-sm">
+                <table className="w-full caption-bottom text-sm" ref={tableRef}>
                   <thead className="[&_tr]:border-b sticky top-0 z-10">
                     <TableRow className="bg-background border-b">
                       <TableHead className="w-16 bg-background">#</TableHead>
                       {columns.map(column => (
-                        <TableHead key={column} className="bg-background">{column}</TableHead>
+                        <TableHead 
+                          key={column} 
+                          className={`bg-background ${
+                            column === "Status" ? "text-right" : ""
+                          }`}
+                        >
+                          {column}
+                        </TableHead>
                       ))}
                     </TableRow>
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
-                    {expenses.map(expense => (
-                      <TableRow key={expense.id}>
+                    {expenses.map((expense, expenseIndex) => (
+                      <TableRow 
+                        key={expense.id}
+                        className={`cursor-pointer hover:bg-muted/50 ${
+                          activeRowIndex === expenseIndex 
+                            ? 'bg-yellow-50 ring-2 ring-blue-300' 
+                            : ''
+                        }`}
+                        onClick={() => {
+                          setIsTableActive(true);
+                          setActiveRowIndex(expenseIndex);
+                        }}
+                      >
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {expense.row_index + 1}
                         </TableCell>
@@ -459,6 +558,7 @@ const SpreadsheetView = ({ project }) => {
                             .includes("amount");
                           const isDate = column.toLowerCase().includes("date");
                           const isCategory = column === "Category";
+                          const isAction = column === "Action";
                           const isStatus = column === "Status";
 
                           return (
@@ -468,7 +568,7 @@ const SpreadsheetView = ({ project }) => {
                                 isAmount
                                   ? `font-mono ${getAmountClass(value)}`
                                   : isStatus
-                                    ? "text-sm"
+                                    ? "text-sm text-right"
                                     : ""
                               }
                             >
@@ -504,6 +604,58 @@ const SpreadsheetView = ({ project }) => {
                                       <span className="text-white text-xs font-bold">AI</span>
                                     </div>
                                   )}
+                                </div>
+                              ) : isAction ? (
+                                // Action column with Accept, Personal, Clear
+                                <div className={`flex items-center gap-2 text-xs ${
+                                  activeRowIndex === expenseIndex ? 'opacity-100' : 'opacity-0 hover:opacity-100'
+                                }`}>
+                                  <a
+                                    className={`text-blue-600 hover:text-blue-800 underline cursor-pointer ${
+                                      !expense.suggested_category_id || expense.accepted_category_id 
+                                        ? 'opacity-50 cursor-not-allowed pointer-events-none' 
+                                        : ''
+                                    }`}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (expense.suggested_category_id && !expense.accepted_category_id) {
+                                        handleAcceptSuggestion(expense);
+                                      }
+                                    }}
+                                  >
+                                    Accept
+                                  </a>
+                                  <span className="text-gray-300">|</span>
+                                  <label className="flex items-center gap-1 cursor-pointer">
+                                    <Checkbox 
+                                      checked={expense.is_personal || false}
+                                      onCheckedChange={(checked) => {
+                                        handleTogglePersonal(expense);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <span 
+                                      className="text-gray-600 hover:text-gray-800"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTogglePersonal(expense);
+                                      }}
+                                    >
+                                      Personal
+                                    </span>
+                                  </label>
+                                  <span className="text-gray-300">|</span>
+                                  <a
+                                    className="text-red-600 hover:text-red-800 underline cursor-pointer"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleClearCategory(expense);
+                                    }}
+                                  >
+                                    Clear
+                                  </a>
                                 </div>
                               ) : isStatus ? (
                                 // Status badge with spinners for processing
