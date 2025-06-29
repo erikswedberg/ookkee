@@ -150,3 +150,47 @@ func DeleteProject(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message": "Project deleted successfully"}`))
 }
+
+// UpdateExpense updates an expense's accepted category
+func UpdateExpense(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	expenseID := chi.URLParam(r, "expenseID")
+
+	if expenseID == "" {
+		http.Error(w, "Expense ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		AcceptedCategoryID *int `json:"accepted_category_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Update the expense
+	_, err := database.Pool.Exec(ctx, `
+		UPDATE expense 
+		SET accepted_category_id = $1, accepted_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`, req.AcceptedCategoryID, expenseID)
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to update expense: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response
+	response := map[string]interface{}{
+		"message":              "Expense updated successfully",
+		"expense_id":           expenseID,
+		"accepted_category_id": req.AcceptedCategoryID,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}

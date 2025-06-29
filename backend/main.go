@@ -74,6 +74,9 @@ func main() {
 		r.Delete("/projects/{projectID}", handlers.DeleteProject)
 		r.Post("/projects/{projectID}/ai-categorize", handlers.AICategorizeExpenses)
 		
+		// Expenses
+		r.Put("/expenses/{expenseID}", handlers.UpdateExpense)
+		
 		// Categories
 		r.Get("/categories", handlers.GetCategories)
 		r.Post("/categories", handlers.CreateCategory)

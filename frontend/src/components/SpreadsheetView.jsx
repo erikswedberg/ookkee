@@ -150,6 +150,40 @@ const SpreadsheetView = ({ project }) => {
     }
   };
 
+  // Update expense category function
+  const updateExpenseCategory = async (expenseId, categoryId) => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accepted_category_id: categoryId || null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update expense: ${response.status}`);
+      }
+
+      // Update local state immediately
+      setExpenses(currentExpenses => 
+        currentExpenses.map(expense => 
+          expense.id === expenseId 
+            ? { ...expense, accepted_category_id: categoryId || null }
+            : expense
+        )
+      );
+
+      console.log(`Updated expense ${expenseId} to category ${categoryId}`);
+    } catch (error) {
+      console.error('Failed to update expense category:', error);
+      // You might want to show a toast notification here
+    }
+  };
+
   // AI Categorization function using the custom hook
   const handleAiCategorization = async () => {
     // Ensure we have data before proceeding
@@ -278,11 +312,17 @@ const SpreadsheetView = ({ project }) => {
     // Handle special columns
     switch (column) {
       case "Category":
-        // Return the category ID for the dropdown
-        return expense.accepted_category_id || "";
+        // Return accepted category first, then suggested category as fallback
+        return expense.accepted_category_id || expense.suggested_category_id || "";
       case "Status":
-        // Simple status based on whether category is assigned
-        return expense.accepted_category_id ? "Categorized" : "Uncategorized";
+        // Status based on accepted vs suggested vs uncategorized
+        if (expense.accepted_category_id) {
+          return "Accepted";
+        } else if (expense.suggested_category_id) {
+          return "Suggested";
+        } else {
+          return "Uncategorized";
+        }
       default:
         // Check if it's in the raw_data
         if (expense.raw_data && expense.raw_data[column]) {
@@ -437,17 +477,21 @@ const SpreadsheetView = ({ project }) => {
                                 <div className="relative">
                                   <select 
                                     className={`w-full p-1 border rounded text-sm ${
-                                      expense.suggested_category_id ? 'border-blue-300 bg-blue-50' : ''
+                                      expense.accepted_category_id 
+                                        ? 'border-green-300 bg-green-50' 
+                                        : expense.suggested_category_id 
+                                          ? 'border-blue-300 bg-blue-50' 
+                                          : ''
                                     }`}
-                                    value={value ? value.toString() : expense.suggested_category_id ? expense.suggested_category_id.toString() : ""}
+                                    value={expense.accepted_category_id ? expense.accepted_category_id.toString() : expense.suggested_category_id ? expense.suggested_category_id.toString() : ""}
                                     onChange={(e) => {
-                                      // For now, just log the change - will implement update later
-                                      console.log(`Would update expense ${expense.id} to category ${e.target.value}`);
+                                      const newCategoryId = e.target.value ? parseInt(e.target.value) : null;
+                                      updateExpenseCategory(expense.id, newCategoryId);
                                     }}
                                   >
                                     <option value=""></option>
                                     {categories.map(category => {
-                                      const isAiSuggested = expense.suggested_category_id === category.id;
+                                      const isAiSuggested = expense.suggested_category_id === category.id && !expense.accepted_category_id;
                                       return (
                                         <option key={category.id} value={category.id}>
                                           {category.name}{isAiSuggested ? ' 💡' : ''}
@@ -455,7 +499,7 @@ const SpreadsheetView = ({ project }) => {
                                       );
                                     })}
                                   </select>
-                                  {expense.suggested_category_id && (
+                                  {expense.suggested_category_id && !expense.accepted_category_id && (
                                     <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
                                       <span className="text-white text-xs font-bold">AI</span>
                                     </div>
@@ -469,15 +513,13 @@ const SpreadsheetView = ({ project }) => {
                                   </div>
                                 ) : (
                                   <span className={`px-2 py-1 rounded-full text-xs ${
-                                    expense.suggested_category_id && !expense.accepted_category_id
-                                      ? "bg-blue-100 text-blue-800" 
-                                      : value === "Categorized" 
-                                        ? "bg-green-100 text-green-800" 
+                                    value === "Accepted"
+                                      ? "bg-green-100 text-green-800" 
+                                      : value === "Suggested"
+                                        ? "bg-blue-100 text-blue-800" 
                                         : "bg-gray-100 text-gray-600"
                                   }`}>
-                                    {expense.suggested_category_id && !expense.accepted_category_id 
-                                      ? "Suggested" 
-                                      : value}
+                                    {value}
                                   </span>
                                 )
                               ) : isAmount && typeof value === "number" ? (
