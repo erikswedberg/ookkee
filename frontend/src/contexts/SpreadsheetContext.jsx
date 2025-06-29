@@ -53,6 +53,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [processingRows, setProcessingRows] = useState(new Set());
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
+  const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
   
   const loadMoreRef = useRef(null);
   const containerRef = useRef(null);
@@ -140,15 +141,37 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [containerRef]);
 
+  // Set active row with proper tab index management
+  const setActiveRowWithTabIndex = useCallback((newIndex) => {
+    // Clear tabIndex from previous active row
+    if (previousActiveRowIndex !== null) {
+      const prevRow = document.querySelector(`[data-row-index="${previousActiveRowIndex}"]`);
+      if (prevRow) {
+        prevRow.setAttribute('tabindex', '-1');
+      }
+    }
+    
+    // Set tabIndex on new active row
+    if (newIndex !== null) {
+      const newRow = document.querySelector(`[data-row-index="${newIndex}"]`);
+      if (newRow) {
+        newRow.setAttribute('tabindex', '0');
+      }
+    }
+    
+    setPreviousActiveRowIndex(activeRowIndex);
+    setActiveRowIndex(newIndex);
+  }, [activeRowIndex, previousActiveRowIndex]);
+
   // Auto-advance to next row helper
   const advanceToNextRow = useCallback((expense) => {
     const currentIndex = expenses.findIndex(e => e.id === expense.id);
     if (currentIndex !== -1 && currentIndex === activeRowIndex && currentIndex < expenses.length - 1) {
       const newIndex = currentIndex + 1;
-      setActiveRowIndex(newIndex);
+      setActiveRowWithTabIndex(newIndex);
       scrollActiveRowIntoView(newIndex);
     }
-  }, [expenses, activeRowIndex, setActiveRowIndex, scrollActiveRowIntoView]);
+  }, [expenses, activeRowIndex, setActiveRowWithTabIndex, scrollActiveRowIntoView]);
 
   const handleTogglePersonal = useCallback((expense) => {
     updateExpense(expense.id, { is_personal: !expense.is_personal });
@@ -168,14 +191,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   }, [updateExpenseCategory, advanceToNextRow]);
 
   const handleClearCategory = (expense) => {
-    // Clear both accepted and suggested categories by setting to -1 (which backend will treat as null)
-    // But update local state to null for proper UI display
-    updateExpense(expense.id, { 
-      accepted_category_id: -1,
-      suggested_category_id: -1 
-    });
-    
-    // Update local state immediately with null values for UI
+    // Update local state immediately FIRST to prevent green flash
     setExpenses(currentExpenses => 
       currentExpenses.map(exp => 
         exp.id === expense.id 
@@ -183,6 +199,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           : exp
       )
     );
+    
+    // Then send API call
+    updateExpense(expense.id, { 
+      accepted_category_id: -1,
+      suggested_category_id: -1 
+    });
   };
 
   // AI Categorization function using the custom hook
@@ -363,21 +385,18 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
-          setActiveRowIndex(prev => {
-            if (prev === null || prev === 0) return expenses.length - 1;
-            return prev - 1;
-          });
+          const upIndex = activeRowIndex === null || activeRowIndex === 0 ? expenses.length - 1 : activeRowIndex - 1;
+          setActiveRowWithTabIndex(upIndex);
           break;
         case 'ArrowDown':
           e.preventDefault();
-          setActiveRowIndex(prev => {
-            if (prev === null || prev >= expenses.length - 1) return 0;
-            return prev + 1;
-          });
+          const downIndex = activeRowIndex === null || activeRowIndex >= expenses.length - 1 ? 0 : activeRowIndex + 1;
+          setActiveRowWithTabIndex(downIndex);
+          setTimeout(() => scrollActiveRowIntoView(downIndex), 0);
           break;
         case 'Escape':
           setIsTableActive(false);
-          setActiveRowIndex(null);
+          setActiveRowWithTabIndex(null);
           break;
         case 'a':
         case 'A':
@@ -399,7 +418,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isTableActive, activeRowIndex, expenses, handleAcceptSuggestion, handleTogglePersonal]);
+  }, [isTableActive, activeRowIndex, expenses, handleAcceptSuggestion, handleTogglePersonal, scrollActiveRowIntoView, setActiveRowWithTabIndex]);
 
   const value = {
     // Data state
@@ -430,6 +449,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     handleClearCategory,
     fetchProgress,
     loadExpenses,
+    setActiveRowWithTabIndex,
     
     // Refs
     loadMoreRef,

@@ -74,6 +74,7 @@ const SpreadsheetTable = () => {
     handleAcceptSuggestion,
     handleAiCategorization,
     handleClearCategory,
+    setActiveRowWithTabIndex,
     loadMoreRef,
     containerRef,
     tableRef,
@@ -179,14 +180,11 @@ const SpreadsheetTable = () => {
       }
     };
 
-    const expenseIndex = expenses.indexOf(expense);
-    
     return (
       <div className={`category-column ${getCategoryClassName(expense)}`}>
         <select 
           value={getCategoryValue(expense)}
           onChange={handleCategoryChange}
-          tabIndex={activeRowIndex === expenseIndex ? 0 : -1}
         >
           <option value=""></option>
           {categories.map(category => {
@@ -375,13 +373,13 @@ const SpreadsheetTable = () => {
     const handleClickOutside = (e) => {
       if (tableRef.current && !tableRef.current.contains(e.target)) {
         setIsTableActive(false);
-        setActiveRowIndex(null);
+        setActiveRowWithTabIndex(null);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [setIsTableActive, setActiveRowIndex, tableRef]);
+  }, [setIsTableActive, setActiveRowWithTabIndex, tableRef]);
 
   const columns = getColumns();
 
@@ -420,6 +418,7 @@ const SpreadsheetTable = () => {
               <TableRow 
                 key={expense.id}
                 data-row-index={expenseIndex}
+                tabIndex={isActive ? 0 : -1}
                 className={`spreadsheet row group cursor-pointer ${
                   isActive
                     ? 'active'
@@ -429,7 +428,7 @@ const SpreadsheetTable = () => {
                 }`}
                 onClick={() => {
                   setIsTableActive(true);
-                  setActiveRowIndex(expenseIndex);
+                  setActiveRowWithTabIndex(expenseIndex);
                 }}
               >
                 <TableCell className="font-mono text-xs text-muted-foreground">
