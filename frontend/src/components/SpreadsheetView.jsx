@@ -679,16 +679,20 @@ const SpreadsheetView = ({ project }) => {
                                     </span>
                                   </label>
                                   <span className="text-gray-300">|</span>
-                                  <a
-                                    className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleClearCategory(expense);
-                                    }}
-                                  >
-                                    Clear
-                                  </a>
+                                  {!expense.accepted_category_id && !expense.suggested_category_id ? (
+                                    <span className="text-gray-400 cursor-not-allowed">Clear</span>
+                                  ) : (
+                                    <a
+                                      className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleClearCategory(expense);
+                                      }}
+                                    >
+                                      Clear
+                                    </a>
+                                  )}
                                 </div>
                               ) : isStatus ? (
                                 // Status badge with spinners for processing
