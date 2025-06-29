@@ -311,3 +311,52 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(totals)
 }
+
+// GetProjectProgress gets the categorization progress for a specific project
+func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectIDStr := chi.URLParam(r, "projectID")
+
+	if projectIDStr == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Query to get total count and categorized count
+	var totalCount, categorizedCount int
+	err := database.Pool.QueryRow(ctx, `
+		SELECT 
+			COUNT(*) as total_count,
+			COUNT(CASE WHEN (accepted_category_id IS NOT NULL OR is_personal = true) THEN 1 END) as categorized_count
+		FROM expense 
+		WHERE project_id = $1 AND deleted_at IS NULL
+	`, projectIDStr).Scan(&totalCount, &categorizedCount)
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch progress: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	type ProgressData struct {
+		TotalCount       int     `json:"total_count"`
+		CategorizedCount int     `json:"categorized_count"`
+		Percentage       float64 `json:"percentage"`
+		IsComplete       bool    `json:"is_complete"`
+	}
+
+	percentage := 0.0
+	if totalCount > 0 {
+		percentage = float64(categorizedCount) / float64(totalCount) * 100
+	}
+
+	progress := ProgressData{
+		TotalCount:       totalCount,
+		CategorizedCount: categorizedCount,
+		Percentage:       percentage,
+		IsComplete:       categorizedCount == totalCount && totalCount > 0,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(progress)
+}
