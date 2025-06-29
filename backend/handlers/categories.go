@@ -72,8 +72,8 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 	// Insert new category
 	var newCategory models.Category
 	err = database.Pool.QueryRow(ctx, `
-		INSERT INTO expense_category (user_id, name, sort_order, is_personal) 
-		VALUES ($1, $2, $3, false) 
+		INSERT INTO expense_category (user_id, name, sort_order) 
+		VALUES ($1, $2, $3) 
 		RETURNING id, name, sort_order, created_at
 	`, models.TEST_USER_ID, requestData.Name, maxSortOrder+1).Scan(
 		&newCategory.ID, &newCategory.Name, &newCategory.SortOrder, &newCategory.CreatedAt)
