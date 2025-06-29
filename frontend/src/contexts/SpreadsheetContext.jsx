@@ -147,7 +147,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     if (previousActiveRowIndex !== null) {
       const prevRow = document.querySelector(`[data-row-index="${previousActiveRowIndex}"]`);
       if (prevRow) {
-        prevRow.setAttribute('tabindex', '-1');
+        prevRow.setAttribute('tabindex', '1');
       }
     }
     
