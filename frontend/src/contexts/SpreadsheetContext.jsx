@@ -191,16 +191,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   }, [updateExpenseCategory, advanceToNextRow]);
 
   const handleClearCategory = (expense) => {
-    // Update local state immediately FIRST to prevent green flash
-    setExpenses(currentExpenses => 
-      currentExpenses.map(exp => 
-        exp.id === expense.id 
-          ? { ...exp, accepted_category_id: null, suggested_category_id: null }
-          : exp
-      )
-    );
-    
-    // Then send API call
+    // Send API call with -1 values (backend converts to NULL and returns null)
     updateExpense(expense.id, { 
       accepted_category_id: -1,
       suggested_category_id: -1 

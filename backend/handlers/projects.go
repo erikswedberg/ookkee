@@ -235,18 +235,26 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success response
+	// Return success response with actual database values (not request values)
 	response := map[string]interface{}{
 		"message":    "Expense updated successfully",
 		"expense_id": expenseID,
 	}
 
 	if req.AcceptedCategoryID != nil {
-		response["accepted_category_id"] = req.AcceptedCategoryID
+		if *req.AcceptedCategoryID == -1 {
+			response["accepted_category_id"] = nil
+		} else {
+			response["accepted_category_id"] = req.AcceptedCategoryID
+		}
 	}
 
 	if req.SuggestedCategoryID != nil {
-		response["suggested_category_id"] = req.SuggestedCategoryID
+		if *req.SuggestedCategoryID == -1 {
+			response["suggested_category_id"] = nil
+		} else {
+			response["suggested_category_id"] = req.SuggestedCategoryID
+		}
 	}
 
 	if req.IsPersonal != nil {
