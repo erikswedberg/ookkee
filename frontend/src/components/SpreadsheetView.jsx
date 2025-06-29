@@ -396,8 +396,16 @@ const SpreadsheetView = ({ project }) => {
         // Action column doesn't return a simple value
         return null;
       case "Status":
-        // Status based on accepted vs suggested vs uncategorized
+        // Personal status overrides all others
+        if (expense.is_personal) {
+          return "Personal";
+        }
+        // Status based on accepted vs suggested vs manual vs uncategorized
         if (expense.accepted_category_id) {
+          // Check if this category was manually set (different from suggestion)
+          if (expense.suggested_category_id && expense.accepted_category_id !== expense.suggested_category_id) {
+            return "Manual";
+          }
           return "Accepted";
         } else if (expense.suggested_category_id) {
           return "Suggested";
@@ -538,10 +546,10 @@ const SpreadsheetView = ({ project }) => {
                     {expenses.map((expense, expenseIndex) => (
                       <TableRow 
                         key={expense.id}
-                        className={`cursor-pointer hover:bg-muted/50 ${
+                        className={`group cursor-pointer ${
                           activeRowIndex === expenseIndex 
                             ? 'bg-yellow-50 ring-2 ring-blue-300' 
-                            : ''
+                            : 'hover:bg-muted/50'
                         }`}
                         onClick={() => {
                           setIsTableActive(true);
@@ -608,24 +616,28 @@ const SpreadsheetView = ({ project }) => {
                               ) : isAction ? (
                                 // Action column with Accept, Personal, Clear
                                 <div className={`flex items-center gap-2 text-xs ${
-                                  activeRowIndex === expenseIndex ? 'opacity-100' : 'opacity-0 hover:opacity-100'
+                                  activeRowIndex === expenseIndex ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                                 }`}>
-                                  <a
-                                    className={`text-blue-600 hover:text-blue-800 underline cursor-pointer ${
-                                      !expense.suggested_category_id || expense.accepted_category_id 
-                                        ? 'opacity-50 cursor-not-allowed pointer-events-none' 
-                                        : ''
-                                    }`}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      if (expense.suggested_category_id && !expense.accepted_category_id) {
-                                        handleAcceptSuggestion(expense);
-                                      }
-                                    }}
-                                  >
-                                    Accept
-                                  </a>
+                                  {!expense.suggested_category_id ? (
+                                    <span style={{ visibility: 'hidden' }}>Accept</span>
+                                  ) : (
+                                    <a
+                                      className={`underline cursor-pointer ${
+                                        expense.accepted_category_id 
+                                          ? 'text-gray-400 cursor-not-allowed pointer-events-none' 
+                                          : 'text-blue-600 hover:text-blue-800'
+                                      }`}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (expense.suggested_category_id && !expense.accepted_category_id) {
+                                          handleAcceptSuggestion(expense);
+                                        }
+                                      }}
+                                    >
+                                      Accept
+                                    </a>
+                                  )}
                                   <span className="text-gray-300">|</span>
                                   <label className="flex items-center gap-1 cursor-pointer">
                                     <Checkbox 
@@ -647,7 +659,7 @@ const SpreadsheetView = ({ project }) => {
                                   </label>
                                   <span className="text-gray-300">|</span>
                                   <a
-                                    className="text-red-600 hover:text-red-800 underline cursor-pointer"
+                                    className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -665,11 +677,15 @@ const SpreadsheetView = ({ project }) => {
                                   </div>
                                 ) : (
                                   <span className={`px-2 py-1 rounded-full text-xs ${
-                                    value === "Accepted"
-                                      ? "bg-green-100 text-green-800" 
-                                      : value === "Suggested"
-                                        ? "bg-blue-100 text-blue-800" 
-                                        : "bg-gray-100 text-gray-600"
+                                    value === "Personal"
+                                      ? "bg-purple-100 text-purple-800"
+                                      : value === "Accepted"
+                                        ? "bg-green-100 text-green-800" 
+                                        : value === "Manual"
+                                          ? "bg-orange-100 text-orange-800"
+                                          : value === "Suggested"
+                                            ? "bg-blue-100 text-blue-800" 
+                                            : "bg-gray-100 text-gray-600"
                                   }`}>
                                     {value}
                                   </span>
