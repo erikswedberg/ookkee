@@ -255,3 +255,59 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
+
+// GetProjectTotals gets category totals for a specific project
+func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectIDStr := chi.URLParam(r, "projectID")
+
+	if projectIDStr == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Query to get category totals
+	rows, err := database.Pool.Query(ctx, `
+		SELECT 
+			ec.name as category_name,
+			SUM(e.amount) as total_amount
+		FROM expense e
+		JOIN expense_category ec ON e.accepted_category_id = ec.id
+		WHERE e.project_id = $1 
+			AND e.accepted_category_id IS NOT NULL
+			AND e.deleted_at IS NULL
+		GROUP BY ec.id, ec.name, ec.sort_order
+		ORDER BY ec.sort_order ASC
+	`, projectIDStr)
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch totals: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type CategoryTotal struct {
+		CategoryName string  `json:"category_name"`
+		TotalAmount  float64 `json:"total_amount"`
+	}
+
+	var totals []CategoryTotal
+	for rows.Next() {
+		var total CategoryTotal
+		err := rows.Scan(&total.CategoryName, &total.TotalAmount)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to scan total: %v", err), http.StatusInternalServerError)
+			return
+		}
+		totals = append(totals, total)
+	}
+
+	if err = rows.Err(); err != nil {
+		http.Error(w, fmt.Sprintf("Row iteration error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(totals)
+}

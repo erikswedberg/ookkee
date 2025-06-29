@@ -7,19 +7,23 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCw } from "lucide-react";
 import { useAiCategorizer } from "../hooks/useAiCategorizer";
 
 const SpreadsheetView = ({ project }) => {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [totals, setTotals] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingTotals, setLoadingTotals] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [processingRows, setProcessingRows] = useState(new Set()); // Track rows being AI processed
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
+  const [activeTab, setActiveTab] = useState("expenses");
   const loadMoreRef = useRef(null);
   const containerRef = useRef(null);
   const tableRef = useRef(null);
@@ -93,6 +97,13 @@ const SpreadsheetView = ({ project }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Fetch totals when switching to totals tab
+  useEffect(() => {
+    if (activeTab === "totals") {
+      fetchTotals();
+    }
+  }, [activeTab, project?.id]);
 
   // Load expenses function
   const loadExpenses = async (pageNum = 0, isInitial = false) => {
@@ -209,6 +220,25 @@ const SpreadsheetView = ({ project }) => {
       }
     } catch (error) {
       console.error("Failed to fetch categories:", error);
+    }
+  };
+
+  // Fetch project totals
+  const fetchTotals = async () => {
+    if (!project?.id) return;
+    
+    setLoadingTotals(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/totals`);
+      if (response.ok) {
+        const data = await response.json();
+        setTotals(data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch totals:", error);
+    } finally {
+      setLoadingTotals(false);
     }
   };
 
@@ -381,6 +411,50 @@ const SpreadsheetView = ({ project }) => {
     }).format(amount);
   };
 
+  // Totals component
+  const TotalsView = () => {
+    if (loadingTotals) {
+      return (
+        <div className="flex items-center justify-center p-8">
+          <span className="text-muted-foreground">Loading totals...</span>
+        </div>
+      );
+    }
+
+    if (totals.length === 0) {
+      return (
+        <div className="flex items-center justify-center p-8">
+          <span className="text-muted-foreground">No categorized expenses found</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-auto h-[calc(100vh-250px)]">
+        <table className="w-full caption-bottom text-sm">
+          <thead className="[&_tr]:border-b sticky top-0 z-10">
+            <TableRow className="bg-background border-b">
+              <TableHead className="bg-background">Category</TableHead>
+              <TableHead className="bg-background text-right">Total</TableHead>
+            </TableRow>
+          </thead>
+          <tbody className="[&_tr:last-child]:border-0">
+            {totals.map((total, index) => (
+              <TableRow key={index}>
+                <TableCell className="font-medium">{total.category_name}</TableCell>
+                <TableCell className={`text-right font-mono ${
+                  total.total_amount >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {formatAmount(total.total_amount)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const getAmountClass = amount => {
     if (amount === null || amount === undefined) return "";
     return amount >= 0 ? "text-green-600" : "text-red-600";
@@ -513,32 +587,44 @@ const SpreadsheetView = ({ project }) => {
             <div>
               <CardTitle>{project.name}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {project.row_count} rows • {project.original_name} • Showing{" "}
-                {expenses.length} of {project.row_count}
+                {project.row_count} rows • {project.original_name}
+                {activeTab === "expenses" && ` • Showing ${expenses.length} of ${project.row_count}`}
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAiCategorization}
-              disabled={aiCategorizing || loading || expenses.length === 0 || categories.length === 0}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`} />
-              {aiCategorizing ? 'AI Categorizing...' : (() => {
-                const uncategorizedCount = expenses.filter(e => 
-                  !e.accepted_category_id && 
-                  !e.suggested_category_id &&
-                  !processingRows.has(e.id)
-                ).length;
-                return uncategorizedCount > 0 ? `AI Categorize (${Math.min(uncategorizedCount, 20)})` : 'AI Categorize';
-              })()}
-            </Button>
+            <div className="flex items-center gap-4">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+                <TabsList>
+                  <TabsTrigger value="expenses">Expenses</TabsTrigger>
+                  <TabsTrigger value="totals">Totals</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {activeTab === "expenses" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAiCategorization}
+                  disabled={aiCategorizing || loading || expenses.length === 0 || categories.length === 0}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`} />
+                  {aiCategorizing ? 'AI Categorizing...' : (() => {
+                    const uncategorizedCount = expenses.filter(e => 
+                      !e.accepted_category_id && 
+                      !e.suggested_category_id &&
+                      !processingRows.has(e.id)
+                    ).length;
+                    return uncategorizedCount > 0 ? `AI Categorize (${Math.min(uncategorizedCount, 20)})` : 'AI Categorize';
+                  })()}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
 
         <CardContent>
-          <div className="overflow-auto relative h-[calc(100vh-250px)]" ref={containerRef}>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsContent value="expenses">
+              <div className="overflow-auto relative h-[calc(100vh-250px)]" ref={containerRef}>
             {columns.length === 0 ? (
               <div className="flex items-center justify-center p-8">
                 <span className="text-muted-foreground">Loading...</span>
@@ -771,7 +857,13 @@ const SpreadsheetView = ({ project }) => {
                 )}
               </>
             )}
-          </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="totals">
+              <TotalsView />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
