@@ -260,10 +260,20 @@ const SpreadsheetView = ({ project }) => {
 
   const handleClearCategory = (expense) => {
     // Clear both accepted and suggested categories by setting to -1 (which backend will treat as null)
+    // But update local state to null for proper UI display
     updateExpense(expense.id, { 
       accepted_category_id: -1,
       suggested_category_id: -1 
     });
+    
+    // Update local state immediately with null values for UI
+    setExpenses(currentExpenses => 
+      currentExpenses.map(exp => 
+        exp.id === expense.id 
+          ? { ...exp, accepted_category_id: null, suggested_category_id: null }
+          : exp
+      )
+    );
   };
 
   // AI Categorization function using the custom hook
