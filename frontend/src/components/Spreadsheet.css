@@ -1,0 +1,223 @@
+/* Spreadsheet Component Styles */
+.spreadsheet {
+  width: 100%;
+  overflow: auto;
+  position: relative;
+}
+
+/* Category Column Styles */
+.spreadsheet .category {
+  position: relative;
+}
+
+.spreadsheet .category select {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.spreadsheet .category select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* Category states */
+.spreadsheet .category.personal select {
+  border-color: #d1d5db;
+  background-color: #f9fafb;
+  color: #6b7280;
+}
+
+.spreadsheet .category.accepted select {
+  border-color: #10b981;
+  background-color: #ecfdf5;
+  color: #065f46;
+}
+
+.spreadsheet .category.suggested select {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.spreadsheet .category.uncategorized select {
+  border-color: #e5e7eb;
+  background-color: #ffffff;
+}
+
+/* Status Column Styles */
+.spreadsheet .status {
+  text-align: right;
+}
+
+.spreadsheet .status .badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.spreadsheet .status.personal .badge {
+  background-color: #f3e8ff;
+  color: #7c3aed;
+}
+
+.spreadsheet .status.accepted .badge {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.spreadsheet .status.suggested .badge {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.spreadsheet .status.manual .badge {
+  background-color: #fed7aa;
+  color: #ea580c;
+}
+
+.spreadsheet .status.uncategorized .badge {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  visibility: hidden;
+}
+
+/* Personal row styling */
+.spreadsheet .row.personal {
+  background-color: #f9fafb;
+  color: #6b7280;
+}
+
+.spreadsheet .row.personal:hover {
+  background-color: #f9fafb;
+}
+
+/* Active row styling */
+.spreadsheet .row.active {
+  background-color: #fefce8;
+  box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
+.spreadsheet .row.active:hover {
+  background-color: #fefce8;
+}
+
+/* Action column styles */
+.spreadsheet .actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.spreadsheet .row:hover .actions,
+.spreadsheet .row.active .actions {
+  opacity: 1;
+}
+
+.spreadsheet .actions .link {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.spreadsheet .actions .link:hover {
+  color: #1d4ed8;
+}
+
+.spreadsheet .actions .link:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.spreadsheet .actions .separator {
+  color: #d1d5db;
+}
+
+.spreadsheet .actions .checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.spreadsheet .actions .checkbox-group label {
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.spreadsheet .actions .checkbox-group label:hover {
+  color: #374151;
+}
+
+/* Processing indicator */
+.spreadsheet .processing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spreadsheet .processing .spinner {
+  width: 12px;
+  height: 12px;
+  animation: spin 1s linear infinite;
+  color: #3b82f6;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Table layout improvements */
+.spreadsheet table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.spreadsheet th,
+.spreadsheet td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.spreadsheet th {
+  background-color: #f8fafc;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.spreadsheet .amount {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  text-align: right;
+}
+
+.spreadsheet .amount.positive {
+  color: #059669;
+}
+
+.spreadsheet .amount.negative {
+  color: #dc2626;
+}
