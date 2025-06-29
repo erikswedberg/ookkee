@@ -465,7 +465,6 @@ const SpreadsheetView = ({ project }) => {
                                 processingRows.has(expense.id) ? (
                                   <div className="flex items-center gap-1">
                                     <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
-                                    <span className="text-xs text-blue-600">Processing</span>
                                   </div>
                                 ) : (
                                   <span className={`px-2 py-1 rounded-full text-xs ${
