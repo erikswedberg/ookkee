@@ -174,18 +174,18 @@ const SpreadsheetTable = () => {
       const expenseIndex = expenses.indexOf(expense);
       
       if (expense.is_personal && activeRowIndex !== expenseIndex) {
-        return "spreadsheet category personal";
+        return "personal";
       }
       
       if (expense.accepted_category_id) {
-        return "spreadsheet category accepted";
+        return "accepted";
       }
       
       if (expense.suggested_category_id) {
-        return "spreadsheet category suggested";
+        return "suggested";
       }
       
-      return "spreadsheet category uncategorized";
+      return "uncategorized";
     };
 
     const handleCategoryChange = (e) => {
@@ -199,7 +199,7 @@ const SpreadsheetTable = () => {
     };
 
     return (
-      <div className={getCategoryClassName(expense)}>
+      <div className={`category-column ${getCategoryClassName(expense)}`}>
         <select 
           value={getCategoryValue(expense)}
           onChange={handleCategoryChange}
@@ -236,13 +236,13 @@ const SpreadsheetTable = () => {
     
     const getStatusClassName = (expense) => {
       const status = getStatusValue(expense).toLowerCase();
-      return `spreadsheet status ${status}`;
+      return status;
     };
     
     // Show processing spinner if this row is being processed
     if (processingRows.has(expense.id)) {
       return (
-        <div className="spreadsheet processing">
+        <div className="status-column processing">
           <RefreshCw className="spinner" size={12} />
         </div>
       );
@@ -252,7 +252,7 @@ const SpreadsheetTable = () => {
     const className = getStatusClassName(expense);
     
     return (
-      <div className={className}>
+      <div className={`status-column ${className}`}>
         <span className="badge">
           {status}
         </span>
@@ -263,7 +263,7 @@ const SpreadsheetTable = () => {
   // Action column renderer
   const renderAction = (expense, expenseIndex) => {
     return (
-      <div className={`spreadsheet actions ${
+      <div className={`actions ${
         activeRowIndex === expenseIndex ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
       }`}>
         {!expense.suggested_category_id ? (
