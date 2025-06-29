@@ -124,7 +124,7 @@ function App() {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex h-[calc(100vh-110px)]">
         <ProjectsSidebar
           projects={projects}
           selectedProject={selectedProject}
@@ -135,7 +135,7 @@ function App() {
           onManageCategories={handleManageCategories}
         />
 
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-hidden">
           {selectedProject ? (
             <SpreadsheetView project={selectedProject} />
           ) : (

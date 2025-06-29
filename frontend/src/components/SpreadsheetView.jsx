@@ -349,9 +349,9 @@ const SpreadsheetView = ({ project }) => {
   }
 
   return (
-    <div className="p-6 h-full">
-      <Card>
-        <CardHeader>
+    <div className="p-6">
+      <Card className="h-[calc(100vh-150px)] overflow-hidden">
+        <CardHeader className="sticky top-0">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>{project.name}</CardTitle>
@@ -381,7 +381,7 @@ const SpreadsheetView = ({ project }) => {
         </CardHeader>
 
         <CardContent>
-          <div className="overflow-auto relative" ref={containerRef}>
+          <div className="overflow-auto relative h-[calc(100vh-250px)]" ref={containerRef}>
             {columns.length === 0 ? (
               <div className="flex items-center justify-center p-8">
                 <span className="text-muted-foreground">Loading...</span>
