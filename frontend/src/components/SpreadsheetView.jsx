@@ -177,21 +177,23 @@ const SpreadsheetView = ({ project }) => {
     try {
       const suggestions = await categorizeExpenses(project.id, 'openai', uncategorizedExpenses);
       
-      // Update the local state with suggestions
-      const updatedExpenses = expenses.map(expense => {
-        const suggestion = getSuggestionForRow(expense.id);
-        if (suggestion) {
-          return {
-            ...expense,
-            suggested_category_id: suggestion.categoryId,
-            ai_confidence: suggestion.confidence,
-            ai_reasoning: suggestion.reasoning
-          };
-        }
-        return expense;
+      // Force a state update to ensure UI refreshes immediately
+      setExpenses(currentExpenses => {
+        const updatedExpenses = currentExpenses.map(expense => {
+          const suggestion = getSuggestionForRow(expense.id);
+          if (suggestion) {
+            return {
+              ...expense,
+              suggested_category_id: suggestion.categoryId,
+              ai_confidence: suggestion.confidence,
+              ai_reasoning: suggestion.reasoning
+            };
+          }
+          return expense;
+        });
+        return [...updatedExpenses]; // Create new array to force re-render
       });
       
-      setExpenses(updatedExpenses);
       console.log(`AI categorized ${suggestions.length} expenses`);
       
     } catch (error) {
@@ -211,31 +213,37 @@ const SpreadsheetView = ({ project }) => {
     const currentLoadMoreRef = loadMoreRef.current;
     const currentContainerRef = containerRef.current;
     
-    if (!currentLoadMoreRef || !currentContainerRef || expenses.length === 0) {
+    // Wait for expenses to be loaded and hasMore to be properly set
+    if (!currentLoadMoreRef || !currentContainerRef || expenses.length === 0 || !hasMore) {
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (entry.isIntersecting && hasMore && !loadingRef.current) {
+        // Add more specific checks to prevent double-firing
+        if (entry.isIntersecting && hasMore && !loadingRef.current && !loading) {
           const nextPage = page + 1;
+          console.log(`Infinite scroll triggered: loading page ${nextPage}`);
           loadExpenses(nextPage);
         }
       },
       {
         root: currentContainerRef, // Use the scrollable container as root
         threshold: 0.1,
-        rootMargin: '200px' // Trigger earlier - when 200px from bottom
+        rootMargin: '100px' // Trigger when 100px from bottom
       }
     );
 
     observer.observe(currentLoadMoreRef);
 
     return () => {
-      observer.unobserve(currentLoadMoreRef);
+      if (currentLoadMoreRef) {
+        observer.unobserve(currentLoadMoreRef);
+      }
+      observer.disconnect();
     };
-  }, [hasMore, page]); // Remove expenses.length dependency to prevent re-triggering
+  }, [hasMore, page, expenses.length, loading]); // Include expenses.length and loading to ensure proper setup
 
   const formatAmount = amount => {
     if (amount === null || amount === undefined) return "";
@@ -441,7 +449,7 @@ const SpreadsheetView = ({ project }) => {
                                       const isAiSuggested = expense.suggested_category_id === category.id;
                                       return (
                                         <option key={category.id} value={category.id}>
-                                          {category.name}{isAiSuggested ? ' (AI Suggested)' : ''}
+                                          {category.name}{isAiSuggested ? ' 💡' : ''}
                                         </option>
                                       );
                                     })}
@@ -456,8 +464,8 @@ const SpreadsheetView = ({ project }) => {
                                 // Status badge with spinners for processing
                                 processingRows.has(expense.id) ? (
                                   <div className="flex items-center gap-1">
-                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                                    <span className="text-xs text-blue-600">Processing...</span>
+                                    <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
+                                    <span className="text-xs text-blue-600">Processing</span>
                                   </div>
                                 ) : (
                                   <span className={`px-2 py-1 rounded-full text-xs ${
