@@ -85,8 +85,15 @@ const SpreadsheetView = ({ project }) => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isTableActive, activeRowIndex, expenses]);
 
-  // Click outside handler
+  // Click outside handler (only active on expenses tab)
   useEffect(() => {
+    if (activeTab !== "expenses") {
+      // Clear active state when switching away from expenses tab
+      setIsTableActive(false);
+      setActiveRowIndex(null);
+      return;
+    }
+    
     const handleClickOutside = (e) => {
       if (tableRef.current && !tableRef.current.contains(e.target)) {
         setIsTableActive(false);
@@ -96,7 +103,7 @@ const SpreadsheetView = ({ project }) => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [activeTab]);
 
   // Fetch totals when switching to totals tab
   useEffect(() => {
@@ -367,6 +374,11 @@ const SpreadsheetView = ({ project }) => {
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
+    // Only set up observer on expenses tab
+    if (activeTab !== "expenses") {
+      return;
+    }
+    
     const currentLoadMoreRef = loadMoreRef.current;
     const currentContainerRef = containerRef.current;
     
@@ -400,7 +412,7 @@ const SpreadsheetView = ({ project }) => {
       }
       observer.disconnect();
     };
-  }, [hasMore, page, expenses.length, loading]); // Include expenses.length and loading to ensure proper setup
+  }, [hasMore, page, expenses.length, loading, activeTab]); // Include activeTab to ensure proper setup when switching tabs
 
   const formatAmount = amount => {
     if (amount === null || amount === undefined) return "";
