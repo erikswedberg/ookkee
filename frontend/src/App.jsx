@@ -4,6 +4,7 @@ import SpreadsheetView from "./components/SpreadsheetView";
 import ProjectModal from "./components/ProjectModal";
 import CategoryModal from "./components/CategoryModal";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import "./App.css";
 
 function App() {
@@ -21,6 +23,7 @@ function App() {
   const [editingProject, setEditingProject] = useState(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -184,17 +187,36 @@ function App() {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-110px)]">
-        <ProjectsSidebar
-          projects={projects}
-          selectedProject={selectedProject}
-          onProjectSelect={handleProjectSelect}
-          onNewProject={handleNewProject}
-          onEditProject={handleEditProject}
-          onDeleteProject={handleDeleteProject}
-          onManageCategories={handleManageCategories}
-        />
+      <div className="flex h-[calc(100vh-110px)] relative">
+        {/* Sidebar */}
+        <div className={`transition-all duration-300 ${isSidebarCollapsed ? 'w-0' : 'w-64'} overflow-hidden`}>
+          <ProjectsSidebar
+            projects={projects}
+            selectedProject={selectedProject}
+            onProjectSelect={handleProjectSelect}
+            onNewProject={handleNewProject}
+            onEditProject={handleEditProject}
+            onDeleteProject={handleDeleteProject}
+            onManageCategories={handleManageCategories}
+          />
+        </div>
 
+        {/* Collapse/Expand Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 h-12 w-8 rounded-r-md rounded-l-none border-l-0 bg-background hover:bg-muted"
+          style={{ left: isSidebarCollapsed ? '0px' : '256px' }}
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        >
+          {isSidebarCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
+
+        {/* Main Content */}
         <div className="flex-1 overflow-hidden">
           {selectedProject ? (
             <SpreadsheetView project={selectedProject} />
