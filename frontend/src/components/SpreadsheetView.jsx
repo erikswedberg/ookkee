@@ -177,10 +177,11 @@ const SpreadsheetView = ({ project }) => {
     try {
       const suggestions = await categorizeExpenses(project.id, 'openai', uncategorizedExpenses);
       
-      // Force a state update to ensure UI refreshes immediately
+      // Force a state update using the returned suggestions directly
       setExpenses(currentExpenses => {
         const updatedExpenses = currentExpenses.map(expense => {
-          const suggestion = getSuggestionForRow(expense.id);
+          // Find suggestion for this expense in the returned suggestions
+          const suggestion = suggestions.find(s => s.rowId === expense.id);
           if (suggestion) {
             return {
               ...expense,
