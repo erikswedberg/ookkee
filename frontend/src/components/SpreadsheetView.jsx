@@ -16,6 +16,7 @@ const SpreadsheetView = ({ project }) => {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [totals, setTotals] = useState([]);
+  const [progress, setProgress] = useState({ percentage: 0, isComplete: false });
   const [loading, setLoading] = useState(false);
   const [loadingTotals, setLoadingTotals] = useState(false);
   const [error, setError] = useState(null);
@@ -112,6 +113,20 @@ const SpreadsheetView = ({ project }) => {
       fetchTotals();
     }
   }, [activeTab, project?.id]);
+
+  // Fetch progress when project changes or expenses are updated
+  useEffect(() => {
+    if (project?.id) {
+      fetchProgress();
+    }
+  }, [project?.id]);
+
+  // Refresh progress when expenses change (after categorization)
+  useEffect(() => {
+    if (project?.id && expenses.length > 0) {
+      fetchProgress();
+    }
+  }, [project?.id, expenses.length]);
 
   // Load expenses function
   const loadExpenses = async (pageNum = 0, isInitial = false) => {
@@ -250,6 +265,25 @@ const SpreadsheetView = ({ project }) => {
     }
   };
 
+  // Fetch project progress
+  const fetchProgress = async () => {
+    if (!project?.id) return;
+    
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/progress`);
+      if (response.ok) {
+        const data = await response.json();
+        setProgress({
+          percentage: Math.round(data.percentage),
+          isComplete: data.is_complete
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch progress:", error);
+    }
+  };
+
   // Update expense function (handles both category and personal)
   const updateExpense = async (expenseId, updates) => {
     try {
@@ -274,6 +308,9 @@ const SpreadsheetView = ({ project }) => {
             : expense
         )
       );
+
+      // Refresh progress after categorization changes
+      fetchProgress();
 
       console.log(`Updated expense ${expenseId}:`, updates);
     } catch (error) {
@@ -473,21 +510,7 @@ const SpreadsheetView = ({ project }) => {
     return amount >= 0 ? "text-green-600" : "text-red-600";
   };
 
-  // Calculate progress for categorized expenses
-  const getProgressData = () => {
-    if (expenses.length === 0) return { percentage: 0, isComplete: false };
-    
-    const categorizedCount = expenses.filter(expense => 
-      expense.accepted_category_id || expense.is_personal
-    ).length;
-    
-    const percentage = Math.round((categorizedCount / expenses.length) * 100);
-    const isComplete = percentage === 100;
-    
-    return { percentage, isComplete };
-  };
-
-  const progressData = getProgressData();
+  // Progress data comes from backend API
 
   const formatDate = dateString => {
     if (!dateString) return "";
@@ -619,11 +642,11 @@ const SpreadsheetView = ({ project }) => {
                 {project.row_count} rows • {project.original_name}
                 {activeTab === "expenses" && ` • Showing ${expenses.length} of ${project.row_count}`}
               </p>
-              {expenses.length > 0 && (
+              {project?.row_count > 0 && (
                 <div className="w-48">
                   <Progress 
-                    value={progressData.percentage} 
-                    className={`h-2 ${progressData.isComplete ? '[&>div]:bg-green-500' : ''}`}
+                    value={progress.percentage} 
+                    className={`h-2 ${progress.isComplete ? '[&>div]:bg-green-500' : ''}`}
                   />
                 </div>
               )}
