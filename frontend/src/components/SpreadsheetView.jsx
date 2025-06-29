@@ -726,11 +726,6 @@ const SpreadsheetView = ({ project }) => {
                                       );
                                     })}
                                   </select>
-                                  {expense.suggested_category_id && !expense.accepted_category_id && (
-                                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                                      <span className="text-white text-xs font-bold">AI</span>
-                                    </div>
-                                  )}
                                 </div>
                               ) : isAction ? (
                                 // Action column with Accept, Personal, Clear
