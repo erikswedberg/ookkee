@@ -123,13 +123,32 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [fetchProgress]);
 
+  // Scroll active row into view helper
+  const scrollActiveRowIntoView = useCallback((rowIndex) => {
+    const row = document.querySelector(`[data-row-index="${rowIndex}"]`);
+    if (row && containerRef.current) {
+      const container = containerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      
+      // Only scroll if row goes below the bottom of the visible area
+      if (rowRect.bottom > containerRect.bottom) {
+        // Scroll so the row is at the top of the visible area
+        const scrollTop = row.offsetTop - container.offsetTop;
+        container.scrollTop = scrollTop;
+      }
+    }
+  }, [containerRef]);
+
   // Auto-advance to next row helper
   const advanceToNextRow = useCallback((expense) => {
     const currentIndex = expenses.findIndex(e => e.id === expense.id);
     if (currentIndex !== -1 && currentIndex === activeRowIndex && currentIndex < expenses.length - 1) {
-      setActiveRowIndex(currentIndex + 1);
+      const newIndex = currentIndex + 1;
+      setActiveRowIndex(newIndex);
+      scrollActiveRowIntoView(newIndex);
     }
-  }, [expenses, activeRowIndex, setActiveRowIndex]);
+  }, [expenses, activeRowIndex, setActiveRowIndex, scrollActiveRowIntoView]);
 
   const handleTogglePersonal = useCallback((expense) => {
     updateExpense(expense.id, { is_personal: !expense.is_personal });
@@ -149,6 +168,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   }, [updateExpenseCategory, advanceToNextRow]);
 
   const handleClearCategory = (expense) => {
+    // Clear both accepted and suggested categories by setting to -1 (which backend will treat as null)
+    // But update local state to null for proper UI display
+    updateExpense(expense.id, { 
+      accepted_category_id: -1,
+      suggested_category_id: -1 
+    });
+    
     // Update local state immediately with null values for UI
     setExpenses(currentExpenses => 
       currentExpenses.map(exp => 
@@ -157,12 +183,6 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           : exp
       )
     );
-    
-    // Clear both accepted and suggested categories by setting to -1 (which backend will treat as null)
-    updateExpense(expense.id, { 
-      accepted_category_id: -1,
-      suggested_category_id: -1 
-    });
   };
 
   // AI Categorization function using the custom hook

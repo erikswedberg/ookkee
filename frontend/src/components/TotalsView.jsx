@@ -55,20 +55,8 @@ const TotalsView = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-250px)]">
-      <div className="mb-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={downloadCSV}
-          className="flex items-center gap-2"
-        >
-          <Download className="h-4 w-4" />
-          Download CSV
-        </Button>
-      </div>
-      <div className="overflow-auto h-[calc(100%-60px)]">
-        <table className="w-full caption-bottom text-sm">
+    <div className="overflow-auto h-[calc(100vh-250px)]">
+      <table className="w-full caption-bottom text-sm">
         <thead className="[&_tr]:border-b sticky top-0 z-10">
           <TableRow className="bg-background border-b">
             <TableHead className="bg-background">Category</TableHead>
@@ -93,8 +81,7 @@ const TotalsView = () => {
             </TableCell>
           </TableRow>
         </tbody>
-        </table>
-      </div>
+      </table>
     </div>
   );
 };

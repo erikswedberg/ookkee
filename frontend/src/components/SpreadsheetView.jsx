@@ -9,11 +9,50 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Download } from "lucide-react";
 import { SpreadsheetContextProvider, SpreadsheetContext } from '../contexts/SpreadsheetContext';
 import { TotalsContextProvider } from '../contexts/TotalsContext';
 import TotalsView from './TotalsView';
 import './Spreadsheet.css';
+
+// Download Totals Button Component
+const DownloadTotalsButton = ({ project }) => {
+  const downloadCSV = async () => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/totals/csv`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${project.name}-totals.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download CSV:', error);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={downloadCSV}
+      className="flex items-center gap-2"
+    >
+      <Download className="h-4 w-4" />
+      Download CSV
+    </Button>
+  );
+};
 
 // Main SpreadsheetTable component
 const SpreadsheetTable = () => {
@@ -211,28 +250,25 @@ const SpreadsheetTable = () => {
       <div className={`actions ${
         activeRowIndex === expenseIndex ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
       }`}>
-        {expense.suggested_category_id && (
-          <>
-            <button
-              className={`link ${
-                expense.accepted_category_id 
-                  ? 'text-gray-400 cursor-not-allowed pointer-events-none' 
-                  : 'text-blue-600 hover:text-blue-800'
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (expense.suggested_category_id && !expense.accepted_category_id) {
-                  handleAcceptSuggestion(expense);
-                }
-              }}
-              disabled={!!expense.accepted_category_id}
-            >
-              Accept
-            </button>
-            <span className="separator">|</span>
-          </>
-        )}
+        <button
+          className={`link ${
+            expense.accepted_category_id 
+              ? 'text-gray-400 cursor-not-allowed pointer-events-none' 
+              : 'text-blue-600 hover:text-blue-800'
+          }`}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (expense.suggested_category_id && !expense.accepted_category_id) {
+              handleAcceptSuggestion(expense);
+            }
+          }}
+          disabled={!!expense.accepted_category_id}
+          style={{ visibility: expense.suggested_category_id ? 'visible' : 'hidden' }}
+        >
+          Accept
+        </button>
+        <span className="separator" style={{ visibility: expense.suggested_category_id ? 'visible' : 'hidden' }}>|</span>
         <label className="checkbox-group">
           <Checkbox 
             checked={expense.is_personal || false}
@@ -250,21 +286,18 @@ const SpreadsheetTable = () => {
             Personal
           </span>
         </label>
-        {(expense.accepted_category_id || expense.suggested_category_id) && (
-          <>
-            <span className="separator">|</span>
-            <button
-              className="link"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleClearCategory(expense);
-              }}
-            >
-              Clear
-            </button>
-          </>
-        )}
+        <span className="separator" style={{ visibility: (expense.accepted_category_id || expense.suggested_category_id) ? 'visible' : 'hidden' }}>|</span>
+        <button
+          className="link"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleClearCategory(expense);
+          }}
+          style={{ visibility: (expense.accepted_category_id || expense.suggested_category_id) ? 'visible' : 'hidden' }}
+        >
+          Clear
+        </button>
       </div>
     );
   };
@@ -591,6 +624,9 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
                     return uncategorizedCount > 0 ? `AI Categorize (${Math.min(uncategorizedCount, 20)})` : 'AI Categorize';
                   })()}
                 </Button>
+              )}
+              {activeTab === "totals" && (
+                <DownloadTotalsButton project={project} />
               )}
             </div>
           </div>

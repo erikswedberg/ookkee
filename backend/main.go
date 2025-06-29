@@ -71,6 +71,7 @@ func main() {
 		r.Get("/projects", handlers.GetProjects)
 		r.Get("/projects/{projectID}/expenses", handlers.GetExpenses)
 		r.Get("/projects/{projectID}/totals", handlers.GetProjectTotals)
+		r.Get("/projects/{projectID}/totals/csv", handlers.GetProjectTotalsCSV)
 		r.Get("/projects/{projectID}/progress", handlers.GetProjectProgress)
 		r.Put("/projects/{projectID}", handlers.UpdateProject)
 		r.Delete("/projects/{projectID}", handlers.DeleteProject)
