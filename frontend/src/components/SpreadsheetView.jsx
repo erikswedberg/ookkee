@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { RefreshCw } from "lucide-react";
 import { useAiCategorizer } from "../hooks/useAiCategorizer";
+import { useCallback } from "react";
 
 const SpreadsheetView = ({ project }) => {
   const [expenses, setExpenses] = useState([]);
@@ -41,6 +42,97 @@ const SpreadsheetView = ({ project }) => {
     getSuggestionForRow,
     getAvailableModels
   } = useAiCategorizer(expenses, categories);
+
+
+  // Fetch project progress
+  const fetchProgress = useCallback(async () => {
+    if (!project?.id) return;
+    
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/progress`);
+      if (response.ok) {
+        const data = await response.json();
+        setProgress({
+          percentage: Math.round(data.percentage),
+          isComplete: data.is_complete
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch progress:", error);
+    }
+  }, [project?.id]);
+
+
+    // Update expense function (handles both category and personal)
+  const updateExpense = useCallback(async (expenseId, updates) => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update expense: ${response.status}`);
+      }
+
+      // Update local state immediately
+      setExpenses(currentExpenses => 
+        currentExpenses.map(expense => 
+          expense.id === expenseId 
+            ? { ...expense, ...updates }
+            : expense
+        )
+      );
+
+      // Refresh progress after categorization changes
+      fetchProgress();
+
+      console.log(`Updated expense ${expenseId}:`, updates);
+    } catch (error) {
+      console.error('Failed to update expense:', error);
+    }
+  }, [fetchProgress]);
+
+
+  const handleTogglePersonal = useCallback((expense) => {
+    updateExpense(expense.id, { is_personal: !expense.is_personal });
+  }, [updateExpense]);
+
+  // Convenience functions for specific actions
+  const updateExpenseCategory = useCallback((expenseId, categoryId) => {
+    return updateExpense(expenseId, { accepted_category_id: categoryId || null });
+  }, [updateExpense]);
+
+  const handleAcceptSuggestion = useCallback((expense) => {
+    if (expense.suggested_category_id && !expense.accepted_category_id) {
+      updateExpenseCategory(expense.id, expense.suggested_category_id);
+    }
+  }, [updateExpenseCategory]);
+
+  // Fetch project totals
+  const fetchTotals = useCallback(async () => {
+    if (!project?.id) return;
+    
+    setLoadingTotals(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/totals`);
+      if (response.ok) {
+        const data = await response.json();
+        setTotals(data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch totals:", error);
+    } finally {
+      setLoadingTotals(false);
+    }
+  }, [project?.id]);
+
 
   // Keyboard navigation handlers
   useEffect(() => {
@@ -85,7 +177,7 @@ const SpreadsheetView = ({ project }) => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isTableActive, activeRowIndex, expenses]);
+  }, [isTableActive, activeRowIndex, expenses, handleAcceptSuggestion, handleTogglePersonal]);
 
   // Click outside handler (only active on expenses tab)
   useEffect(() => {
@@ -112,21 +204,21 @@ const SpreadsheetView = ({ project }) => {
     if (activeTab === "totals") {
       fetchTotals();
     }
-  }, [activeTab, project?.id]);
+  }, [activeTab, fetchTotals, project.id]);
 
   // Fetch progress when project changes or expenses are updated
   useEffect(() => {
     if (project?.id) {
       fetchProgress();
     }
-  }, [project?.id]);
+  }, [fetchProgress, project?.id]);
 
   // Refresh progress when expenses change (after categorization)
   useEffect(() => {
     if (project?.id && expenses.length > 0) {
       fetchProgress();
     }
-  }, [project?.id, expenses.length]);
+  }, [project?.id, expenses.length, fetchProgress]);
 
   // Load expenses function
   const loadExpenses = async (pageNum = 0, isInitial = false) => {
@@ -246,92 +338,9 @@ const SpreadsheetView = ({ project }) => {
     }
   };
 
-  // Fetch project totals
-  const fetchTotals = async () => {
-    if (!project?.id) return;
-    
-    setLoadingTotals(true);
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const response = await fetch(`${API_URL}/api/projects/${project.id}/totals`);
-      if (response.ok) {
-        const data = await response.json();
-        setTotals(data || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch totals:", error);
-    } finally {
-      setLoadingTotals(false);
-    }
-  };
 
-  // Fetch project progress
-  const fetchProgress = async () => {
-    if (!project?.id) return;
-    
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const response = await fetch(`${API_URL}/api/projects/${project.id}/progress`);
-      if (response.ok) {
-        const data = await response.json();
-        setProgress({
-          percentage: Math.round(data.percentage),
-          isComplete: data.is_complete
-        });
-      }
-    } catch (error) {
-      console.error("Failed to fetch progress:", error);
-    }
-  };
 
-  // Update expense function (handles both category and personal)
-  const updateExpense = async (expenseId, updates) => {
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates)
-      });
 
-      if (!response.ok) {
-        throw new Error(`Failed to update expense: ${response.status}`);
-      }
-
-      // Update local state immediately
-      setExpenses(currentExpenses => 
-        currentExpenses.map(expense => 
-          expense.id === expenseId 
-            ? { ...expense, ...updates }
-            : expense
-        )
-      );
-
-      // Refresh progress after categorization changes
-      fetchProgress();
-
-      console.log(`Updated expense ${expenseId}:`, updates);
-    } catch (error) {
-      console.error('Failed to update expense:', error);
-    }
-  };
-
-  // Convenience functions for specific actions
-  const updateExpenseCategory = (expenseId, categoryId) => {
-    return updateExpense(expenseId, { accepted_category_id: categoryId || null });
-  };
-
-  const handleAcceptSuggestion = (expense) => {
-    if (expense.suggested_category_id && !expense.accepted_category_id) {
-      updateExpenseCategory(expense.id, expense.suggested_category_id);
-    }
-  };
-
-  const handleTogglePersonal = (expense) => {
-    updateExpense(expense.id, { is_personal: !expense.is_personal });
-  };
 
   const handleClearCategory = (expense) => {
     // Clear both accepted and suggested categories by setting to -1 (which backend will treat as null)
