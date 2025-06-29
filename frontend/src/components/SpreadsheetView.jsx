@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { RefreshCw } from "lucide-react";
 import { useAiCategorizer } from "../hooks/useAiCategorizer";
 
@@ -472,6 +473,22 @@ const SpreadsheetView = ({ project }) => {
     return amount >= 0 ? "text-green-600" : "text-red-600";
   };
 
+  // Calculate progress for categorized expenses
+  const getProgressData = () => {
+    if (expenses.length === 0) return { percentage: 0, isComplete: false };
+    
+    const categorizedCount = expenses.filter(expense => 
+      expense.accepted_category_id || expense.is_personal
+    ).length;
+    
+    const percentage = Math.round((categorizedCount / expenses.length) * 100);
+    const isComplete = percentage === 100;
+    
+    return { percentage, isComplete };
+  };
+
+  const progressData = getProgressData();
+
   const formatDate = dateString => {
     if (!dateString) return "";
     try {
@@ -596,12 +613,20 @@ const SpreadsheetView = ({ project }) => {
       <Card className="h-[calc(100vh-150px)] overflow-hidden">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="space-y-2">
               <CardTitle>{project.name}</CardTitle>
               <p className="text-sm text-muted-foreground">
                 {project.row_count} rows • {project.original_name}
                 {activeTab === "expenses" && ` • Showing ${expenses.length} of ${project.row_count}`}
               </p>
+              {expenses.length > 0 && (
+                <div className="w-48">
+                  <Progress 
+                    value={progressData.percentage} 
+                    className={`h-2 ${progressData.isComplete ? '[&>div]:bg-green-500' : ''}`}
+                  />
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-4">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
