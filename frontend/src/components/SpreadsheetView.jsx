@@ -664,10 +664,10 @@ const SpreadsheetView = ({ project }) => {
                       <TableRow 
                         key={expense.id}
                         className={`group cursor-pointer ${
-                          expense.is_personal 
-                            ? 'bg-gray-100 text-gray-500 hover:bg-gray-100'
-                            : activeRowIndex === expenseIndex 
-                              ? 'bg-yellow-50 ring-2 ring-blue-300 hover:bg-yellow-50' 
+                          activeRowIndex === expenseIndex 
+                            ? 'bg-yellow-50 ring-2 ring-blue-300 hover:bg-yellow-50'
+                            : expense.is_personal 
+                              ? 'bg-gray-100 text-gray-500 hover:bg-gray-100'
                               : 'hover:bg-sky-50'
                         }`}
                         onClick={() => {
@@ -693,7 +693,11 @@ const SpreadsheetView = ({ project }) => {
                               key={column}
                               className={
                                 isAmount
-                                  ? `font-mono ${getAmountClass(value)}`
+                                  ? `font-mono ${
+                                      expense.is_personal && activeRowIndex !== expenseIndex
+                                        ? 'text-gray-500'
+                                        : getAmountClass(value)
+                                    }`
                                   : isStatus
                                     ? "text-sm text-right"
                                     : ""
@@ -704,11 +708,13 @@ const SpreadsheetView = ({ project }) => {
                                 <div className="relative">
                                   <select 
                                     className={`w-full p-1 border rounded text-sm ${
-                                      expense.accepted_category_id 
-                                        ? 'border-green-300 bg-green-50' 
-                                        : expense.suggested_category_id 
-                                          ? 'border-blue-300 bg-blue-50' 
-                                          : ''
+                                      expense.is_personal && activeRowIndex !== expenseIndex
+                                        ? 'border-gray-300 bg-gray-100 text-gray-500'
+                                        : expense.accepted_category_id 
+                                          ? 'border-green-300 bg-green-50' 
+                                          : expense.suggested_category_id 
+                                            ? 'border-blue-300 bg-blue-50' 
+                                            : ''
                                     }`}
                                     value={expense.accepted_category_id ? expense.accepted_category_id.toString() : expense.suggested_category_id ? expense.suggested_category_id.toString() : ""}
                                     onChange={(e) => {
@@ -794,19 +800,23 @@ const SpreadsheetView = ({ project }) => {
                                     <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
                                   </div>
                                 ) : (
-                                  <span className={`px-2 py-1 rounded-full text-xs ${
-                                    value === "Personal"
-                                      ? "bg-purple-100 text-purple-800"
-                                      : value === "Accepted"
-                                        ? "bg-green-100 text-green-800" 
-                                        : value === "Manual"
-                                          ? "bg-orange-100 text-orange-800"
-                                          : value === "Suggested"
-                                            ? "bg-blue-100 text-blue-800" 
-                                            : "bg-gray-100 text-gray-600"
-                                  }`}>
-                                    {value}
-                                  </span>
+                                  {value === "Uncategorized" ? (
+                                    null
+                                  ) : (
+                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                      value === "Personal"
+                                        ? (activeRowIndex === expenseIndex ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-600")
+                                        : value === "Accepted"
+                                          ? "bg-green-100 text-green-800" 
+                                          : value === "Manual"
+                                            ? "bg-orange-100 text-orange-800"
+                                            : value === "Suggested"
+                                              ? "bg-blue-100 text-blue-800" 
+                                              : "bg-gray-100 text-gray-600"
+                                    }`}>
+                                      {value}
+                                    </span>
+                                  )}
                                 )
                               ) : isAmount && typeof value === "number" ? (
                                 formatAmount(value)
