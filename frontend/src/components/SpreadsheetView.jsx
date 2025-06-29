@@ -259,7 +259,11 @@ const SpreadsheetView = ({ project }) => {
   };
 
   const handleClearCategory = (expense) => {
-    updateExpenseCategory(expense.id, null);
+    // Clear both accepted and suggested categories by setting to -1 (which backend will treat as null)
+    updateExpense(expense.id, { 
+      accepted_category_id: -1,
+      suggested_category_id: -1 
+    });
   };
 
   // AI Categorization function using the custom hook
@@ -402,10 +406,15 @@ const SpreadsheetView = ({ project }) => {
         }
         // Status based on accepted vs suggested vs manual vs uncategorized
         if (expense.accepted_category_id) {
-          // Check if this category was manually set (different from suggestion)
-          if (expense.suggested_category_id && expense.accepted_category_id !== expense.suggested_category_id) {
+          // If there was no suggestion, it's manually set
+          if (!expense.suggested_category_id) {
             return "Manual";
           }
+          // If category differs from suggestion, it's manually changed
+          if (expense.accepted_category_id !== expense.suggested_category_id) {
+            return "Manual";
+          }
+          // Category matches suggestion - it was accepted
           return "Accepted";
         } else if (expense.suggested_category_id) {
           return "Suggested";
@@ -547,9 +556,11 @@ const SpreadsheetView = ({ project }) => {
                       <TableRow 
                         key={expense.id}
                         className={`group cursor-pointer ${
-                          activeRowIndex === expenseIndex 
-                            ? 'bg-yellow-50 ring-2 ring-blue-300' 
-                            : 'hover:bg-muted/50'
+                          expense.is_personal 
+                            ? 'bg-gray-100 text-gray-500 hover:bg-gray-100'
+                            : activeRowIndex === expenseIndex 
+                              ? 'bg-yellow-50 ring-2 ring-blue-300 hover:bg-yellow-50' 
+                              : 'hover:bg-muted/50'
                         }`}
                         onClick={() => {
                           setIsTableActive(true);

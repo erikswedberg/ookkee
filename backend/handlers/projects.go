@@ -164,8 +164,9 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req struct {
-		AcceptedCategoryID *int  `json:"accepted_category_id"`
-		IsPersonal         *bool `json:"is_personal"`
+		AcceptedCategoryID  *int  `json:"accepted_category_id"`
+		SuggestedCategoryID *int  `json:"suggested_category_id"`
+		IsPersonal          *bool `json:"is_personal"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -179,10 +180,29 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	argIndex := 1
 
 	if req.AcceptedCategoryID != nil {
-		updateFields = append(updateFields, fmt.Sprintf("accepted_category_id = $%d", argIndex))
-		args = append(args, req.AcceptedCategoryID)
-		argIndex++
-		updateFields = append(updateFields, "accepted_at = CURRENT_TIMESTAMP")
+		if *req.AcceptedCategoryID == -1 {
+			// -1 means clear the field
+			updateFields = append(updateFields, "accepted_category_id = NULL")
+			updateFields = append(updateFields, "accepted_at = NULL")
+		} else {
+			updateFields = append(updateFields, fmt.Sprintf("accepted_category_id = $%d", argIndex))
+			args = append(args, req.AcceptedCategoryID)
+			argIndex++
+			updateFields = append(updateFields, "accepted_at = CURRENT_TIMESTAMP")
+		}
+	}
+
+	if req.SuggestedCategoryID != nil {
+		if *req.SuggestedCategoryID == -1 {
+			// -1 means clear the field
+			updateFields = append(updateFields, "suggested_category_id = NULL")
+			updateFields = append(updateFields, "suggested_at = NULL")
+		} else {
+			updateFields = append(updateFields, fmt.Sprintf("suggested_category_id = $%d", argIndex))
+			args = append(args, req.SuggestedCategoryID)
+			argIndex++
+			updateFields = append(updateFields, "suggested_at = CURRENT_TIMESTAMP")
+		}
 	}
 
 	if req.IsPersonal != nil {
@@ -221,6 +241,10 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 
 	if req.AcceptedCategoryID != nil {
 		response["accepted_category_id"] = req.AcceptedCategoryID
+	}
+
+	if req.SuggestedCategoryID != nil {
+		response["suggested_category_id"] = req.SuggestedCategoryID
 	}
 
 	if req.IsPersonal != nil {
