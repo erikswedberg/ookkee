@@ -57,10 +57,4 @@ export const TotalsContextProvider = ({ children, project }) => {
   );
 };
 
-export const useTotalsContext = () => {
-  const context = useContext(TotalsContext);
-  if (!context) {
-    throw new Error('useTotalsContext must be used within a TotalsContextProvider');
-  }
-  return context;
-};
+

@@ -324,14 +324,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     if (project?.id) {
       fetchProgress();
     }
-  }, [fetchProgress, project?.id]);
-
-  // Refresh progress when expenses change (after categorization)
-  useEffect(() => {
-    if (project?.id && expenses.length > 0) {
-      fetchProgress();
-    }
-  }, [project?.id, expenses.length, fetchProgress]);
+  }, [fetchProgress, project?.id, expenses.length]);
 
   // Keyboard navigation handlers
   useEffect(() => {
@@ -425,10 +418,4 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   );
 };
 
-export const useSpreadsheetContext = () => {
-  const context = useContext(SpreadsheetContext);
-  if (!context) {
-    throw new Error('useSpreadsheetContext must be used within a SpreadsheetContextProvider');
-  }
-  return context;
-};
+
