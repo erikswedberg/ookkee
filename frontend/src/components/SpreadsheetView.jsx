@@ -766,8 +766,24 @@ const SpreadsheetView = ({ project }) => {
                                     }`}
                                     value={expense.accepted_category_id ? expense.accepted_category_id.toString() : expense.suggested_category_id ? expense.suggested_category_id.toString() : ""}
                                     onChange={(e) => {
-                                      const newCategoryId = e.target.value ? parseInt(e.target.value) : null;
-                                      updateExpenseCategory(expense.id, newCategoryId);
+                                      const newCategoryId = e.target.value ? parseInt(e.target.value) : -1;
+                                      if (newCategoryId === -1) {
+                                        // Clear both accepted and suggested categories (same as Clear action)
+                                        updateExpense(expense.id, { 
+                                          accepted_category_id: -1,
+                                          suggested_category_id: -1 
+                                        });
+                                        // Update local state immediately with null values for UI
+                                        setExpenses(currentExpenses => 
+                                          currentExpenses.map(exp => 
+                                            exp.id === expense.id 
+                                              ? { ...exp, accepted_category_id: null, suggested_category_id: null }
+                                              : exp
+                                          )
+                                        );
+                                      } else {
+                                        updateExpenseCategory(expense.id, newCategoryId);
+                                      }
                                     }}
                                   >
                                     <option value=""></option>
