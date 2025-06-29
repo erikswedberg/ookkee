@@ -842,7 +842,6 @@ const SpreadsheetView = ({ project }) => {
                                       {value}
                                     </span>
                                   )}
-                                )
                               ) : isAmount && typeof value === "number" ? (
                                 formatAmount(value)
                               ) : isDate ? (
