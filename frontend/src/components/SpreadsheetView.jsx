@@ -825,7 +825,7 @@ const SpreadsheetView = ({ project }) => {
                                     <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
                                   </div>
                                 ) : (
-                                  {value === "Uncategorized" ? (
+                                  value === "Uncategorized" ? (
                                     null
                                   ) : (
                                     <span className={`px-2 py-1 rounded-full text-xs ${
