@@ -65,8 +65,8 @@
 }
 
 .spreadsheet .status-column.personal .badge {
-  background-color: #f3e8ff;
-  color: #7c3aed;
+  background-color: #cccccc;
+  color: #999999;
 }
 
 .spreadsheet .status-column.accepted .badge {

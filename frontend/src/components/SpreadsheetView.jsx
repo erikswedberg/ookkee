@@ -208,28 +208,28 @@ const SpreadsheetTable = () => {
       <div className={`actions ${
         activeRowIndex === expenseIndex ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
       }`}>
-        {!expense.suggested_category_id ? (
-          <span style={{ visibility: 'hidden' }}>Accept</span>
-        ) : (
-          <button
-            className={`link ${
-              expense.accepted_category_id 
-                ? 'text-gray-400 cursor-not-allowed pointer-events-none' 
-                : 'text-blue-600 hover:text-blue-800'
-            }`}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (expense.suggested_category_id && !expense.accepted_category_id) {
-                handleAcceptSuggestion(expense);
-              }
-            }}
-            disabled={!!expense.accepted_category_id}
-          >
-            Accept
-          </button>
+        {expense.suggested_category_id && (
+          <>
+            <button
+              className={`link ${
+                expense.accepted_category_id 
+                  ? 'text-gray-400 cursor-not-allowed pointer-events-none' 
+                  : 'text-blue-600 hover:text-blue-800'
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (expense.suggested_category_id && !expense.accepted_category_id) {
+                  handleAcceptSuggestion(expense);
+                }
+              }}
+              disabled={!!expense.accepted_category_id}
+            >
+              Accept
+            </button>
+            <span className="separator">|</span>
+          </>
         )}
-        <span className="separator">|</span>
         <label className="checkbox-group">
           <Checkbox 
             checked={expense.is_personal || false}
@@ -247,20 +247,20 @@ const SpreadsheetTable = () => {
             Personal
           </span>
         </label>
-        <span className="separator">|</span>
-        {!expense.accepted_category_id && !expense.suggested_category_id ? (
-          <span className="link text-gray-400 cursor-not-allowed">Clear</span>
-        ) : (
-          <button
-            className="link"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleClearCategory(expense);
-            }}
-          >
-            Clear
-          </button>
+        {(expense.accepted_category_id || expense.suggested_category_id) && (
+          <>
+            <span className="separator">|</span>
+            <button
+              className="link"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleClearCategory(expense);
+              }}
+            >
+              Clear
+            </button>
+          </>
         )}
       </div>
     );
@@ -383,6 +383,7 @@ const SpreadsheetTable = () => {
             return (
               <TableRow 
                 key={expense.id}
+                data-row-index={expenseIndex}
                 className={`spreadsheet row group cursor-pointer ${
                   isActive
                     ? 'active'
