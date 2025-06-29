@@ -570,7 +570,7 @@ const SpreadsheetView = ({ project }) => {
                             ? 'bg-gray-100 text-gray-500 hover:bg-gray-100'
                             : activeRowIndex === expenseIndex 
                               ? 'bg-yellow-50 ring-2 ring-blue-300 hover:bg-yellow-50' 
-                              : 'hover:bg-muted/50'
+                              : 'hover:bg-sky-50'
                         }`}
                         onClick={() => {
                           setIsTableActive(true);
