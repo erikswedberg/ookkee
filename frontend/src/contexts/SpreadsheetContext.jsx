@@ -123,15 +123,18 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [fetchProgress]);
 
-  const handleTogglePersonal = useCallback((expense) => {
-    updateExpense(expense.id, { is_personal: !expense.is_personal });
-    
-    // Auto-advance to next row if currently active
+  // Auto-advance to next row helper
+  const advanceToNextRow = useCallback((expense) => {
     const currentIndex = expenses.findIndex(e => e.id === expense.id);
     if (currentIndex !== -1 && currentIndex === activeRowIndex && currentIndex < expenses.length - 1) {
       setActiveRowIndex(currentIndex + 1);
     }
-  }, [updateExpense, expenses, activeRowIndex, setActiveRowIndex]);
+  }, [expenses, activeRowIndex, setActiveRowIndex]);
+
+  const handleTogglePersonal = useCallback((expense) => {
+    updateExpense(expense.id, { is_personal: !expense.is_personal });
+    advanceToNextRow(expense);
+  }, [updateExpense, advanceToNextRow]);
 
   // Convenience functions for specific actions
   const updateExpenseCategory = useCallback((expenseId, categoryId) => {
@@ -141,14 +144,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const handleAcceptSuggestion = useCallback((expense) => {
     if (expense.suggested_category_id && !expense.accepted_category_id) {
       updateExpenseCategory(expense.id, expense.suggested_category_id);
-      
-      // Auto-advance to next row if currently active
-      const currentIndex = expenses.findIndex(e => e.id === expense.id);
-      if (currentIndex !== -1 && currentIndex === activeRowIndex && currentIndex < expenses.length - 1) {
-        setActiveRowIndex(currentIndex + 1);
-      }
+      advanceToNextRow(expense);
     }
-  }, [updateExpenseCategory, expenses, activeRowIndex, setActiveRowIndex]);
+  }, [updateExpenseCategory, advanceToNextRow]);
 
   const handleClearCategory = (expense) => {
     // Update local state immediately with null values for UI
@@ -375,19 +373,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
             handleTogglePersonal(expenses[activeRowIndex]);
           }
           break;
-        case 'Tab':
-          if (activeRowIndex !== null) {
-            e.preventDefault();
-            // Find the select element in the active row and focus it
-            const activeRow = document.querySelector(`[data-row-index="${activeRowIndex}"]`);
-            if (activeRow) {
-              const selectElement = activeRow.querySelector('select');
-              if (selectElement) {
-                selectElement.focus();
-              }
-            }
-          }
-          break;
+
       }
     };
 

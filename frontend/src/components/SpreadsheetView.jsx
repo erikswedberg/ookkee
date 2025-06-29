@@ -140,11 +140,14 @@ const SpreadsheetTable = () => {
       }
     };
 
+    const expenseIndex = expenses.indexOf(expense);
+    
     return (
       <div className={`category-column ${getCategoryClassName(expense)}`}>
         <select 
           value={getCategoryValue(expense)}
           onChange={handleCategoryChange}
+          tabIndex={activeRowIndex === expenseIndex ? 0 : -1}
         >
           <option value=""></option>
           {categories.map(category => {
