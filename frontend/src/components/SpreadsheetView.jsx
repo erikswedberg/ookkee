@@ -863,10 +863,7 @@ const SpreadsheetView = ({ project }) => {
                                   <div className="flex items-center gap-1">
                                     <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
                                   </div>
-                                ) : (
-                                  value === "Uncategorized" ? (
-                                    null
-                                  ) : (
+                                ) : 
                                     <span className={`px-2 py-1 rounded-full text-xs ${
                                       value === "Personal"
                                         ? (activeRowIndex === expenseIndex ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-600")
@@ -876,11 +873,12 @@ const SpreadsheetView = ({ project }) => {
                                             ? "bg-orange-100 text-orange-800"
                                             : value === "Suggested"
                                               ? "bg-blue-100 text-blue-800" 
-                                              : "bg-gray-100 text-gray-600"
+                                              : "bg-gray-100 text-gray-600 invisible"
                                     }`}>
                                       {value}
                                     </span>
-                                  )}
+
+                                  
                               ) : isAmount && typeof value === "number" ? (
                                 formatAmount(value)
                               ) : isDate ? (
