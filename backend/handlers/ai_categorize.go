@@ -112,9 +112,12 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		// Continue without accepted map
 		acceptedMap = make(map[string]int)
 	}
+	log.Printf("Debug: accepted map size: %d, contents: %+v", len(acceptedMap), acceptedMap)
 
 	// Create categorization prompt with accepted map
 	prompt := buildCategorizationPrompt(req.Expenses, categoryDetails, acceptedMap)
+	log.Printf("Debug: AI prompt length: %d characters", len(prompt))
+	log.Printf("Debug: AI prompt:\n%s", prompt)
 
 	// Call AI model
 	ctx := context.Background()
@@ -190,8 +193,8 @@ func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []
 		return make(map[string]int), nil
 	}
 
-	// Query for similar accepted descriptions using pg_trgm
-	query := `
+	// First try with pg_trgm similarity, fallback to simple approach if extension not available
+	trgmQuery := `
 		SELECT DISTINCT ON (lower(description))
 		       lower(description) AS key,
 		       accepted_category_id
@@ -208,13 +211,34 @@ func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []
 		LIMIT  100
 	`
 
+	// Fallback query without pg_trgm (just get all accepted descriptions)
+	fallbackQuery := `
+		SELECT DISTINCT lower(description) AS key,
+		       accepted_category_id
+		FROM   expense
+		WHERE  project_id = $1
+		  AND  accepted_category_id IS NOT NULL
+		LIMIT  50
+	`
+
+	// Try pg_trgm query first
+	query := trgmQuery
+
+	log.Printf("Debug: fetchAcceptedMap query - projectID: %d, descriptions: %+v", projectID, currentDescriptions)
+
 	rows, err := database.Pool.Query(ctx, query, projectID, currentDescriptions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch accepted map: %v", err)
+		// If pg_trgm query fails, try fallback query
+		log.Printf("Debug: pg_trgm query failed, trying fallback: %v", err)
+		rows, err = database.Pool.Query(ctx, fallbackQuery, projectID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch accepted map with fallback: %v", err)
+		}
 	}
 	defer rows.Close()
 
 	acceptedMap := make(map[string]int)
+	rowCount := 0
 	for rows.Next() {
 		var key string
 		var categoryID int
@@ -222,8 +246,10 @@ func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []
 			return nil, err
 		}
 		acceptedMap[key] = categoryID
+		rowCount++
 	}
 
+	log.Printf("Debug: fetchAcceptedMap found %d rows, map: %+v", rowCount, acceptedMap)
 	return acceptedMap, rows.Err()
 }
 
