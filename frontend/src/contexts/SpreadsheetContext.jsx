@@ -106,11 +106,19 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         throw new Error(`Failed to update expense: ${response.status}`);
       }
 
-      // Update local state immediately
+      // Get the actual values from API response
+      const responseData = await response.json();
+      
+      // Update local state with API response values (not request values)
       setExpenses(currentExpenses => 
         currentExpenses.map(expense => 
           expense.id === expenseId 
-            ? { ...expense, ...updates }
+            ? { 
+                ...expense, 
+                ...(responseData.accepted_category_id !== undefined && { accepted_category_id: responseData.accepted_category_id }),
+                ...(responseData.suggested_category_id !== undefined && { suggested_category_id: responseData.suggested_category_id }),
+                ...(responseData.is_personal !== undefined && { is_personal: responseData.is_personal })
+              }
             : expense
         )
       );
