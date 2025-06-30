@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Toaster } from "sonner";
 import "./App.css";
 
 function App() {
@@ -308,6 +309,8 @@ function App() {
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
       />
+      
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

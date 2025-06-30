@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -176,6 +178,20 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the current expense details for auto-propagation
+	var currentExpense struct {
+		ProjectID   int    `db:"project_id"`
+		Description string `db:"description"`
+	}
+
+	getExpenseQuery := `SELECT project_id, description FROM expense WHERE id = $1`
+	err := database.Pool.QueryRow(ctx, getExpenseQuery, expenseID).Scan(
+		&currentExpense.ProjectID, &currentExpense.Description)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get expense details: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	// Build dynamic update query based on provided fields
 	updateFields := []string{}
 	args := []interface{}{}
@@ -228,17 +244,31 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		WHERE id = $%d
 	`, strings.Join(updateFields, ", "), argIndex)
 
-	_, err := database.Pool.Exec(ctx, updateQuery, args...)
+	_, err = database.Pool.Exec(ctx, updateQuery, args...)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update expense: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	// Auto-propagate accepted category to identical descriptions
+	var propagatedIDs []int
+	if req.AcceptedCategoryID != nil && *req.AcceptedCategoryID != -1 {
+		propagatedIDs, err = propagateAcceptedCategory(ctx, currentExpense.ProjectID,
+			currentExpense.Description, *req.AcceptedCategoryID)
+		if err != nil {
+			// Log error but don't fail the main request
+			log.Printf("Failed to propagate category: %v", err)
+			propagatedIDs = []int{} // Ensure we have an empty slice
+		}
+	}
+
 	// Return success response with actual database values (not request values)
 	response := map[string]interface{}{
-		"message":    "Expense updated successfully",
-		"expense_id": expenseID,
+		"message":          "Expense updated successfully",
+		"expense_id":       expenseID,
+		"propagated_count": len(propagatedIDs),
+		"propagated_ids":   propagatedIDs,
 	}
 
 	if req.AcceptedCategoryID != nil {
@@ -458,4 +488,52 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to write CSV total row: %v", err), http.StatusInternalServerError)
 		return
 	}
+}
+
+// propagateAcceptedCategory auto-assigns accepted category to other uncategorized expenses
+// with identical descriptions in the same project
+func propagateAcceptedCategory(ctx context.Context, projectID int, description string, categoryID int) ([]int, error) {
+	// First, get the IDs of expenses that will be updated
+	selectQuery := `
+		SELECT id 
+		FROM expense 
+		WHERE project_id = $1 
+		  AND accepted_category_id IS NULL 
+		  AND lower(description) = lower($2)
+	`
+
+	rows, err := database.Pool.Query(ctx, selectQuery, projectID, description)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var expenseIDs []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		expenseIDs = append(expenseIDs, id)
+	}
+
+	if len(expenseIDs) == 0 {
+		return []int{}, nil
+	}
+
+	// Now update those expenses
+	propagateQuery := `
+		UPDATE expense 
+		SET accepted_category_id = $1, accepted_at = CURRENT_TIMESTAMP
+		WHERE project_id = $2 
+		  AND accepted_category_id IS NULL 
+		  AND lower(description) = lower($3)
+	`
+
+	_, err = database.Pool.Exec(ctx, propagateQuery, categoryID, projectID, description)
+	if err != nil {
+		return nil, err
+	}
+
+	return expenseIDs, nil
 }

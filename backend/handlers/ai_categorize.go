@@ -100,8 +100,21 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create categorization prompt
-	prompt := buildCategorizationPrompt(req.Expenses, categoryDetails)
+	// Fetch accepted map for similar descriptions
+	currentDescriptions := make([]string, len(req.Expenses))
+	for i, expense := range req.Expenses {
+		currentDescriptions[i] = expense.Description
+	}
+
+	acceptedMap, err := fetchAcceptedMap(context.Background(), projectID, currentDescriptions)
+	if err != nil {
+		log.Printf("Failed to fetch accepted map: %v", err)
+		// Continue without accepted map
+		acceptedMap = make(map[string]int)
+	}
+
+	// Create categorization prompt with accepted map
+	prompt := buildCategorizationPrompt(req.Expenses, categoryDetails, acceptedMap)
 
 	// Call AI model
 	ctx := context.Background()
@@ -162,8 +175,52 @@ func getCategoryDetails(categoryNames []string) ([]models.ExpenseCategory, error
 	return categories, nil
 }
 
+// fetchAcceptedMap builds a fuzzy-matched map of accepted descriptions to categories
+// for improving AI categorization suggestions
+func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []string) (map[string]int, error) {
+	if len(currentDescriptions) == 0 {
+		return make(map[string]int), nil
+	}
+
+	// Query for similar accepted descriptions using pg_trgm
+	query := `
+		SELECT DISTINCT ON (lower(description))
+		       lower(description) AS key,
+		       accepted_category_id
+		FROM   expense
+		WHERE  project_id = $1
+		  AND  accepted_category_id IS NOT NULL
+		  AND  EXISTS (
+			  SELECT 1 FROM unnest($2::text[]) AS desc
+			  WHERE similarity(lower(expense.description), lower(desc)) > 0.35
+		  )
+		ORDER  BY lower(description), 
+		          (SELECT MAX(similarity(lower(expense.description), lower(desc))) 
+		           FROM unnest($2::text[]) AS desc) DESC
+		LIMIT  100
+	`
+
+	rows, err := database.Pool.Query(ctx, query, projectID, currentDescriptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch accepted map: %v", err)
+	}
+	defer rows.Close()
+
+	acceptedMap := make(map[string]int)
+	for rows.Next() {
+		var key string
+		var categoryID int
+		if err := rows.Scan(&key, &categoryID); err != nil {
+			return nil, err
+		}
+		acceptedMap[key] = categoryID
+	}
+
+	return acceptedMap, rows.Err()
+}
+
 // buildCategorizationPrompt creates the prompt for AI categorization
-func buildCategorizationPrompt(expenses []ExpenseForAI, categories []models.ExpenseCategory) string {
+func buildCategorizationPrompt(expenses []ExpenseForAI, categories []models.ExpenseCategory, acceptedMap map[string]int) string {
 	var prompt strings.Builder
 
 	prompt.WriteString("You are an expert accountant helping categorize business expenses. ")
@@ -172,6 +229,23 @@ func buildCategorizationPrompt(expenses []ExpenseForAI, categories []models.Expe
 	prompt.WriteString("Available Categories:\n")
 	for _, cat := range categories {
 		prompt.WriteString(fmt.Sprintf("- ID: %d, Name: %s\n", cat.ID, cat.Name))
+	}
+
+	// Add accepted map for context if available
+	if len(acceptedMap) > 0 {
+		prompt.WriteString("\nSimilar Descriptions Previously Categorized:\n")
+		for desc, categoryID := range acceptedMap {
+			// Find category name by ID
+			categoryName := "Unknown"
+			for _, cat := range categories {
+				if int(cat.ID) == categoryID {
+					categoryName = cat.Name
+					break
+				}
+			}
+			prompt.WriteString(fmt.Sprintf("- '%s' → %s (ID: %d)\n", desc, categoryName, categoryID))
+		}
+		prompt.WriteString("\nUse these examples to help categorize similar descriptions.\n")
 	}
 
 	prompt.WriteString("\nExpenses to categorize:\n")
