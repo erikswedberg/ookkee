@@ -4,7 +4,7 @@ import {
   useContext,
   useEffect,
   useState,
-} from 'react';
+} from "react";
 
 const totalsInitialValues = {
   totals: [],
@@ -23,12 +23,14 @@ export const TotalsContextProvider = ({ children, project }) => {
   // Fetch project totals
   const fetchTotals = useCallback(async () => {
     if (!project?.id) return;
-    
+
     setLoadingTotals(true);
     setError(null);
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const response = await fetch(`${API_URL}/api/projects/${project.id}/totals`);
+      const response = await fetch(
+        `${API_URL}/api/projects/${project.id}/totals`
+      );
       if (response.ok) {
         const data = await response.json();
         setTotals(data || []);
@@ -51,10 +53,6 @@ export const TotalsContextProvider = ({ children, project }) => {
   };
 
   return (
-    <TotalsContext.Provider value={value}>
-      {children}
-    </TotalsContext.Provider>
+    <TotalsContext.Provider value={value}>{children}</TotalsContext.Provider>
   );
 };
-
-

@@ -1,43 +1,44 @@
 import { useState, useEffect, useCallback, useContext } from "react";
-import {
-  TableCell,
-  TableHead,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { RefreshCw, Download } from "lucide-react";
-import { SpreadsheetContextProvider, SpreadsheetContext } from '../contexts/SpreadsheetContext';
-import { TotalsContextProvider } from '../contexts/TotalsContext';
-import TotalsView from './TotalsView';
-import './Spreadsheet.css';
+import {
+  SpreadsheetContextProvider,
+  SpreadsheetContext,
+} from "../contexts/SpreadsheetContext";
+import { TotalsContextProvider } from "../contexts/TotalsContext";
+import TotalsView from "./TotalsView";
+import "./Spreadsheet.css";
 
 // Download Totals Button Component
 const DownloadTotalsButton = ({ project }) => {
   const downloadCSV = async () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const response = await fetch(`${API_URL}/api/projects/${project.id}/totals/csv`);
-      
+      const response = await fetch(
+        `${API_URL}/api/projects/${project.id}/totals/csv`
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${project.name}-totals.csv`);
-      link.style.visibility = 'hidden';
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `${project.name}-totals.csv`);
+      link.style.visibility = "hidden";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to download CSV:', error);
+      console.error("Failed to download CSV:", error);
     }
   };
 
@@ -115,14 +116,17 @@ const SpreadsheetTable = () => {
   const getColumnValue = (expense, column) => {
     switch (column) {
       case "Category":
-        return expense.accepted_category_id || expense.suggested_category_id || "";
+        return (
+          expense.accepted_category_id || expense.suggested_category_id || ""
+        );
       case "Action":
         return null;
       case "Status":
         if (expense.is_personal) return "Personal";
         if (expense.accepted_category_id) {
           if (!expense.suggested_category_id) return "Manual";
-          if (expense.accepted_category_id !== expense.suggested_category_id) return "Manual";
+          if (expense.accepted_category_id !== expense.suggested_category_id)
+            return "Manual";
           return "Accepted";
         } else if (expense.suggested_category_id) {
           return "Suggested";
@@ -145,34 +149,36 @@ const SpreadsheetTable = () => {
   };
 
   // Category column renderer
-  const renderCategory = (expense) => {
-    const getCategoryValue = (expense) => {
-      return expense.accepted_category_id ? expense.accepted_category_id.toString() 
-           : expense.suggested_category_id ? expense.suggested_category_id.toString() 
-           : "";
+  const renderCategory = expense => {
+    const getCategoryValue = expense => {
+      return expense.accepted_category_id
+        ? expense.accepted_category_id.toString()
+        : expense.suggested_category_id
+          ? expense.suggested_category_id.toString()
+          : "";
     };
 
-    const getCategoryClassName = (expense) => {
+    const getCategoryClassName = expense => {
       const expenseIndex = expenses.indexOf(expense);
-      
+
       if (expense.is_personal && activeRowIndex !== expenseIndex) {
         return "personal";
       }
-      
+
       if (expense.accepted_category_id) {
         return "accepted";
       }
-      
+
       if (expense.suggested_category_id) {
         return "suggested";
       }
-      
+
       return "uncategorized";
     };
 
-    const handleCategoryChange = (e) => {
+    const handleCategoryChange = e => {
       const newCategoryId = e.target.value ? parseInt(e.target.value) : -1;
-      
+
       if (newCategoryId === -1) {
         handleClearCategory(expense);
       } else {
@@ -182,16 +188,19 @@ const SpreadsheetTable = () => {
 
     return (
       <div className={`category-column ${getCategoryClassName(expense)}`}>
-        <select 
+        <select
           value={getCategoryValue(expense)}
           onChange={handleCategoryChange}
         >
           <option value=""></option>
           {categories.map(category => {
-            const isAiSuggested = expense.suggested_category_id === category.id && !expense.accepted_category_id;
+            const isAiSuggested =
+              expense.suggested_category_id === category.id &&
+              !expense.accepted_category_id;
             return (
               <option key={category.id} value={category.id}>
-                {category.name}{isAiSuggested ? ' 💡' : ''}
+                {category.name}
+                {isAiSuggested ? " 💡" : ""}
               </option>
             );
           })}
@@ -201,13 +210,14 @@ const SpreadsheetTable = () => {
   };
 
   // Status column renderer
-  const renderStatus = (expense) => {
-    const getStatusValue = (expense) => {
+  const renderStatus = expense => {
+    const getStatusValue = expense => {
       if (expense.is_personal) return "Personal";
-      
+
       if (expense.accepted_category_id) {
         if (!expense.suggested_category_id) return "Manual";
-        if (expense.accepted_category_id !== expense.suggested_category_id) return "Manual";
+        if (expense.accepted_category_id !== expense.suggested_category_id)
+          return "Manual";
         return "Accepted";
       } else if (expense.suggested_category_id) {
         return "Suggested";
@@ -215,12 +225,12 @@ const SpreadsheetTable = () => {
         return "Uncategorized";
       }
     };
-    
-    const getStatusClassName = (expense) => {
+
+    const getStatusClassName = expense => {
       const status = getStatusValue(expense).toLowerCase();
       return status;
     };
-    
+
     // Show processing spinner if this row is being processed
     if (processingRows.has(expense.id)) {
       return (
@@ -229,15 +239,15 @@ const SpreadsheetTable = () => {
         </div>
       );
     }
-    
+
     const status = getStatusValue(expense);
     const className = getStatusClassName(expense);
-    
+    if (expense && expense.row_index === 7) {
+      console.log("renderStatus", expense, status, className);
+    }
     return (
       <div className={`status-column ${className}`}>
-        <span className="badge">
-          {status}
-        </span>
+        <span className="badge">{status}</span>
       </div>
     );
   };
@@ -245,38 +255,54 @@ const SpreadsheetTable = () => {
   // Action column renderer
   const renderAction = (expense, expenseIndex) => {
     return (
-      <div className={`actions ${
-        activeRowIndex === expenseIndex ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-      }`}>
+      <div
+        className={`actions ${
+          activeRowIndex === expenseIndex
+            ? "opacity-100"
+            : "opacity-0 group-hover:opacity-100"
+        }`}
+      >
         <button
           className={`link ${
-            expense.accepted_category_id 
-              ? 'text-gray-400 cursor-not-allowed pointer-events-none' 
-              : 'text-blue-600 hover:text-blue-800'
+            expense.accepted_category_id
+              ? "text-gray-400 cursor-not-allowed pointer-events-none"
+              : "text-blue-600 hover:text-blue-800"
           }`}
-          onClick={(e) => {
+          onClick={e => {
             e.preventDefault();
             e.stopPropagation();
-            if (expense.suggested_category_id && !expense.accepted_category_id) {
+            if (
+              expense.suggested_category_id &&
+              !expense.accepted_category_id
+            ) {
               handleAcceptSuggestion(expense);
             }
           }}
           disabled={!!expense.accepted_category_id}
-          style={{ visibility: expense.suggested_category_id ? 'visible' : 'hidden' }}
+          style={{
+            visibility: expense.suggested_category_id ? "visible" : "hidden",
+          }}
         >
           Accept
         </button>
-        <span className="separator" style={{ visibility: expense.suggested_category_id ? 'visible' : 'hidden' }}>|</span>
+        <span
+          className="separator"
+          style={{
+            visibility: expense.suggested_category_id ? "visible" : "hidden",
+          }}
+        >
+          |
+        </span>
         <label className="checkbox-group">
-          <Checkbox 
+          <Checkbox
             checked={expense.is_personal || false}
-            onCheckedChange={(checked) => {
+            onCheckedChange={() => {
               handleTogglePersonal(expense);
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           />
-          <span 
-            onClick={(e) => {
+          <span
+            onClick={e => {
               e.stopPropagation();
               handleTogglePersonal(expense);
             }}
@@ -284,15 +310,30 @@ const SpreadsheetTable = () => {
             Personal
           </span>
         </label>
-        <span className="separator" style={{ visibility: (expense.accepted_category_id || expense.suggested_category_id) ? 'visible' : 'hidden' }}>|</span>
+        <span
+          className="separator"
+          style={{
+            visibility:
+              expense.accepted_category_id || expense.suggested_category_id
+                ? "visible"
+                : "hidden",
+          }}
+        >
+          |
+        </span>
         <button
           className="link"
-          onClick={(e) => {
+          onClick={e => {
             e.preventDefault();
             e.stopPropagation();
             handleClearCategory(expense);
           }}
-          style={{ visibility: (expense.accepted_category_id || expense.suggested_category_id) ? 'visible' : 'hidden' }}
+          style={{
+            visibility:
+              expense.accepted_category_id || expense.suggested_category_id
+                ? "visible"
+                : "hidden",
+          }}
         >
           Clear
         </button>
@@ -335,17 +376,27 @@ const SpreadsheetTable = () => {
   useEffect(() => {
     const currentLoadMoreRef = loadMoreRef.current;
     const currentContainerRef = containerRef.current;
-    
+
     // Wait for expenses to be loaded and hasMore to be properly set
-    if (!currentLoadMoreRef || !currentContainerRef || expenses.length === 0 || !hasMore) {
+    if (
+      !currentLoadMoreRef ||
+      !currentContainerRef ||
+      expenses.length === 0 ||
+      !hasMore
+    ) {
       return;
     }
 
     const observer = new IntersectionObserver(
-      (entries) => {
+      entries => {
         const [entry] = entries;
         // Add more specific checks to prevent double-firing
-        if (entry.isIntersecting && hasMore && !loadingRef.current && !loading) {
+        if (
+          entry.isIntersecting &&
+          hasMore &&
+          !loadingRef.current &&
+          !loading
+        ) {
           const nextPage = page + 1;
           console.log(`Infinite scroll triggered: loading page ${nextPage}`);
           loadExpenses(nextPage);
@@ -354,7 +405,7 @@ const SpreadsheetTable = () => {
       {
         root: currentContainerRef, // Use the scrollable container as root
         threshold: 0.1,
-        rootMargin: '100px' // Trigger when 100px from bottom
+        rootMargin: "100px", // Trigger when 100px from bottom
       }
     );
 
@@ -366,19 +417,28 @@ const SpreadsheetTable = () => {
       }
       observer.disconnect();
     };
-  }, [hasMore, page, expenses.length, loading, loadExpenses, loadMoreRef, containerRef, loadingRef]);
+  }, [
+    hasMore,
+    page,
+    expenses.length,
+    loading,
+    loadExpenses,
+    loadMoreRef,
+    containerRef,
+    loadingRef,
+  ]);
 
   // Click outside handler
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    const handleClickOutside = e => {
       if (tableRef.current && !tableRef.current.contains(e.target)) {
         setIsTableActive(false);
         setActiveRowWithTabIndex(null);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [setIsTableActive, setActiveRowWithTabIndex, tableRef]);
 
   const columns = getColumns();
@@ -392,14 +452,17 @@ const SpreadsheetTable = () => {
   }
 
   return (
-    <div className="spreadsheet overflow-auto relative h-[calc(100vh-250px)]" ref={containerRef}>
+    <div
+      className="spreadsheet overflow-auto relative h-[calc(100vh-250px)]"
+      ref={containerRef}
+    >
       <table className="w-full caption-bottom text-sm" ref={tableRef}>
         <thead className="[&_tr]:border-b sticky top-0 z-10">
           <TableRow className="bg-background border-b">
             <TableHead className="w-16 bg-background">#</TableHead>
             {columns.map(column => (
-              <TableHead 
-                key={column} 
+              <TableHead
+                key={column}
                 className={`bg-background ${
                   column === "Status" ? "text-right" : ""
                 }`}
@@ -413,18 +476,18 @@ const SpreadsheetTable = () => {
           {expenses.map((expense, expenseIndex) => {
             const isPersonal = expense.is_personal;
             const isActive = activeRowIndex === expenseIndex;
-            
+
             return (
-              <TableRow 
+              <TableRow
                 key={expense.id}
                 data-row-index={expenseIndex}
                 tabIndex={isActive ? 0 : -1}
                 className={`spreadsheet row group cursor-pointer ${
                   isActive
-                    ? 'active'
-                    : isPersonal 
-                      ? 'personal'
-                      : 'hover:bg-sky-50'
+                    ? "active"
+                    : isPersonal
+                      ? "personal"
+                      : "hover:bg-sky-50"
                 }`}
                 onClick={() => {
                   setIsTableActive(true);
@@ -449,7 +512,7 @@ const SpreadsheetTable = () => {
                         isAmount
                           ? `font-mono amount ${
                               isPersonal && !isActive
-                                ? 'text-gray-500'
+                                ? "text-gray-500"
                                 : getAmountClass(value)
                             }`
                           : isStatus
@@ -457,19 +520,17 @@ const SpreadsheetTable = () => {
                             : ""
                       }
                     >
-                      {isCategory ? (
-                        renderCategory(expense)
-                      ) : isAction ? (
-                        renderAction(expense, expenseIndex)
-                      ) : isStatus ? (
-                        renderStatus(expense)
-                      ) : isAmount && typeof value === "number" ? (
-                        formatAmount(value)
-                      ) : isDate ? (
-                        formatDate(value)
-                      ) : (
-                        value || ""
-                      )}
+                      {isCategory
+                        ? renderCategory(expense)
+                        : isAction
+                          ? renderAction(expense, expenseIndex)
+                          : isStatus
+                            ? renderStatus(expense)
+                            : isAmount && typeof value === "number"
+                              ? formatAmount(value)
+                              : isDate
+                                ? formatDate(value)
+                                : value || ""}
                     </TableCell>
                   );
                 })}
@@ -478,7 +539,7 @@ const SpreadsheetTable = () => {
           })}
         </tbody>
       </table>
-      
+
       {/* Load more sentinel */}
       {hasMore && (
         <div
@@ -486,9 +547,7 @@ const SpreadsheetTable = () => {
           className="flex flex-col items-center justify-center p-4 space-y-2"
         >
           {loading ? (
-            <span className="text-muted-foreground">
-              Loading more rows...
-            </span>
+            <span className="text-muted-foreground">Loading more rows...</span>
           ) : (
             <>
               <span className="text-muted-foreground text-sm">
@@ -510,7 +569,7 @@ const SpreadsheetTable = () => {
           )}
         </div>
       )}
-      
+
       {!hasMore && expenses.length > 0 && (
         <div className="flex items-center justify-center p-4">
           <span className="text-muted-foreground">
@@ -541,7 +600,11 @@ const SpreadsheetView = ({ project }) => {
   return (
     <SpreadsheetContextProvider project={project}>
       <TotalsContextProvider project={project}>
-        <SpreadsheetViewContent project={project} activeTab={activeTab} setActiveTab={setActiveTab} />
+        <SpreadsheetViewContent
+          project={project}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
       </TotalsContextProvider>
     </SpreadsheetContextProvider>
   );
@@ -587,19 +650,24 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
               <CardTitle>{project.name}</CardTitle>
               <p className="text-sm text-muted-foreground">
                 {project.row_count} rows • {project.original_name}
-                {activeTab === "expenses" && ` • Showing ${expenses.length} of ${project.row_count}`}
+                {activeTab === "expenses" &&
+                  ` • Showing ${expenses.length} of ${project.row_count}`}
               </p>
               {project?.row_count > 0 && (
                 <div className="w-48">
-                  <Progress 
-                    value={progress.percentage} 
-                    className={`h-2 ${progress.isComplete ? '[&>div]:bg-green-500' : ''}`}
+                  <Progress
+                    value={progress.percentage}
+                    className={`h-2 ${progress.isComplete ? "[&>div]:bg-green-500" : ""}`}
                   />
                 </div>
               )}
             </div>
             <div className="flex items-center gap-4">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="w-auto"
+              >
                 <TabsList>
                   <TabsTrigger value="expenses">Expenses</TabsTrigger>
                   <TabsTrigger value="totals">Totals</TabsTrigger>
@@ -610,18 +678,30 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
                   variant="outline"
                   size="sm"
                   onClick={handleAiCategorization}
-                  disabled={aiCategorizing || loading || expenses.length === 0 || categories.length === 0}
+                  disabled={
+                    aiCategorizing ||
+                    loading ||
+                    expenses.length === 0 ||
+                    categories.length === 0
+                  }
                   className="flex items-center gap-2"
                 >
-                  <RefreshCw className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`} />
-                  {aiCategorizing ? 'AI Categorizing...' : (() => {
-                    const uncategorizedCount = expenses.filter(e => 
-                      !e.accepted_category_id && 
-                      !e.suggested_category_id &&
-                      !processingRows.has(e.id)
-                    ).length;
-                    return uncategorizedCount > 0 ? `AI Categorize (${Math.min(uncategorizedCount, 20)})` : 'AI Categorize';
-                  })()}
+                  <RefreshCw
+                    className={`h-4 w-4 ${aiCategorizing ? "animate-spin" : ""}`}
+                  />
+                  {aiCategorizing
+                    ? "AI Categorizing..."
+                    : (() => {
+                        const uncategorizedCount = expenses.filter(
+                          e =>
+                            !e.accepted_category_id &&
+                            !e.suggested_category_id &&
+                            !processingRows.has(e.id)
+                        ).length;
+                        return uncategorizedCount > 0
+                          ? `AI Categorize (${Math.min(uncategorizedCount, 20)})`
+                          : "AI Categorize";
+                      })()}
                 </Button>
               )}
               {activeTab === "totals" && (
@@ -636,7 +716,7 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
             <TabsContent value="expenses">
               <SpreadsheetTable />
             </TabsContent>
-            
+
             <TabsContent value="totals">
               <TotalsView />
             </TabsContent>
