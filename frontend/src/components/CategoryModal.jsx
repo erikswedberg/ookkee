@@ -14,8 +14,10 @@ const CategoryModal = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
+  const [editingHotkey, setEditingHotkey] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryHotkey, setNewCategoryHotkey] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -39,10 +41,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleEdit = (category) => {
-    setEditingId(category.id);
-    setEditingName(category.name);
-  };
+
 
   const handleSaveEdit = async (categoryId) => {
     if (!editingName.trim()) return;
@@ -52,12 +51,16 @@ const CategoryModal = ({ isOpen, onClose }) => {
       const response = await fetch(`${API_URL}/api/categories/${categoryId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editingName.trim() }),
+        body: JSON.stringify({ 
+          name: editingName.trim(),
+          hotkey: editingHotkey.trim() || null 
+        }),
       });
 
       if (response.ok) {
         setEditingId(null);
         setEditingName("");
+        setEditingHotkey("");
         fetchCategories();
       }
     } catch (error) {
@@ -68,6 +71,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingName("");
+    setEditingHotkey("");
   };
 
   const handleDelete = async (categoryId) => {
@@ -112,11 +116,15 @@ const CategoryModal = ({ isOpen, onClose }) => {
       const response = await fetch(`${API_URL}/api/categories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newCategoryName.trim() }),
+        body: JSON.stringify({ 
+          name: newCategoryName.trim(),
+          hotkey: newCategoryHotkey.trim() || null 
+        }),
       });
 
       if (response.ok) {
         setNewCategoryName("");
+        setNewCategoryHotkey("");
         setShowCreateForm(false);
         fetchCategories();
       }
@@ -127,6 +135,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
 
   const handleCancelCreate = () => {
     setNewCategoryName("");
+    setNewCategoryHotkey("");
     setShowCreateForm(false);
   };
 
@@ -178,12 +187,24 @@ const CategoryModal = ({ isOpen, onClose }) => {
                         <Input
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
-                          className="h-8"
+                          placeholder="Category name"
+                          className="h-8 flex-1"
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleSaveEdit(category.id);
                             if (e.key === "Escape") handleCancelEdit();
                           }}
                           autoFocus
+                        />
+                        <Input
+                          value={editingHotkey}
+                          onChange={(e) => setEditingHotkey(e.target.value.toUpperCase().slice(0, 1))}
+                          placeholder="Key"
+                          className="h-8 w-16 text-center"
+                          maxLength={1}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveEdit(category.id);
+                            if (e.key === "Escape") handleCancelEdit();
+                          }}
                         />
                         <Button
                           size="sm"
@@ -202,7 +223,14 @@ const CategoryModal = ({ isOpen, onClose }) => {
                         </Button>
                       </div>
                     ) : (
-                      <span className="text-sm">{category.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm flex-1">{category.name}</span>
+                        {category.hotkey && (
+                          <span className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                            {category.hotkey}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -213,7 +241,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0"
-                        onClick={() => handleEdit(category)}
+                        onClick={() => startEdit(category)}
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
@@ -237,12 +265,23 @@ const CategoryModal = ({ isOpen, onClose }) => {
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
                     placeholder="Category name..."
-                    className="h-8"
+                    className="h-8 flex-1"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleCreateCategory();
                       if (e.key === "Escape") handleCancelCreate();
                     }}
                     autoFocus
+                  />
+                  <Input
+                    value={newCategoryHotkey}
+                    onChange={(e) => setNewCategoryHotkey(e.target.value.toUpperCase().slice(0, 1))}
+                    placeholder="Key"
+                    className="h-8 w-16 text-center"
+                    maxLength={1}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCreateCategory();
+                      if (e.key === "Escape") handleCancelCreate();
+                    }}
                   />
                   <Button
                     size="sm"

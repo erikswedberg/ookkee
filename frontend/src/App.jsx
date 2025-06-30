@@ -3,6 +3,7 @@ import ProjectsSidebar from "./components/ProjectsSidebar";
 import SpreadsheetView from "./components/SpreadsheetView";
 import ProjectModal from "./components/ProjectModal";
 import CategoryModal from "./components/CategoryModal";
+import HelpDialog from "./components/HelpDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -135,55 +136,12 @@ function App() {
             <h1 className="text-3xl font-bold">Ookkee</h1>
             <p className="text-muted-foreground">AI Bookkeeping Assistant</p>
           </div>
-          <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
-            <DialogTrigger asChild>
-              <button className="text-blue-600 hover:text-blue-800 underline">
-                Help
-              </button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Keyboard Shortcuts</DialogTitle>
-                <DialogDescription>
-                  Available shortcuts when interacting with the table
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 items-center gap-4">
-                  <div className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-                    ↑ / ↓
-                  </div>
-                  <div className="text-sm">
-                    Navigate between rows
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 items-center gap-4">
-                  <div className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-                    A
-                  </div>
-                  <div className="text-sm">
-                    Accept AI suggestion
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 items-center gap-4">
-                  <div className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-                    P
-                  </div>
-                  <div className="text-sm">
-                    Toggle Personal expense
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 items-center gap-4">
-                  <div className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-                    Esc
-                  </div>
-                  <div className="text-sm">
-                    Deactivate table
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <button 
+            className="text-blue-600 hover:text-blue-800 underline"
+            onClick={() => setIsHelpDialogOpen(true)}
+          >
+            Help
+          </button>
         </div>
       </header>
 
@@ -244,6 +202,11 @@ function App() {
       <CategoryModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
+      />
+      
+      <HelpDialog
+        isOpen={isHelpDialogOpen}
+        onClose={() => setIsHelpDialogOpen(false)}
       />
     </div>
   );
