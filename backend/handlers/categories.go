@@ -14,7 +14,7 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	rows, err := database.Pool.Query(ctx, `
-		SELECT id, name, sort_order, created_at 
+		SELECT id, name, hotkey, sort_order, created_at 
 		FROM expense_category 
 		WHERE user_id = $1 AND deleted_at IS NULL 
 		ORDER BY sort_order ASC
@@ -28,7 +28,7 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 	var categories []models.Category
 	for rows.Next() {
 		var category models.Category
-		err := rows.Scan(&category.ID, &category.Name, &category.SortOrder, &category.CreatedAt)
+		err := rows.Scan(&category.ID, &category.Name, &category.Hotkey, &category.SortOrder, &category.CreatedAt)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to scan category: %v", err), http.StatusInternalServerError)
 			return
@@ -44,7 +44,8 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var requestData struct {
-		Name string `json:"name"`
+		Name   string  `json:"name"`
+		Hotkey *string `json:"hotkey"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -72,11 +73,11 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 	// Insert new category
 	var newCategory models.Category
 	err = database.Pool.QueryRow(ctx, `
-		INSERT INTO expense_category (user_id, name, sort_order) 
-		VALUES ($1, $2, $3) 
-		RETURNING id, name, sort_order, created_at
-	`, models.TEST_USER_ID, requestData.Name, maxSortOrder+1).Scan(
-		&newCategory.ID, &newCategory.Name, &newCategory.SortOrder, &newCategory.CreatedAt)
+		INSERT INTO expense_category (user_id, name, hotkey, sort_order) 
+		VALUES ($1, $2, $3, $4) 
+		RETURNING id, name, hotkey, sort_order, created_at
+	`, models.TEST_USER_ID, requestData.Name, requestData.Hotkey, maxSortOrder+1).Scan(
+		&newCategory.ID, &newCategory.Name, &newCategory.Hotkey, &newCategory.SortOrder, &newCategory.CreatedAt)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create category: %v", err), http.StatusInternalServerError)
 		return
@@ -96,7 +97,8 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var requestData struct {
-		Name string `json:"name"`
+		Name   string  `json:"name"`
+		Hotkey *string `json:"hotkey"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -109,12 +111,12 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update category name
+	// Update category name and hotkey
 	_, err := database.Pool.Exec(ctx, `
 		UPDATE expense_category 
-		SET name = $1, updated_at = NOW() 
-		WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL
-	`, requestData.Name, categoryID, models.TEST_USER_ID)
+		SET name = $1, hotkey = $2, updated_at = NOW() 
+		WHERE id = $3 AND user_id = $4 AND deleted_at IS NULL
+	`, requestData.Name, requestData.Hotkey, categoryID, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update category: %v", err), http.StatusInternalServerError)
 		return
