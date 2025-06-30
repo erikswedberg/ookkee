@@ -68,6 +68,12 @@ const CategoryModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const startEdit = (category) => {
+    setEditingId(category.id);
+    setEditingName(category.name);
+    setEditingHotkey(category.hotkey || "");
+  };
+
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingName("");
