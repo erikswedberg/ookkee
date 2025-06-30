@@ -46,6 +46,11 @@ services:
       SERVER_PORT: ${SERVER_PORT}
       UPLOADS_DIR: ${UPLOADS_DIR}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AI_MODEL_PROVIDER: ${AI_MODEL_PROVIDER}
+      OPENAI_MODEL: ${OPENAI_MODEL}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
     volumes:
       - ./uploads:/app/uploads
     depends_on:
