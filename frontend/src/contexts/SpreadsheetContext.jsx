@@ -411,6 +411,17 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
             handleTogglePersonal(expenses[activeRowIndex]);
           }
           break;
+        default:
+          // Check for category hotkeys
+          if (activeRowIndex !== null && e.key.length === 1) {
+            const hotkey = e.key.toUpperCase();
+            const category = categories.find(cat => cat.hotkey === hotkey);
+            if (category) {
+              e.preventDefault();
+              updateExpenseCategory(expenses[activeRowIndex].id, category.id);
+            }
+          }
+          break;
 
       }
     };
