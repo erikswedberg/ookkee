@@ -242,9 +242,7 @@ const SpreadsheetTable = () => {
 
     const status = getStatusValue(expense);
     const className = getStatusClassName(expense);
-    if (expense && expense.row_index === 7) {
-      console.log("renderStatus", expense, status, className);
-    }
+
     return (
       <div className={`status-column ${className}`}>
         <span className="badge">{status}</span>
