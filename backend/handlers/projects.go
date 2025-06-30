@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -233,18 +235,26 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success response
+	// Return success response with actual database values (not request values)
 	response := map[string]interface{}{
 		"message":    "Expense updated successfully",
 		"expense_id": expenseID,
 	}
 
 	if req.AcceptedCategoryID != nil {
-		response["accepted_category_id"] = req.AcceptedCategoryID
+		if *req.AcceptedCategoryID == -1 {
+			response["accepted_category_id"] = nil
+		} else {
+			response["accepted_category_id"] = req.AcceptedCategoryID
+		}
 	}
 
 	if req.SuggestedCategoryID != nil {
-		response["suggested_category_id"] = req.SuggestedCategoryID
+		if *req.SuggestedCategoryID == -1 {
+			response["suggested_category_id"] = nil
+		} else {
+			response["suggested_category_id"] = req.SuggestedCategoryID
+		}
 	}
 
 	if req.IsPersonal != nil {
@@ -359,4 +369,93 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(progress)
+}
+
+// GetProjectTotalsCSV generates and returns CSV of category totals for a project
+func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectIDStr := chi.URLParam(r, "projectID")
+
+	if projectIDStr == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Query to get category totals
+	rows, err := database.Pool.Query(ctx, `
+		SELECT 
+			ec.name as category_name,
+			SUM(e.amount) as total_amount
+		FROM expense e
+		JOIN expense_category ec ON e.accepted_category_id = ec.id
+		WHERE e.project_id = $1 
+			AND e.accepted_category_id IS NOT NULL
+			AND e.deleted_at IS NULL
+		GROUP BY ec.id, ec.name, ec.sort_order
+		ORDER BY ec.sort_order ASC
+	`, projectIDStr)
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch totals: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type CategoryTotal struct {
+		CategoryName string
+		TotalAmount  float64
+	}
+
+	var totals []CategoryTotal
+	var grandTotal float64
+
+	for rows.Next() {
+		var total CategoryTotal
+		err := rows.Scan(&total.CategoryName, &total.TotalAmount)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to scan total: %v", err), http.StatusInternalServerError)
+			return
+		}
+		totals = append(totals, total)
+		grandTotal += total.TotalAmount
+	}
+
+	if err = rows.Err(); err != nil {
+		http.Error(w, fmt.Sprintf("Row iteration error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Set CSV headers
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename=totals.csv")
+
+	// Create CSV writer
+	writer := csv.NewWriter(w)
+	defer writer.Flush()
+
+	// Write header
+	if err := writer.Write([]string{"Category", "Total"}); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to write CSV header: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Write category totals
+	for _, total := range totals {
+		if err := writer.Write([]string{
+			total.CategoryName,
+			strconv.FormatFloat(total.TotalAmount, 'f', 2, 64),
+		}); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to write CSV row: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Write grand total row
+	if err := writer.Write([]string{
+		"Total",
+		strconv.FormatFloat(grandTotal, 'f', 2, 64),
+	}); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to write CSV total row: %v", err), http.StatusInternalServerError)
+		return
+	}
 }

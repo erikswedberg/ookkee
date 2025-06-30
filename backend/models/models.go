@@ -34,6 +34,7 @@ type Expense struct {
 type Category struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
+	Hotkey    *string   `json:"hotkey"`
 	SortOrder int       `json:"sort_order"`
 	CreatedAt time.Time `json:"created_at"`
 }
