@@ -136,7 +136,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       
       // Show toast notification for auto-propagation
       if (responseData.propagated_count > 0 && responseData.accepted_category_id) {
-        const categoryName = categories.find(cat => cat.id === responseData.accepted_category_id)?.name || 'Unknown';
+        // Ensure type-safe comparison - convert both to numbers
+        const categoryId = parseInt(responseData.accepted_category_id);
+        const categoryName = categories.find(cat => parseInt(cat.id) === categoryId)?.name || 'Unknown';
         toast.success(`${responseData.propagated_count} other item${responseData.propagated_count === 1 ? '' : 's'} with same description set to "${categoryName}"`);
       }
 

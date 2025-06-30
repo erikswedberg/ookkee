@@ -133,11 +133,19 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store categorization history in database
+	// Store categorization history AND update expense suggestions
 	for _, aiResp := range aiResponses {
+		// Store in history table
 		err := storeCategorizationHistory(projectID, aiResp.RowID, aiResp.CategoryID, modelName, aiResp.Confidence, aiResp.Reasoning)
 		if err != nil {
 			log.Printf("Failed to store categorization history for expense %d: %v", aiResp.RowID, err)
+			// Continue with other expenses even if one fails
+		}
+
+		// Update expense with suggested category
+		err = updateExpenseSuggestion(ctx, aiResp.RowID, aiResp.CategoryID)
+		if err != nil {
+			log.Printf("Failed to update expense suggestion for expense %d: %v", aiResp.RowID, err)
 			// Continue with other expenses even if one fails
 		}
 	}
@@ -313,6 +321,18 @@ func storeCategorizationHistory(projectID, expenseID, categoryID int, model stri
 	`
 
 	_, err := database.Pool.Exec(context.Background(), query, expenseID, categoryID, model, confidence, reasoning)
+	return err
+}
+
+// updateExpenseSuggestion updates the expense record with AI suggestion
+func updateExpenseSuggestion(ctx context.Context, expenseID int, categoryID int) error {
+	query := `
+		UPDATE expense 
+		SET suggested_category_id = $1, suggested_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`
+
+	_, err := database.Pool.Exec(ctx, query, categoryID, expenseID)
 	return err
 }
 
