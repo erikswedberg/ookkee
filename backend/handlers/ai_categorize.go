@@ -202,12 +202,12 @@ func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []
 		WHERE  project_id = $1
 		  AND  accepted_category_id IS NOT NULL
 		  AND  EXISTS (
-			  SELECT 1 FROM unnest($2::text[]) AS desc
-			  WHERE similarity(lower(expense.description), lower(desc)) > 0.35
+			  SELECT 1 FROM unnest($2::text[]) AS current_desc
+			  WHERE similarity(lower(expense.description), lower(current_desc)) > 0.35
 		  )
 		ORDER  BY lower(description), 
-		          (SELECT MAX(similarity(lower(expense.description), lower(desc))) 
-		           FROM unnest($2::text[]) AS desc) DESC
+		          (SELECT MAX(similarity(lower(expense.description), lower(current_desc))) 
+		           FROM unnest($2::text[]) AS current_desc) DESC
 		LIMIT  100
 	`
 
@@ -342,11 +342,11 @@ func parseAIResponse(response string, expenses []ExpenseForAI) ([]AICategorizeRe
 // storeCategorizationHistory stores AI categorization in expense_history table
 func storeCategorizationHistory(projectID, expenseID, categoryID int, model string, confidence float32, reasoning string) error {
 	query := `
-		INSERT INTO expense_history (expense_id, suggested_category_id, ai_model, confidence_score, reasoning, created_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())
+		INSERT INTO expense_history (expense_id, event_type, category_id, model_name, created_at)
+		VALUES ($1, 'ai_suggest', $2, $3, NOW())
 	`
 
-	_, err := database.Pool.Exec(context.Background(), query, expenseID, categoryID, model, confidence, reasoning)
+	_, err := database.Pool.Exec(context.Background(), query, expenseID, categoryID, model)
 	return err
 }
 
