@@ -614,8 +614,8 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
   }
 
   return (
-    <div className="p-6">
-      <Card className="h-[calc(100vh-150px)] overflow-hidden">
+    <div>
+      <Card className="h-[calc(100vh-50px)] overflow-hidden rounded-none border-0 shadow-none">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="space-y-2">

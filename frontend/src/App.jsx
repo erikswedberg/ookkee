@@ -167,11 +167,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="p-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Ookkee</h1>
-            <p className="text-muted-foreground">AI Bookkeeping Assistant</p>
+      <header className="border-b bg-card shadow-md" style={{height: '50px'}}>
+        <div className="px-6 h-full flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold">ookkee</h1>
+            <p className="text-sm text-muted-foreground">AI Bookkeeping Assistant</p>
           </div>
           <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
             <DialogTrigger asChild>
@@ -251,7 +251,7 @@ function App() {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-110px)] relative">
+      <div className="flex h-[calc(100vh-50px)] relative">
         {/* Sidebar */}
         <div className={`transition-all duration-300 ${isSidebarCollapsed ? 'w-0' : 'w-64'} overflow-hidden`}>
           <ProjectsSidebar
