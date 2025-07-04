@@ -423,6 +423,9 @@ const SpreadsheetTable = () => {
                 className={`bg-background ${
                   column === "Status" ? "text-right" : ""
                 }`}
+                style={{
+                  minWidth: column === "Category" ? "175px" : undefined
+                }}
               >
                 {column}
               </TableHead>
@@ -485,6 +488,9 @@ const SpreadsheetTable = () => {
                             ? "text-sm text-right"
                             : ""
                       }
+                      style={{
+                        minWidth: column === "Category" ? "175px" : undefined
+                      }}
                     >
                       {isCategory
                         ? renderCategory(expense)
