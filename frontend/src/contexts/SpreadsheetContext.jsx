@@ -21,6 +21,8 @@ const spreadsheetInitialValues = {
   hasMore: true,
   page: 0,
   processingRows: new Set(),
+  aiCategorizing: false,
+  autoplayMode: false,
   
   // UI state
   isTableActive: false,
@@ -32,6 +34,7 @@ const spreadsheetInitialValues = {
   updateExpenseCategory: () => undefined,
   handleAcceptSuggestion: () => undefined,
   handleAiCategorization: () => undefined,
+  toggleAutoplay: () => undefined,
   handleClearCategory: () => undefined,
   fetchProgress: () => undefined,
   
@@ -53,6 +56,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [page, setPage] = useState(0);
   const [processingRows, setProcessingRows] = useState(new Set());
   const [aiCategorizing, setAiCategorizing] = useState(false);
+  const [autoplayMode, setAutoplayMode] = useState(false);
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
@@ -237,6 +241,19 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     });
   };
 
+  // Toggle autoplay mode
+  const toggleAutoplay = () => {
+    setAutoplayMode(prev => {
+      const newValue = !prev;
+      // If turning off autoplay, stop any current processing
+      if (!newValue && aiCategorizing) {
+        setProcessingRows(new Set());
+        setAiCategorizing(false);
+      }
+      return newValue;
+    });
+  };
+
   // AI Categorization function - now with job tracking
   const handleAiCategorization = async () => {
     if (!project?.id) {
@@ -369,6 +386,17 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       
       // Refresh progress after successful categorization
       fetchProgress();
+      
+      // Check if we should continue in autoplay mode
+      if (autoplayMode && suggestions.length > 0) {
+        // Schedule next round after a brief delay
+        setTimeout(() => {
+          if (autoplayMode) { // Double-check autoplay is still enabled
+            handleAiCategorization();
+          }
+        }, 1000);
+        return; // Don't clear processing state yet
+      }
     }
     
     // Clear processing state
@@ -414,6 +442,17 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       
       // Refresh progress after successful categorization
       fetchProgress();
+      
+      // Check if we should continue in autoplay mode
+      if (autoplayMode && suggestions.length > 0) {
+        // Schedule next round after a brief delay
+        setTimeout(() => {
+          if (autoplayMode) { // Double-check autoplay is still enabled
+            handleAiCategorization();
+          }
+        }, 1000);
+        return; // Don't clear processing state yet
+      }
     }
     
     setAiCategorizing(false);
@@ -597,6 +636,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     page,
     processingRows,
     aiCategorizing,
+    autoplayMode,
     
     // UI state
     isTableActive,
@@ -610,6 +650,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     updateExpenseCategory,
     handleAcceptSuggestion,
     handleAiCategorization,
+    toggleAutoplay,
     handleClearCategory,
     fetchProgress,
     loadExpenses,
