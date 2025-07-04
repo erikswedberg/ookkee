@@ -13,7 +13,7 @@ const spreadsheetInitialValues = {
   // Data state
   expenses: [],
   categories: [],
-  progress: { percentage: 0, isComplete: false },
+  progress: { percentage: 0, isComplete: false, uncategorized_count: 0 },
   
   // Loading states
   loading: false,
@@ -46,7 +46,7 @@ export const SpreadsheetContext = createContext(spreadsheetInitialValues);
 export const SpreadsheetContextProvider = ({ children, project }) => {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [progress, setProgress] = useState({ percentage: 0, isComplete: false });
+  const [progress, setProgress] = useState({ percentage: 0, isComplete: false, uncategorized_count: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -77,7 +77,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         const data = await response.json();
         setProgress({
           percentage: Math.round(data.percentage),
-          isComplete: data.is_complete
+          isComplete: data.is_complete,
+          uncategorized_count: data.uncategorized_count || 0
         });
       }
     } catch (error) {

@@ -363,15 +363,16 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query to get total count and categorized count
-	var totalCount, categorizedCount int
+	// Query to get total count, categorized count, and uncategorized count
+	var totalCount, categorizedCount, uncategorizedCount int
 	err := database.Pool.QueryRow(ctx, `
 		SELECT 
 			COUNT(*) as total_count,
-			COUNT(CASE WHEN (accepted_category_id IS NOT NULL OR is_personal = true) THEN 1 END) as categorized_count
+			COUNT(CASE WHEN (accepted_category_id IS NOT NULL OR is_personal = true) THEN 1 END) as categorized_count,
+			COUNT(CASE WHEN (accepted_category_id IS NULL AND suggested_category_id IS NULL AND (is_personal IS NULL OR is_personal = false)) THEN 1 END) as uncategorized_count
 		FROM expense 
 		WHERE project_id = $1 AND deleted_at IS NULL
-	`, projectIDStr).Scan(&totalCount, &categorizedCount)
+	`, projectIDStr).Scan(&totalCount, &categorizedCount, &uncategorizedCount)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch progress: %v", err), http.StatusInternalServerError)
@@ -379,10 +380,11 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type ProgressData struct {
-		TotalCount       int     `json:"total_count"`
-		CategorizedCount int     `json:"categorized_count"`
-		Percentage       float64 `json:"percentage"`
-		IsComplete       bool    `json:"is_complete"`
+		TotalCount         int     `json:"total_count"`
+		CategorizedCount   int     `json:"categorized_count"`
+		UncategorizedCount int     `json:"uncategorized_count"`
+		Percentage         float64 `json:"percentage"`
+		IsComplete         bool    `json:"is_complete"`
 	}
 
 	percentage := 0.0
@@ -391,10 +393,11 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	progress := ProgressData{
-		TotalCount:       totalCount,
-		CategorizedCount: categorizedCount,
-		Percentage:       percentage,
-		IsComplete:       categorizedCount == totalCount && totalCount > 0,
+		TotalCount:         totalCount,
+		CategorizedCount:   categorizedCount,
+		UncategorizedCount: uncategorizedCount,
+		Percentage:         percentage,
+		IsComplete:         categorizedCount == totalCount && totalCount > 0,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

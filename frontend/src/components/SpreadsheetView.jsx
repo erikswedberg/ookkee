@@ -675,12 +675,7 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
                   {aiCategorizing
                     ? "AI Categorizing..."
                     : (() => {
-                        const uncategorizedCount = expenses.filter(
-                          e =>
-                            !e.accepted_category_id &&
-                            !e.suggested_category_id &&
-                            !processingRows.has(e.id)
-                        ).length;
+                        const uncategorizedCount = progress.uncategorized_count || 0;
                         return uncategorizedCount > 0
                           ? `AI Categorize (${Math.min(uncategorizedCount, 20)})`
                           : "AI Categorize";
