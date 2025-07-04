@@ -100,8 +100,24 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create categorization prompt
-	prompt := buildCategorizationPrompt(req.Expenses, categoryDetails)
+	// Fetch accepted map for similar descriptions
+	currentDescriptions := make([]string, len(req.Expenses))
+	for i, expense := range req.Expenses {
+		currentDescriptions[i] = expense.Description
+	}
+
+	acceptedMap, err := fetchAcceptedMap(context.Background(), projectID, currentDescriptions)
+	if err != nil {
+		log.Printf("Failed to fetch accepted map: %v", err)
+		// Continue without accepted map
+		acceptedMap = make(map[string]int)
+	}
+	log.Printf("Debug: accepted map size: %d, contents: %+v", len(acceptedMap), acceptedMap)
+
+	// Create categorization prompt with accepted map
+	prompt := buildCategorizationPrompt(req.Expenses, categoryDetails, acceptedMap)
+	log.Printf("Debug: AI prompt length: %d characters", len(prompt))
+	log.Printf("Debug: AI prompt:\n%s", prompt)
 
 	// Call AI model
 	ctx := context.Background()
@@ -120,11 +136,19 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store categorization history in database
+	// Store categorization history AND update expense suggestions
 	for _, aiResp := range aiResponses {
+		// Store in history table
 		err := storeCategorizationHistory(projectID, aiResp.RowID, aiResp.CategoryID, modelName, aiResp.Confidence, aiResp.Reasoning)
 		if err != nil {
 			log.Printf("Failed to store categorization history for expense %d: %v", aiResp.RowID, err)
+			// Continue with other expenses even if one fails
+		}
+
+		// Update expense with suggested category
+		err = updateExpenseSuggestion(ctx, aiResp.RowID, aiResp.CategoryID)
+		if err != nil {
+			log.Printf("Failed to update expense suggestion for expense %d: %v", aiResp.RowID, err)
 			// Continue with other expenses even if one fails
 		}
 	}
@@ -162,8 +186,75 @@ func getCategoryDetails(categoryNames []string) ([]models.ExpenseCategory, error
 	return categories, nil
 }
 
+// fetchAcceptedMap builds a fuzzy-matched map of accepted descriptions to categories
+// for improving AI categorization suggestions
+func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []string) (map[string]int, error) {
+	if len(currentDescriptions) == 0 {
+		return make(map[string]int), nil
+	}
+
+	// First try with pg_trgm similarity, fallback to simple approach if extension not available
+	trgmQuery := `
+		SELECT DISTINCT ON (lower(description))
+		       lower(description) AS key,
+		       accepted_category_id
+		FROM   expense
+		WHERE  project_id = $1
+		  AND  accepted_category_id IS NOT NULL
+		  AND  EXISTS (
+			  SELECT 1 FROM unnest($2::text[]) AS current_desc
+			  WHERE similarity(lower(expense.description), lower(current_desc)) > 0.35
+		  )
+		ORDER  BY lower(description), 
+		          (SELECT MAX(similarity(lower(expense.description), lower(current_desc))) 
+		           FROM unnest($2::text[]) AS current_desc) DESC
+		LIMIT  100
+	`
+
+	// Fallback query without pg_trgm (just get all accepted descriptions)
+	fallbackQuery := `
+		SELECT DISTINCT lower(description) AS key,
+		       accepted_category_id
+		FROM   expense
+		WHERE  project_id = $1
+		  AND  accepted_category_id IS NOT NULL
+		LIMIT  50
+	`
+
+	// Try pg_trgm query first
+	query := trgmQuery
+
+	log.Printf("Debug: fetchAcceptedMap query - projectID: %d, descriptions: %+v", projectID, currentDescriptions)
+
+	rows, err := database.Pool.Query(ctx, query, projectID, currentDescriptions)
+	if err != nil {
+		// If pg_trgm query fails, try fallback query
+		log.Printf("Debug: pg_trgm query failed, trying fallback: %v", err)
+		rows, err = database.Pool.Query(ctx, fallbackQuery, projectID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch accepted map with fallback: %v", err)
+		}
+	}
+	defer rows.Close()
+
+	acceptedMap := make(map[string]int)
+	rowCount := 0
+	for rows.Next() {
+		var key string
+		var categoryID int
+		if err := rows.Scan(&key, &categoryID); err != nil {
+			return nil, err
+		}
+		acceptedMap[key] = categoryID
+		rowCount++
+	}
+
+	log.Printf("Debug: fetchAcceptedMap found %d rows, map: %+v", rowCount, acceptedMap)
+	return acceptedMap, rows.Err()
+}
+
 // buildCategorizationPrompt creates the prompt for AI categorization
-func buildCategorizationPrompt(expenses []ExpenseForAI, categories []models.ExpenseCategory) string {
+func buildCategorizationPrompt(expenses []ExpenseForAI, categories []models.ExpenseCategory, acceptedMap map[string]int) string {
 	var prompt strings.Builder
 
 	prompt.WriteString("You are an expert accountant helping categorize business expenses. ")
@@ -172,6 +263,23 @@ func buildCategorizationPrompt(expenses []ExpenseForAI, categories []models.Expe
 	prompt.WriteString("Available Categories:\n")
 	for _, cat := range categories {
 		prompt.WriteString(fmt.Sprintf("- ID: %d, Name: %s\n", cat.ID, cat.Name))
+	}
+
+	// Add accepted map for context if available
+	if len(acceptedMap) > 0 {
+		prompt.WriteString("\nSimilar Descriptions Previously Categorized:\n")
+		for desc, categoryID := range acceptedMap {
+			// Find category name by ID
+			categoryName := "Unknown"
+			for _, cat := range categories {
+				if int(cat.ID) == categoryID {
+					categoryName = cat.Name
+					break
+				}
+			}
+			prompt.WriteString(fmt.Sprintf("- '%s' → %s (ID: %d)\n", desc, categoryName, categoryID))
+		}
+		prompt.WriteString("\nUse these examples to help categorize similar descriptions.\n")
 	}
 
 	prompt.WriteString("\nExpenses to categorize:\n")
@@ -234,11 +342,23 @@ func parseAIResponse(response string, expenses []ExpenseForAI) ([]AICategorizeRe
 // storeCategorizationHistory stores AI categorization in expense_history table
 func storeCategorizationHistory(projectID, expenseID, categoryID int, model string, confidence float32, reasoning string) error {
 	query := `
-		INSERT INTO expense_history (expense_id, suggested_category_id, ai_model, confidence_score, reasoning, created_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())
+		INSERT INTO expense_history (expense_id, event_type, category_id, model_name, created_at)
+		VALUES ($1, 'ai_suggest', $2, $3, NOW())
 	`
 
-	_, err := database.Pool.Exec(context.Background(), query, expenseID, categoryID, model, confidence, reasoning)
+	_, err := database.Pool.Exec(context.Background(), query, expenseID, categoryID, model)
+	return err
+}
+
+// updateExpenseSuggestion updates the expense record with AI suggestion
+func updateExpenseSuggestion(ctx context.Context, expenseID int, categoryID int) error {
+	query := `
+		UPDATE expense 
+		SET suggested_category_id = $1, suggested_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`
+
+	_, err := database.Pool.Exec(ctx, query, categoryID, expenseID)
 	return err
 }
 

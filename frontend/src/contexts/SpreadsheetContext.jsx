@@ -6,6 +6,7 @@ import {
   useState,
   useRef,
 } from 'react';
+import { toast } from 'sonner';
 import { useAiCategorizer } from '../hooks/useAiCategorizer';
 
 const spreadsheetInitialValues = {
@@ -111,17 +112,35 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       
       // Update local state with API response values (not request values)
       setExpenses(currentExpenses => 
-        currentExpenses.map(expense => 
-          expense.id === expenseId 
-            ? { 
-                ...expense, 
-                ...(responseData.accepted_category_id !== undefined && { accepted_category_id: responseData.accepted_category_id }),
-                ...(responseData.suggested_category_id !== undefined && { suggested_category_id: responseData.suggested_category_id }),
-                ...(responseData.is_personal !== undefined && { is_personal: responseData.is_personal })
-              }
-            : expense
-        )
+        currentExpenses.map(expense => {
+          // Update the main expense
+          if (expense.id === expenseId) {
+            return {
+              ...expense, 
+              ...(responseData.accepted_category_id !== undefined && { accepted_category_id: responseData.accepted_category_id }),
+              ...(responseData.suggested_category_id !== undefined && { suggested_category_id: responseData.suggested_category_id }),
+              ...(responseData.is_personal !== undefined && { is_personal: responseData.is_personal })
+            };
+          }
+          // Update propagated expenses if they exist
+          else if (responseData.propagated_ids && responseData.propagated_ids.includes(expense.id)) {
+            return {
+              ...expense,
+              accepted_category_id: responseData.accepted_category_id,
+              accepted_at: new Date().toISOString() // Approximate timestamp
+            };
+          }
+          return expense;
+        })
       );
+      
+      // Show toast notification for auto-propagation
+      if (responseData.propagated_count > 0 && responseData.accepted_category_id) {
+        // Ensure type-safe comparison - convert both to numbers
+        const categoryId = parseInt(responseData.accepted_category_id);
+        const categoryName = categories.find(cat => parseInt(cat.id) === categoryId)?.name || 'Unknown';
+        toast.success(`${responseData.propagated_count} other item${responseData.propagated_count === 1 ? '' : 's'} with same description set to "${categoryName}"`);
+      }
 
       // Refresh progress after categorization changes
       fetchProgress();
