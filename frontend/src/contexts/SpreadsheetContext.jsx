@@ -249,9 +249,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
 
     // Get next 20 uncategorized expenses that haven't been AI processed yet
+    // Exclude personal expenses since they don't need business categorization
     const uncategorizedExpenses = expenses.filter(expense => 
       !expense.accepted_category_id && 
       !expense.suggested_category_id &&
+      !expense.is_personal &&
       !processingRows.has(expense.id)
     ).slice(0, 20);
 
