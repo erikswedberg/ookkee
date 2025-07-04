@@ -103,14 +103,14 @@ const SpreadsheetTable = () => {
     for (const format of dateFormats) {
       const parsedDate = dayjs(dateString, format, true);
       if (parsedDate.isValid()) {
-        return parsedDate.format('MMM D, YYYY');
+        return parsedDate.format('MM/DD');
       }
     }
     
     // Try parsing as ISO date
     const isoDate = dayjs(dateString);
     if (isoDate.isValid()) {
-      return isoDate.format('MMM D, YYYY');
+      return isoDate.format('MM/DD');
     }
     
     // Fall back to original text if parsing fails
