@@ -163,7 +163,12 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 
 		// Extract Amount field
 		if amtStr, ok := rawData["Amount"].(string); ok && amtStr != "" {
-			if amt, err := strconv.ParseFloat(amtStr, 64); err == nil {
+			// Clean amount string: remove $, commas, and other common formatting
+			cleanAmount := strings.ReplaceAll(amtStr, "$", "")
+			cleanAmount = strings.ReplaceAll(cleanAmount, ",", "")
+			cleanAmount = strings.TrimSpace(cleanAmount)
+			
+			if amt, err := strconv.ParseFloat(cleanAmount, 64); err == nil {
 				amount = &amt
 			}
 		}
