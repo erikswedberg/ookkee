@@ -513,7 +513,7 @@ const SpreadsheetTable = () => {
                                 : value || ""}
                     </TableCell>
                   );
-                })
+                })}
               </TableRow>
             );
           })}
