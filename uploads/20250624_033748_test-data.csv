@@ -1,6 +1,6 @@
-Date,Description,Amount,Category
-2024-01-15,Office Supplies,-45.67,Expenses
-2024-01-16,Client Payment,1500.00,Income
-2024-01-17,Internet Bill,-89.99,Utilities
-2024-01-18,Coffee Meeting,-12.50,Meals
-2024-01-19,Software License,-299.00,Software
+Source,Date,Description,Amount
+A,2024-01-15,Office Supplies,-45.67
+A,2024-01-16,Client Payment,1500.00
+A,2024-01-17,Internet Bill,-89.99
+A,2024-01-18,Coffee Meeting,-12.50
+A,2024-01-19,Software License,-299.00

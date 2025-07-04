@@ -6,24 +6,51 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"ookkee/ai"
 	"ookkee/database"
+	"ookkee/jobs"
 	"ookkee/models"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/anthropic"
 	"github.com/tmc/langchaingo/llms/openai"
 )
 
-// AICategorizeRequest represents the request payload for AI categorization
-type AICategorizeRequest struct {
-	Expenses   []ExpenseForAI `json:"expenses"`
-	Categories []string       `json:"categories"`      // Array of category names
-	Model      string         `json:"model,omitempty"` // "openai" or "anthropic"
+// Global job manager and processor instances
+var (
+	globalJobManager   *jobs.JobManager
+	globalJobProcessor *jobs.JobProcessor
+)
+
+// SetJobManager sets the global job manager instance
+func SetJobManager(manager *jobs.JobManager) {
+	globalJobManager = manager
 }
+
+// SetJobProcessor sets the global job processor instance
+func SetJobProcessor(processor *jobs.JobProcessor) {
+	globalJobProcessor = processor
+}
+
+// AICategorizeRequest represents the request payload for AI categorization
+// Note: Now simplified - backend determines which expenses to categorize
+type AICategorizeRequest struct {
+	Model string `json:"model,omitempty"` // "openai" or "anthropic"
+}
+
+// Legacy request structure (commented out for reference)
+// type AICategorizeRequestOld struct {
+//	Expenses   []ExpenseForAI `json:"expenses"`
+//	Categories []string       `json:"categories"`      // Array of category names
+//	Model      string         `json:"model,omitempty"` // "openai" or "anthropic"
+// }
 
 // ExpenseForAI represents an expense to be categorized by AI
 type ExpenseForAI struct {
@@ -40,7 +67,15 @@ type AICategorizeResponse struct {
 	Reasoning  string  `json:"reasoning,omitempty"`
 }
 
+// AICategorizeFullResponse represents the complete response including selected IDs
+type AICategorizeFullResponse struct {
+	SelectedExpenseIDs []int                  `json:"selectedExpenseIds"`
+	Categorizations    []AICategorizeResponse `json:"categorizations"`
+	Message            string                 `json:"message,omitempty"`
+}
+
 // AICategorizeExpenses handles AI-powered expense categorization
+// New implementation: Creates a job and returns job info immediately
 func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -52,114 +87,175 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body (simplified - just model selection)
 	var req AICategorizeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
+		// Default to empty request if parsing fails
+		req = AICategorizeRequest{}
+	}
+
+	if req.Model == "" {
+		req.Model = getEnv("AI_MODEL_PROVIDER", "openai")
+	}
+
+	// Check if job manager is available
+	if globalJobManager == nil {
+		log.Printf("Job manager not available, falling back to synchronous processing")
+		AICategorizeExpensesSync(w, r)
 		return
 	}
 
-	// Validate request
-	if len(req.Expenses) == 0 {
-		http.Error(w, "No expenses provided", http.StatusBadRequest)
-		return
-	}
-
-	if len(req.Categories) == 0 {
-		http.Error(w, "No categories provided", http.StatusBadRequest)
-		return
-	}
-
-	// Limit to max 20 expenses
-	if len(req.Expenses) > 20 {
-		req.Expenses = req.Expenses[:20]
-	}
-
-	// Get category details for the prompt
-	categoryDetails, err := getCategoryDetails(req.Categories)
+	// Query expenses to categorize BEFORE creating job
+	ctx := r.Context()
+	expensesToCategorize, err := ai.GetUncategorizedExpenses(ctx, projectID, 20)
 	if err != nil {
-		log.Printf("Failed to get category details: %v", err)
-		http.Error(w, "Failed to get category details", http.StatusInternalServerError)
+		log.Printf("Failed to get uncategorized expenses: %v", err)
+		http.Error(w, "Failed to get expenses for categorization", http.StatusInternalServerError)
 		return
 	}
 
-	// Determine which AI model to use
+	if len(expensesToCategorize) == 0 {
+		// No expenses to categorize - return direct response
+		response := map[string]interface{}{
+			"job_id":            nil,
+			"status":            "completed",
+			"selected_expenses": []int{},
+			"categorizations":   []interface{}{},
+			"message":           "No uncategorized expenses found",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Create job with selected expenses
+	job := globalJobManager.CreateJob(projectID, req.Model)
+
+	// Set selected expenses immediately
+	selectedIDs := make([]int, len(expensesToCategorize))
+	for i, expense := range expensesToCategorize {
+		selectedIDs[i] = expense.ID
+	}
+
+	err = globalJobManager.UpdateJob(job.GetID(), func(j *jobs.AICategorizationJob) {
+		j.SelectedExpenses = selectedIDs
+	})
+	if err != nil {
+		log.Printf("Failed to update job with selected expenses: %v", err)
+		http.Error(w, "Failed to create job", http.StatusInternalServerError)
+		return
+	}
+
+	// Submit job for processing
+	if globalJobProcessor != nil {
+		globalJobProcessor.SubmitJob(job.GetID())
+	}
+
+	// Return job info immediately with selected expenses
+	response := map[string]interface{}{
+		"job_id":            job.GetID(),
+		"status":            job.GetStatus(),
+		"selected_expenses": selectedIDs,
+		"message":           fmt.Sprintf("Job created and queued for processing %d expenses", len(selectedIDs)),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// AICategorizeExpensesSync handles AI-powered expense categorization synchronously
+// This is the original implementation, used as fallback
+func AICategorizeExpensesSync(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	ctx := r.Context()
+
+	// Get project ID from URL params
+	projectIDStr := chi.URLParam(r, "projectID")
+	projectID, err := strconv.Atoi(projectIDStr)
+	if err != nil {
+		http.Error(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body (simplified - just model selection)
+	var req AICategorizeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Default to empty request if parsing fails
+		req = AICategorizeRequest{}
+	}
+
+	// Step 1: Query next 20 uncategorized, non-personal expenses from database
+	expensesToCategorize, err := ai.GetUncategorizedExpenses(ctx, projectID, 20)
+	if err != nil {
+		log.Printf("Failed to get uncategorized expenses: %v", err)
+		http.Error(w, "Failed to get expenses for categorization", http.StatusInternalServerError)
+		return
+	}
+
+	if len(expensesToCategorize) == 0 {
+		// No expenses to categorize
+		response := AICategorizeFullResponse{
+			SelectedExpenseIDs: []int{},
+			Categorizations:    []AICategorizeResponse{},
+			Message:            "No uncategorized expenses found",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Step 2: Get available categories from database
+	categoryDetails, err := ai.GetAllCategories(ctx)
+	if err != nil {
+		log.Printf("Failed to get categories: %v", err)
+		http.Error(w, "Failed to get categories", http.StatusInternalServerError)
+		return
+	}
+
+	if len(categoryDetails) == 0 {
+		http.Error(w, "No categories available for categorization", http.StatusBadRequest)
+		return
+	}
+
+	// Process with AI categorization logic
 	modelProvider := req.Model
 	if modelProvider == "" {
-		modelProvider = getEnv("AI_MODEL_PROVIDER", "openai") // Default to OpenAI
+		modelProvider = getEnv("AI_MODEL_PROVIDER", "openai")
 	}
 
-	// Initialize the appropriate LLM client
-	llm, modelName, err := initializeLLM(modelProvider)
-	if err != nil {
-		log.Printf("Failed to initialize %s client: %v", modelProvider, err)
-		// Fallback to mock responses if no AI service is available
-		mockResponses := generateMockAIResponses(req.Expenses, categoryDetails)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockResponses)
-		return
-	}
-
-	// Fetch accepted map for similar descriptions
-	currentDescriptions := make([]string, len(req.Expenses))
-	for i, expense := range req.Expenses {
-		currentDescriptions[i] = expense.Description
-	}
-
-	acceptedMap, err := fetchAcceptedMap(context.Background(), projectID, currentDescriptions)
-	if err != nil {
-		log.Printf("Failed to fetch accepted map: %v", err)
-		// Continue without accepted map
-		acceptedMap = make(map[string]int)
-	}
-	log.Printf("Debug: accepted map size: %d, contents: %+v", len(acceptedMap), acceptedMap)
-
-	// Create categorization prompt with accepted map
-	prompt := buildCategorizationPrompt(req.Expenses, categoryDetails, acceptedMap)
-	log.Printf("Debug: AI prompt length: %d characters", len(prompt))
-	log.Printf("Debug: AI prompt:\n%s", prompt)
-
-	// Call AI model
-	ctx := context.Background()
-	response, err := llms.GenerateFromSinglePrompt(ctx, llm, prompt)
+	result, err := ai.ProcessCategorizationLogic(ctx, projectID, expensesToCategorize, categoryDetails, modelProvider)
 	if err != nil {
 		log.Printf("AI categorization failed: %v", err)
 		http.Error(w, "AI categorization failed", http.StatusInternalServerError)
 		return
 	}
 
-	// Parse AI response
-	aiResponses, err := parseAIResponse(response, req.Expenses)
-	if err != nil {
-		log.Printf("Failed to parse AI response: %v", err)
-		http.Error(w, "Failed to process AI response", http.StatusInternalServerError)
-		return
-	}
-
-	// Store categorization history AND update expense suggestions
-	for _, aiResp := range aiResponses {
-		// Store in history table
-		err := storeCategorizationHistory(projectID, aiResp.RowID, aiResp.CategoryID, modelName, aiResp.Confidence, aiResp.Reasoning)
-		if err != nil {
-			log.Printf("Failed to store categorization history for expense %d: %v", aiResp.RowID, err)
-			// Continue with other expenses even if one fails
-		}
-
-		// Update expense with suggested category
-		err = updateExpenseSuggestion(ctx, aiResp.RowID, aiResp.CategoryID)
-		if err != nil {
-			log.Printf("Failed to update expense suggestion for expense %d: %v", aiResp.RowID, err)
-			// Continue with other expenses even if one fails
+	// Convert ai.CategorizeResponse to AICategorizeResponse
+	categorizations := make([]AICategorizeResponse, len(result.Categorizations))
+	for i, cat := range result.Categorizations {
+		categorizations[i] = AICategorizeResponse{
+			RowID:      cat.RowID,
+			CategoryID: cat.CategoryID,
+			Confidence: cat.Confidence,
+			Reasoning:  cat.Reasoning,
 		}
 	}
 
-	// Return AI categorization results
+	finalResponse := AICategorizeFullResponse{
+		SelectedExpenseIDs: result.SelectedExpenseIDs,
+		Categorizations:    categorizations,
+		Message:            result.Message,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(aiResponses)
+	json.NewEncoder(w).Encode(finalResponse)
 }
 
 // getCategoryDetails fetches category details from database by names
-func getCategoryDetails(categoryNames []string) ([]models.ExpenseCategory, error) {
+// NOTE: This function is deprecated in favor of getAllCategories for new backend-driven approach
+// func getCategoryDetails(categoryNames []string) ([]models.ExpenseCategory, error) {
+func getCategoryDetailsOld(categoryNames []string) ([]models.ExpenseCategory, error) {
 	if len(categoryNames) == 0 {
 		return nil, fmt.Errorf("no categories provided")
 	}
@@ -362,7 +458,79 @@ func updateExpenseSuggestion(ctx context.Context, expenseID int, categoryID int)
 	return err
 }
 
-// generateMockAIResponses creates mock responses when no API key is available
+// GetUncategorizedExpenses retrieves the next batch of uncategorized, non-personal expenses
+// Made public for use in job processor
+func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int) ([]ExpenseForAI, error) {
+	return getUncategorizedExpenses(ctx, projectID, limit)
+}
+
+// getUncategorizedExpenses retrieves the next batch of uncategorized, non-personal expenses
+func getUncategorizedExpenses(ctx context.Context, projectID int, limit int) ([]ExpenseForAI, error) {
+	query := `
+		SELECT id, COALESCE(description, '') as description, COALESCE(amount, 0) as amount
+		FROM expense 
+		WHERE project_id = $1 
+		  AND accepted_category_id IS NULL 
+		  AND suggested_category_id IS NULL
+		  AND (is_personal IS NULL OR is_personal = FALSE)
+		  AND deleted_at IS NULL
+		ORDER BY row_index ASC
+		LIMIT $2
+	`
+
+	rows, err := database.Pool.Query(ctx, query, projectID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var expenses []ExpenseForAI
+	for rows.Next() {
+		var expense ExpenseForAI
+		err := rows.Scan(&expense.ID, &expense.Description, &expense.Amount)
+		if err != nil {
+			return nil, err
+		}
+		expenses = append(expenses, expense)
+	}
+
+	return expenses, rows.Err()
+}
+
+// GetAllCategories retrieves all available categories
+// Made public for use in job processor
+func GetAllCategories(ctx context.Context) ([]models.ExpenseCategory, error) {
+	return getAllCategories(ctx)
+}
+
+// getAllCategories retrieves all available categories
+func getAllCategories(ctx context.Context) ([]models.ExpenseCategory, error) {
+	query := `
+		SELECT id, name, sort_order, created_at 
+		FROM expense_category 
+		WHERE deleted_at IS NULL 
+		ORDER BY sort_order ASC
+	`
+
+	rows, err := database.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []models.ExpenseCategory
+	for rows.Next() {
+		var cat models.ExpenseCategory
+		err := rows.Scan(&cat.ID, &cat.Name, &cat.SortOrder, &cat.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		categories = append(categories, cat)
+	}
+
+	return categories, rows.Err()
+}
+
 func generateMockAIResponses(expenses []ExpenseForAI, categories []models.ExpenseCategory) []AICategorizeResponse {
 	var responses []AICategorizeResponse
 
@@ -428,7 +596,6 @@ func initializeLLM(provider string) (llms.Model, string, error) {
 			anthropic.WithToken(anthropic_key),
 		)
 		return llm, model, err
-
 	default:
 		return nil, "", fmt.Errorf("unsupported AI provider: %s", provider)
 	}

@@ -49,7 +49,7 @@ func FileUpload(w http.ResponseWriter, r *http.Request) {
 	// Create timestamped filename
 	timestamp := time.Now().Format("20060102_150405")
 	filename := fmt.Sprintf("%s_%s", timestamp, header.Filename)
-	
+
 	UPLOADS_DIR := getEnv("UPLOADS_DIR", "uploads")
 	filepath := fmt.Sprintf("%s/%s", UPLOADS_DIR, filename)
 
@@ -120,7 +120,7 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 		VALUES ($1, $2, $3, $4, $5) 
 		RETURNING id, user_id, name, original_name, csv_path, row_count, created_at, updated_at
 	`, models.TEST_USER_ID, projectName, originalName, filepath, len(dataRows)).Scan(
-		&project.ID, &project.UserID, &project.Name, &project.OriginalName, 
+		&project.ID, &project.UserID, &project.Name, &project.OriginalName,
 		&project.CSVPath, &project.RowCount, &project.CreatedAt, &project.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
@@ -140,23 +140,43 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 			return nil, fmt.Errorf("failed to marshal raw data for row %d: %w", i, err)
 		}
 
-		// Extract common fields
+		// Extract specific fields from CSV
+		var source *string
+		var dateText *string
 		var description *string
 		var amount *float64
 
+		// Extract Source field
+		if sourceStr, ok := rawData["Source"].(string); ok && sourceStr != "" {
+			source = &sourceStr
+		}
+
+		// Extract Date field as text
+		if dateStr, ok := rawData["Date"].(string); ok && dateStr != "" {
+			dateText = &dateStr
+		}
+
+		// Extract Description field
 		if desc, ok := rawData["Description"].(string); ok && desc != "" {
 			description = &desc
 		}
+
+		// Extract Amount field
 		if amtStr, ok := rawData["Amount"].(string); ok && amtStr != "" {
-			if amt, err := strconv.ParseFloat(amtStr, 64); err == nil {
+			// Clean amount string: remove $, commas, and other common formatting
+			cleanAmount := strings.ReplaceAll(amtStr, "$", "")
+			cleanAmount = strings.ReplaceAll(cleanAmount, ",", "")
+			cleanAmount = strings.TrimSpace(cleanAmount)
+
+			if amt, err := strconv.ParseFloat(cleanAmount, 64); err == nil {
 				amount = &amt
 			}
 		}
 
 		_, err = tx.Exec(ctx, `
-			INSERT INTO expense (project_id, row_index, raw_data, description, amount) 
-			VALUES ($1, $2, $3, $4, $5)
-		`, project.ID, i, rawDataJSON, description, amount)
+			INSERT INTO expense (project_id, row_index, raw_data, source, date_text, description, amount) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, project.ID, i, rawDataJSON, source, dateText, description, amount)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert expense row %d: %w", i, err)
 		}

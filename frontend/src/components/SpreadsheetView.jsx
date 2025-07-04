@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { RefreshCw, Download } from "lucide-react";
+import dayjs from "dayjs";
 import {
   SpreadsheetContextProvider,
   SpreadsheetContext,
@@ -95,16 +96,25 @@ const SpreadsheetTable = () => {
 
   const formatDate = dateString => {
     if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return dateString;
+    
+    // Try parsing with DayJS for MM/DD/YY format
+    const dateFormats = ['MM/DD/YY', 'MM/DD/YYYY', 'M/D/YY', 'M/D/YYYY'];
+    
+    for (const format of dateFormats) {
+      const parsedDate = dayjs(dateString, format, true);
+      if (parsedDate.isValid()) {
+        return parsedDate.format('MM/DD');
+      }
     }
+    
+    // Try parsing as ISO date
+    const isoDate = dayjs(dateString);
+    if (isoDate.isValid()) {
+      return isoDate.format('MM/DD');
+    }
+    
+    // Fall back to original text if parsing fails
+    return dateString;
   };
 
   const getAmountClass = amount => {
@@ -115,6 +125,14 @@ const SpreadsheetTable = () => {
   // Column value getter
   const getColumnValue = (expense, column) => {
     switch (column) {
+      case "Source":
+        return expense.source || "";
+      case "Date":
+        return expense.date_text || "";
+      case "Description":
+        return expense.description || "";
+      case "Amount":
+        return expense.amount;
       case "Category":
         return (
           expense.accepted_category_id || expense.suggested_category_id || ""
@@ -134,17 +152,7 @@ const SpreadsheetTable = () => {
           return "Uncategorized";
         }
       default:
-        if (expense.raw_data && expense.raw_data[column]) {
-          return expense.raw_data[column];
-        }
-        switch (column.toLowerCase()) {
-          case "description":
-            return expense.description || "";
-          case "amount":
-            return expense.amount;
-          default:
-            return "";
-        }
+        return "";
     }
   };
 
@@ -286,33 +294,9 @@ const SpreadsheetTable = () => {
         <span
           className="separator"
           style={{
-            visibility: expense.suggested_category_id ? "visible" : "hidden",
-          }}
-        >
-          |
-        </span>
-        <label className="checkbox-group">
-          <Checkbox
-            checked={expense.is_personal || false}
-            onCheckedChange={() => {
-              handleTogglePersonal(expense);
-            }}
-            onClick={e => e.stopPropagation()}
-          />
-          <span
-            onClick={e => {
-              e.stopPropagation();
-              handleTogglePersonal(expense);
-            }}
-          >
-            Personal
-          </span>
-        </label>
-        <span
-          className="separator"
-          style={{
             visibility:
-              expense.accepted_category_id || expense.suggested_category_id
+              expense.suggested_category_id &&
+              (expense.accepted_category_id || expense.suggested_category_id)
                 ? "visible"
                 : "hidden",
           }}
@@ -339,35 +323,9 @@ const SpreadsheetTable = () => {
     );
   };
 
-  // Get all columns including data columns plus Category and Status
+  // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
   const getColumns = () => {
-    if (expenses.length === 0) return [];
-
-    const columnSet = new Set();
-
-    expenses.forEach(expense => {
-      if (expense.raw_data) {
-        Object.keys(expense.raw_data).forEach(key => columnSet.add(key));
-      }
-    });
-
-    // Convert to array and sort, putting common columns first
-    const columns = Array.from(columnSet);
-    const priority = ["Date", "Description", "Amount"];
-
-    // Sort data columns
-    const sortedDataColumns = columns.sort((a, b) => {
-      const aIndex = priority.indexOf(a);
-      const bIndex = priority.indexOf(b);
-
-      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-      return a.localeCompare(b);
-    });
-
-    // Add Category, Action, and Status columns at the end
-    return [...sortedDataColumns, "Action", "Status"];
+    return ["Source", "Date", "Description", "Amount", "Category", "Action", "Status"];
   };
 
   // Intersection Observer for infinite scroll
@@ -441,7 +399,7 @@ const SpreadsheetTable = () => {
 
   const columns = getColumns();
 
-  if (columns.length === 0) {
+  if (expenses.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
         <span className="text-muted-foreground">Loading...</span>
@@ -457,6 +415,7 @@ const SpreadsheetTable = () => {
       <table className="w-full caption-bottom text-sm" ref={tableRef}>
         <thead className="[&_tr]:border-b sticky top-0 z-10">
           <TableRow className="bg-background border-b">
+            <TableHead className="w-12 bg-background"></TableHead>
             <TableHead className="w-16 bg-background">#</TableHead>
             {columns.map(column => (
               <TableHead
@@ -464,6 +423,9 @@ const SpreadsheetTable = () => {
                 className={`bg-background ${
                   column === "Status" ? "text-right" : ""
                 }`}
+                style={{
+                  minWidth: column === "Category" ? "175px" : undefined
+                }}
               >
                 {column}
               </TableHead>
@@ -492,13 +454,22 @@ const SpreadsheetTable = () => {
                   setActiveRowWithTabIndex(expenseIndex);
                 }}
               >
+                <TableCell className="text-center">
+                  <Checkbox
+                    checked={expense.is_personal || false}
+                    onCheckedChange={() => {
+                      handleTogglePersonal(expense);
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  />
+                </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {expense.row_index + 1}
                 </TableCell>
                 {columns.map(column => {
                   const value = getColumnValue(expense, column);
-                  const isAmount = column.toLowerCase().includes("amount");
-                  const isDate = column.toLowerCase().includes("date");
+                  const isAmount = column === "Amount";
+                  const isDate = column === "Date";
                   const isCategory = column === "Category";
                   const isAction = column === "Action";
                   const isStatus = column === "Status";
@@ -517,6 +488,9 @@ const SpreadsheetTable = () => {
                             ? "text-sm text-right"
                             : ""
                       }
+                      style={{
+                        minWidth: column === "Category" ? "175px" : undefined
+                      }}
                     >
                       {isCategory
                         ? renderCategory(expense)
@@ -580,7 +554,7 @@ const SpreadsheetTable = () => {
 };
 
 // Main SpreadsheetView component with contexts
-const SpreadsheetView = ({ project }) => {
+const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar }) => {
   const [activeTab, setActiveTab] = useState("expenses");
 
   if (!project) {
@@ -602,6 +576,8 @@ const SpreadsheetView = ({ project }) => {
           project={project}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebar={onToggleSidebar}
         />
       </TotalsContextProvider>
     </SpreadsheetContextProvider>
@@ -609,7 +585,7 @@ const SpreadsheetView = ({ project }) => {
 };
 
 // Main content component using contexts
-const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
+const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCollapsed, onToggleSidebar }) => {
   const {
     expenses,
     progress,
@@ -640,12 +616,21 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
   }
 
   return (
-    <div className="p-6">
-      <Card className="h-[calc(100vh-150px)] overflow-hidden">
+    <div>
+      <Card className="h-[calc(100vh-50px)] overflow-hidden rounded-none border-0 shadow-none">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <CardTitle>{project.name}</CardTitle>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={onToggleSidebar}
+                  className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+                  title={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+                >
+                  {isSidebarCollapsed ? "→" : "←"}
+                </button>
+                <CardTitle>{project.name}</CardTitle>
+              </div>
               <p className="text-sm text-muted-foreground">
                 {project.row_count} rows • {project.original_name}
                 {activeTab === "expenses" &&
