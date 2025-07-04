@@ -160,7 +160,8 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Debug: AI prompt:\n%s", prompt)
 
 	// Step 7: Call AI model
-	response, err := llms.GenerateFromSinglePrompt(ctx, llm, prompt)
+
+	aiResponse, err := llms.GenerateFromSinglePrompt(ctx, llm, prompt)
 	if err != nil {
 		log.Printf("AI categorization failed: %v", err)
 		http.Error(w, "AI categorization failed", http.StatusInternalServerError)
@@ -168,7 +169,7 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 8: Parse AI response
-	aiResponses, err := parseAIResponse(response, expensesToCategorize)
+	aiResponses, err := parseAIResponse(aiResponse, expensesToCategorize)
 	if err != nil {
 		log.Printf("Failed to parse AI response: %v", err)
 		http.Error(w, "Failed to process AI response", http.StatusInternalServerError)
@@ -198,14 +199,15 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		selectedIDs[i] = expense.ID
 	}
 
-	response := AICategorizeFullResponse{
+
+	finalResponse := AICategorizeFullResponse{
 		SelectedExpenseIDs: selectedIDs,
 		Categorizations:    aiResponses,
 		Message:            fmt.Sprintf("Successfully categorized %d expenses", len(aiResponses)),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(finalResponse)
 }
 
 // getCategoryDetails fetches category details from database by names
