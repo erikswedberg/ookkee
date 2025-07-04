@@ -363,16 +363,18 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query to get total count, categorized count, and uncategorized count
-	var totalCount, categorizedCount, uncategorizedCount int
+	// Query to get total count and categorized count
+	var totalCount, categorizedCount int
 	err := database.Pool.QueryRow(ctx, `
 		SELECT 
 			COUNT(*) as total_count,
-			COUNT(CASE WHEN (accepted_category_id IS NOT NULL OR is_personal = true) THEN 1 END) as categorized_count,
-			COUNT(CASE WHEN (accepted_category_id IS NULL AND suggested_category_id IS NULL AND (is_personal IS NULL OR is_personal = false)) THEN 1 END) as uncategorized_count
+			COUNT(CASE WHEN (accepted_category_id IS NOT NULL OR is_personal = true) THEN 1 END) as categorized_count
 		FROM expense 
 		WHERE project_id = $1 AND deleted_at IS NULL
-	`, projectIDStr).Scan(&totalCount, &categorizedCount, &uncategorizedCount)
+	`, projectIDStr).Scan(&totalCount, &categorizedCount)
+
+	// Calculate uncategorized count as simple math
+	uncategorizedCount := totalCount - categorizedCount
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch progress: %v", err), http.StatusInternalServerError)
