@@ -65,7 +65,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch expenses with pagination
 	rows, err := database.Pool.Query(ctx, `
-		SELECT id, project_id, row_index, raw_data, description, amount, 
+		SELECT id, project_id, row_index, raw_data, source, date_text, description, amount, 
 		       suggested_category_id, accepted_category_id, is_personal
 		FROM expense 
 		WHERE project_id = $1 AND deleted_at IS NULL
@@ -82,7 +82,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var expense models.Expense
 		err := rows.Scan(&expense.ID, &expense.ProjectID, &expense.RowIndex, &expense.RawData,
-			&expense.Description, &expense.Amount, &expense.SuggestedCategoryID, &expense.AcceptedCategoryID, &expense.IsPersonal)
+			&expense.Source, &expense.DateText, &expense.Description, &expense.Amount, &expense.SuggestedCategoryID, &expense.AcceptedCategoryID, &expense.IsPersonal)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to scan expense: %v", err), http.StatusInternalServerError)
 			return
@@ -306,7 +306,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query to get category totals
+	// Query to get category totals (excluding Personal expenses)
 	rows, err := database.Pool.Query(ctx, `
 		SELECT 
 			ec.name as category_name,
@@ -316,6 +316,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 		WHERE e.project_id = $1 
 			AND e.accepted_category_id IS NOT NULL
 			AND e.deleted_at IS NULL
+			AND e.is_personal = FALSE
 		GROUP BY ec.id, ec.name, ec.sort_order
 		ORDER BY ec.sort_order ASC
 	`, projectIDStr)
@@ -411,7 +412,7 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query to get category totals
+	// Query to get category totals (excluding Personal expenses)
 	rows, err := database.Pool.Query(ctx, `
 		SELECT 
 			ec.name as category_name,
@@ -421,6 +422,7 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 		WHERE e.project_id = $1 
 			AND e.accepted_category_id IS NOT NULL
 			AND e.deleted_at IS NULL
+			AND e.is_personal = FALSE
 		GROUP BY ec.id, ec.name, ec.sort_order
 		ORDER BY ec.sort_order ASC
 	`, projectIDStr)

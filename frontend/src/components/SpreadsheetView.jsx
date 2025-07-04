@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { RefreshCw, Download } from "lucide-react";
+import dayjs from "dayjs";
 import {
   SpreadsheetContextProvider,
   SpreadsheetContext,
@@ -95,16 +96,25 @@ const SpreadsheetTable = () => {
 
   const formatDate = dateString => {
     if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return dateString;
+    
+    // Try parsing with DayJS for MM/DD/YY format
+    const dateFormats = ['MM/DD/YY', 'MM/DD/YYYY', 'M/D/YY', 'M/D/YYYY'];
+    
+    for (const format of dateFormats) {
+      const parsedDate = dayjs(dateString, format, true);
+      if (parsedDate.isValid()) {
+        return parsedDate.format('MMM D, YYYY');
+      }
     }
+    
+    // Try parsing as ISO date
+    const isoDate = dayjs(dateString);
+    if (isoDate.isValid()) {
+      return isoDate.format('MMM D, YYYY');
+    }
+    
+    // Fall back to original text if parsing fails
+    return dateString;
   };
 
   const getAmountClass = amount => {
@@ -115,6 +125,14 @@ const SpreadsheetTable = () => {
   // Column value getter
   const getColumnValue = (expense, column) => {
     switch (column) {
+      case "Source":
+        return expense.source || "";
+      case "Date":
+        return expense.date_text || "";
+      case "Description":
+        return expense.description || "";
+      case "Amount":
+        return expense.amount;
       case "Category":
         return (
           expense.accepted_category_id || expense.suggested_category_id || ""
@@ -134,17 +152,7 @@ const SpreadsheetTable = () => {
           return "Uncategorized";
         }
       default:
-        if (expense.raw_data && expense.raw_data[column]) {
-          return expense.raw_data[column];
-        }
-        switch (column.toLowerCase()) {
-          case "description":
-            return expense.description || "";
-          case "amount":
-            return expense.amount;
-          default:
-            return "";
-        }
+        return "";
     }
   };
 
@@ -339,35 +347,9 @@ const SpreadsheetTable = () => {
     );
   };
 
-  // Get all columns including data columns plus Category and Status
+  // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
   const getColumns = () => {
-    if (expenses.length === 0) return [];
-
-    const columnSet = new Set();
-
-    expenses.forEach(expense => {
-      if (expense.raw_data) {
-        Object.keys(expense.raw_data).forEach(key => columnSet.add(key));
-      }
-    });
-
-    // Convert to array and sort, putting common columns first
-    const columns = Array.from(columnSet);
-    const priority = ["Date", "Description", "Amount"];
-
-    // Sort data columns
-    const sortedDataColumns = columns.sort((a, b) => {
-      const aIndex = priority.indexOf(a);
-      const bIndex = priority.indexOf(b);
-
-      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-      return a.localeCompare(b);
-    });
-
-    // Add Category, Action, and Status columns at the end
-    return [...sortedDataColumns, "Action", "Status"];
+    return ["Source", "Date", "Description", "Amount", "Category", "Action", "Status"];
   };
 
   // Intersection Observer for infinite scroll
@@ -441,7 +423,7 @@ const SpreadsheetTable = () => {
 
   const columns = getColumns();
 
-  if (columns.length === 0) {
+  if (expenses.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
         <span className="text-muted-foreground">Loading...</span>
@@ -497,8 +479,8 @@ const SpreadsheetTable = () => {
                 </TableCell>
                 {columns.map(column => {
                   const value = getColumnValue(expense, column);
-                  const isAmount = column.toLowerCase().includes("amount");
-                  const isDate = column.toLowerCase().includes("date");
+                  const isAmount = column === "Amount";
+                  const isDate = column === "Date";
                   const isCategory = column === "Category";
                   const isAction = column === "Action";
                   const isStatus = column === "Status";
@@ -531,7 +513,7 @@ const SpreadsheetTable = () => {
                                 : value || ""}
                     </TableCell>
                   );
-                })}
+                })
               </TableRow>
             );
           })}

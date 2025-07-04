@@ -140,13 +140,28 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 			return nil, fmt.Errorf("failed to marshal raw data for row %d: %w", i, err)
 		}
 
-		// Extract common fields
+		// Extract specific fields from CSV
+		var source *string
+		var dateText *string
 		var description *string
 		var amount *float64
 
+		// Extract Source field
+		if sourceStr, ok := rawData["Source"].(string); ok && sourceStr != "" {
+			source = &sourceStr
+		}
+
+		// Extract Date field as text
+		if dateStr, ok := rawData["Date"].(string); ok && dateStr != "" {
+			dateText = &dateStr
+		}
+
+		// Extract Description field
 		if desc, ok := rawData["Description"].(string); ok && desc != "" {
 			description = &desc
 		}
+
+		// Extract Amount field
 		if amtStr, ok := rawData["Amount"].(string); ok && amtStr != "" {
 			if amt, err := strconv.ParseFloat(amtStr, 64); err == nil {
 				amount = &amt
@@ -154,9 +169,9 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 		}
 
 		_, err = tx.Exec(ctx, `
-			INSERT INTO expense (project_id, row_index, raw_data, description, amount) 
-			VALUES ($1, $2, $3, $4, $5)
-		`, project.ID, i, rawDataJSON, description, amount)
+			INSERT INTO expense (project_id, row_index, raw_data, source, date_text, description, amount) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, project.ID, i, rawDataJSON, source, dateText, description, amount)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert expense row %d: %w", i, err)
 		}

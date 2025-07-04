@@ -24,6 +24,8 @@ type Expense struct {
 	ProjectID           int64           `json:"project_id"`
 	RowIndex            int             `json:"row_index"`
 	RawData             json.RawMessage `json:"raw_data"`
+	Source              *string         `json:"source"`
+	DateText            *string         `json:"date_text"`
 	Description         *string         `json:"description"`
 	Amount              *float64        `json:"amount"`
 	SuggestedCategoryID *int64          `json:"suggested_category_id"`
