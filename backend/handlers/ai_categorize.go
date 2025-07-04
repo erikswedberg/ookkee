@@ -11,19 +11,28 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/anthropic"
 	"github.com/tmc/langchaingo/llms/openai"
 )
 
 // AICategorizeRequest represents the request payload for AI categorization
+// Note: Now simplified - backend determines which expenses to categorize
 type AICategorizeRequest struct {
-	Expenses   []ExpenseForAI `json:"expenses"`
-	Categories []string       `json:"categories"`      // Array of category names
-	Model      string         `json:"model,omitempty"` // "openai" or "anthropic"
+	Model string `json:"model,omitempty"` // "openai" or "anthropic"
 }
+
+// Legacy request structure (commented out for reference)
+// type AICategorizeRequestOld struct {
+//	Expenses   []ExpenseForAI `json:"expenses"`
+//	Categories []string       `json:"categories"`      // Array of category names
+//	Model      string         `json:"model,omitempty"` // "openai" or "anthropic"
+// }
 
 // ExpenseForAI represents an expense to be categorized by AI
 type ExpenseForAI struct {
@@ -40,9 +49,18 @@ type AICategorizeResponse struct {
 	Reasoning  string  `json:"reasoning,omitempty"`
 }
 
+// AICategorizeFullResponse represents the complete response including selected IDs
+type AICategorizeFullResponse struct {
+	SelectedExpenseIDs []int                  `json:"selectedExpenseIds"`
+	Categorizations    []AICategorizeResponse `json:"categorizations"`
+	Message            string                 `json:"message,omitempty"`
+}
+
 // AICategorizeExpenses handles AI-powered expense categorization
+// New implementation: Backend determines which expenses to categorize
 func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := r.Context()
 
 	// Get project ID from URL params
 	projectIDStr := chi.URLParam(r, "projectID")
@@ -52,61 +70,83 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body (simplified - just model selection)
 	var req AICategorizeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
-		return
+		// Default to empty request if parsing fails
+		req = AICategorizeRequest{}
 	}
 
-	// Validate request
-	if len(req.Expenses) == 0 {
-		http.Error(w, "No expenses provided", http.StatusBadRequest)
-		return
-	}
-
-	if len(req.Categories) == 0 {
-		http.Error(w, "No categories provided", http.StatusBadRequest)
-		return
-	}
-
-	// Limit to max 20 expenses
-	if len(req.Expenses) > 20 {
-		req.Expenses = req.Expenses[:20]
-	}
-
-	// Get category details for the prompt
-	categoryDetails, err := getCategoryDetails(req.Categories)
+	// Step 1: Query next 20 uncategorized, non-personal expenses from database
+	expensesToCategorize, err := getUncategorizedExpenses(ctx, projectID, 20)
 	if err != nil {
-		log.Printf("Failed to get category details: %v", err)
-		http.Error(w, "Failed to get category details", http.StatusInternalServerError)
+		log.Printf("Failed to get uncategorized expenses: %v", err)
+		http.Error(w, "Failed to get expenses for categorization", http.StatusInternalServerError)
 		return
 	}
 
-	// Determine which AI model to use
+	if len(expensesToCategorize) == 0 {
+		// No expenses to categorize
+		response := AICategorizeFullResponse{
+			SelectedExpenseIDs: []int{},
+			Categorizations:    []AICategorizeResponse{},
+			Message:            "No uncategorized expenses found",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Step 2: Get available categories from database
+	categoryDetails, err := getAllCategories(ctx)
+	if err != nil {
+		log.Printf("Failed to get categories: %v", err)
+		http.Error(w, "Failed to get categories", http.StatusInternalServerError)
+		return
+	}
+
+	if len(categoryDetails) == 0 {
+		http.Error(w, "No categories available for categorization", http.StatusBadRequest)
+		return
+	}
+
+	// Step 3: Determine which AI model to use
 	modelProvider := req.Model
 	if modelProvider == "" {
 		modelProvider = getEnv("AI_MODEL_PROVIDER", "openai") // Default to OpenAI
 	}
 
-	// Initialize the appropriate LLM client
+	// Step 4: Initialize the appropriate LLM client
 	llm, modelName, err := initializeLLM(modelProvider)
 	if err != nil {
 		log.Printf("Failed to initialize %s client: %v", modelProvider, err)
 		// Fallback to mock responses if no AI service is available
-		mockResponses := generateMockAIResponses(req.Expenses, categoryDetails)
+		mockResponses := generateMockAIResponses(expensesToCategorize, categoryDetails)
+
+		selectedIDs := make([]int, len(expensesToCategorize))
+		for i, expense := range expensesToCategorize {
+			selectedIDs[i] = expense.ID
+		}
+
+		response := AICategorizeFullResponse{
+			SelectedExpenseIDs: selectedIDs,
+			Categorizations:    mockResponses,
+			Message:            fmt.Sprintf("Mock categorization of %d expenses (no AI key configured)", len(mockResponses)),
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockResponses)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Fetch accepted map for similar descriptions
-	currentDescriptions := make([]string, len(req.Expenses))
-	for i, expense := range req.Expenses {
+	// Step 5: Fetch accepted map for similar descriptions
+	currentDescriptions := make([]string, len(expensesToCategorize))
+	for i, expense := range expensesToCategorize {
 		currentDescriptions[i] = expense.Description
 	}
 
-	acceptedMap, err := fetchAcceptedMap(context.Background(), projectID, currentDescriptions)
+	acceptedMap, err := fetchAcceptedMap(ctx, projectID, currentDescriptions)
 	if err != nil {
 		log.Printf("Failed to fetch accepted map: %v", err)
 		// Continue without accepted map
@@ -114,13 +154,12 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("Debug: accepted map size: %d, contents: %+v", len(acceptedMap), acceptedMap)
 
-	// Create categorization prompt with accepted map
-	prompt := buildCategorizationPrompt(req.Expenses, categoryDetails, acceptedMap)
+	// Step 6: Create categorization prompt with accepted map
+	prompt := buildCategorizationPrompt(expensesToCategorize, categoryDetails, acceptedMap)
 	log.Printf("Debug: AI prompt length: %d characters", len(prompt))
 	log.Printf("Debug: AI prompt:\n%s", prompt)
 
-	// Call AI model
-	ctx := context.Background()
+	// Step 7: Call AI model
 	response, err := llms.GenerateFromSinglePrompt(ctx, llm, prompt)
 	if err != nil {
 		log.Printf("AI categorization failed: %v", err)
@@ -128,15 +167,15 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse AI response
-	aiResponses, err := parseAIResponse(response, req.Expenses)
+	// Step 8: Parse AI response
+	aiResponses, err := parseAIResponse(response, expensesToCategorize)
 	if err != nil {
 		log.Printf("Failed to parse AI response: %v", err)
 		http.Error(w, "Failed to process AI response", http.StatusInternalServerError)
 		return
 	}
 
-	// Store categorization history AND update expense suggestions
+	// Step 9: Store categorization history AND update expense suggestions
 	for _, aiResp := range aiResponses {
 		// Store in history table
 		err := storeCategorizationHistory(projectID, aiResp.RowID, aiResp.CategoryID, modelName, aiResp.Confidence, aiResp.Reasoning)
@@ -153,13 +192,26 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Return AI categorization results
+	// Step 10: Prepare and return enhanced response with selected IDs
+	selectedIDs := make([]int, len(expensesToCategorize))
+	for i, expense := range expensesToCategorize {
+		selectedIDs[i] = expense.ID
+	}
+
+	response := AICategorizeFullResponse{
+		SelectedExpenseIDs: selectedIDs,
+		Categorizations:    aiResponses,
+		Message:            fmt.Sprintf("Successfully categorized %d expenses", len(aiResponses)),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(aiResponses)
+	json.NewEncoder(w).Encode(response)
 }
 
 // getCategoryDetails fetches category details from database by names
-func getCategoryDetails(categoryNames []string) ([]models.ExpenseCategory, error) {
+// NOTE: This function is deprecated in favor of getAllCategories for new backend-driven approach
+// func getCategoryDetails(categoryNames []string) ([]models.ExpenseCategory, error) {
+func getCategoryDetailsOld(categoryNames []string) ([]models.ExpenseCategory, error) {
 	if len(categoryNames) == 0 {
 		return nil, fmt.Errorf("no categories provided")
 	}
@@ -363,6 +415,67 @@ func updateExpenseSuggestion(ctx context.Context, expenseID int, categoryID int)
 }
 
 // generateMockAIResponses creates mock responses when no API key is available
+// getUncategorizedExpenses retrieves the next batch of uncategorized, non-personal expenses
+func getUncategorizedExpenses(ctx context.Context, projectID int, limit int) ([]ExpenseForAI, error) {
+	query := `
+		SELECT id, COALESCE(description, '') as description, COALESCE(amount, 0) as amount
+		FROM expense 
+		WHERE project_id = $1 
+		  AND accepted_category_id IS NULL 
+		  AND suggested_category_id IS NULL
+		  AND (is_personal IS NULL OR is_personal = FALSE)
+		  AND deleted_at IS NULL
+		ORDER BY row_index ASC
+		LIMIT $2
+	`
+
+	rows, err := database.Pool.Query(ctx, query, projectID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var expenses []ExpenseForAI
+	for rows.Next() {
+		var expense ExpenseForAI
+		err := rows.Scan(&expense.ID, &expense.Description, &expense.Amount)
+		if err != nil {
+			return nil, err
+		}
+		expenses = append(expenses, expense)
+	}
+
+	return expenses, rows.Err()
+}
+
+// getAllCategories retrieves all available categories
+func getAllCategories(ctx context.Context) ([]models.ExpenseCategory, error) {
+	query := `
+		SELECT id, name, sort_order, created_at 
+		FROM expense_category 
+		WHERE deleted_at IS NULL 
+		ORDER BY sort_order ASC
+	`
+
+	rows, err := database.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []models.ExpenseCategory
+	for rows.Next() {
+		var cat models.ExpenseCategory
+		err := rows.Scan(&cat.ID, &cat.Name, &cat.SortOrder, &cat.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		categories = append(categories, cat)
+	}
+
+	return categories, rows.Err()
+}
+
 func generateMockAIResponses(expenses []ExpenseForAI, categories []models.ExpenseCategory) []AICategorizeResponse {
 	var responses []AICategorizeResponse
 
