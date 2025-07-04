@@ -122,19 +122,19 @@
   right: 0;
   bottom: 0;
   background: #FFFFFF;
-  background: radial-gradient(at center, rgba(255,255,255,1), rgba(255,255,255,0));
+  background: radial-gradient(at center, rgba(255,255,255,.5), rgba(255,255,255,.9));
   pointer-events: none;
   z-index: 1;
 }
 
 .spreadsheet .row.personal > * {
   position: relative;
-  z-index: 2;
+  z-index: 0;
 }
 
 .spreadsheet .row.personal:hover::after {
   background: #FFFFFF;
-  background: radial-gradient(at center, rgba(255,255,255,0.9), rgba(255,255,255,0));
+  background: radial-gradient(at center, rgba(255,255,255,.5), rgba(255,255,255,.9));
 }
 
 /* Active row styling */
