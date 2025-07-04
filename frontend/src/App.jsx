@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+
 import { Toaster } from "sonner";
 import "./App.css";
 
@@ -167,11 +167,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="p-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Ookkee</h1>
-            <p className="text-muted-foreground">AI Bookkeeping Assistant</p>
+      <header className="border-b bg-card shadow-md" style={{height: '50px'}}>
+        <div className="px-6 h-full flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold">ookkee</h1>
+            <p className="text-sm text-muted-foreground">AI Bookkeeping Assistant</p>
           </div>
           <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
             <DialogTrigger asChild>
@@ -251,7 +251,7 @@ function App() {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-110px)] relative">
+      <div className="flex h-[calc(100vh-50px)] relative">
         {/* Sidebar */}
         <div className={`transition-all duration-300 ${isSidebarCollapsed ? 'w-0' : 'w-64'} overflow-hidden`}>
           <ProjectsSidebar
@@ -265,25 +265,14 @@ function App() {
           />
         </div>
 
-        {/* Collapse/Expand Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 h-12 w-8 rounded-r-md rounded-l-none border-l-0 bg-background hover:bg-muted"
-          style={{ left: isSidebarCollapsed ? '0px' : '256px' }}
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        >
-          {isSidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
-
         {/* Main Content */}
         <div className="flex-1 overflow-hidden">
           {selectedProject ? (
-            <SpreadsheetView project={selectedProject} />
+            <SpreadsheetView 
+              project={selectedProject} 
+              isSidebarCollapsed={isSidebarCollapsed}
+              onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            />
           ) : (
             <div className="flex items-center justify-center h-full">
               <Card>

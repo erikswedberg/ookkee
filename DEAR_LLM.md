@@ -292,3 +292,69 @@ cd frontend && npm test
 • **Integrated workflow** - `make up` and `make migrate` automatically run migration container before services
 
 **⚠️ CRITICAL MIGRATION RULE**: From this point forward, **NEVER modify existing migration files**. Always add new migrations (V5, V6, etc.) to make changes. This maintains database migration integrity and prevents conflicts in production environments.
+
+## Phase 6: AI Categorization Job Tracking System (Commits: ee57fe8 → 099175972)
+
+**Goal**: Implement comprehensive job tracking system for AI expense categorization with backend-driven expense selection
+
+**Key Requirements Implemented**:
+1. **Backend-driven expense selection**: Frontend requests next 20 rows from `/ai-categorize`, backend determines which expenses to process
+2. **Immediate row identification**: Backend sends frontend information about which rows are being processed for UI spinners
+3. **Completion notification**: Frontend polls job status every 1 second for near-instant updates
+
+**Backend Job Tracking Infrastructure**:
+• **Job Management System** - `jobs/job_manager.go` with `JobManager` and `AICategorizationJob` structs
+• **Asynchronous Processing** - `jobs/processor.go` with configurable workers and timeout handling
+• **In-memory Job Storage** - Unique job IDs, status tracking (queued, processing, completed, failed)
+• **Job Cleanup** - Automatic cleanup of old jobs with cancellation support
+
+**Core AI Processing Refactor**:
+• **Separated AI Logic** - Extracted to `ai/categorize.go` package to avoid circular imports
+• **Reusable Functions** - `GetUncategorizedExpenses`, `GetAllCategories`, `ProcessCategorizationLogic`
+• **Backend-driven Selection** - Business logic for expense selection moved to backend
+• **Dual Mode Support** - Both job-based and synchronous processing modes
+
+**API Endpoints Enhancement**:
+• **POST /api/projects/{id}/ai-categorize** - Returns job information immediately with selected expense IDs
+• **GET /api/jobs/{jobId}** - Job status polling endpoint
+• **Response Structure** - `AICategorizeFullResponse` with job_id, status, selected_expenses, progress
+• **Backward Compatibility** - Maintains synchronous fallback for existing clients
+
+**Frontend Job Integration**:
+• **Job-based Processing** - Updated `handleAiCategorization` to handle job responses
+• **Status Polling** - `pollJobStatus` function with 1-second intervals for responsiveness
+• **Row-level Spinners** - Processing indicators for specific expense rows being categorized
+• **Error Handling** - Comprehensive error handling for job polling failures
+• **UI Updates** - Automatic refresh when job completion detected
+
+**UI/UX Improvements**:
+• **Header Optimization** - Reduced to 50px height, lowercase "ookkee", right-aligned tagline
+• **Full-width Table** - Removed margins for edge-to-edge display
+• **Personal Checkbox Column** - Dedicated first column with no label
+• **Personal Row Styling** - Radial gradient mask overlay instead of gray background
+• **Focus Indicators** - Bright blue focus styling for checkboxes and dropdowns
+• **Category Column** - Minimum width of 175px for better visibility
+• **Primary Color** - Updated shadcn/ui primary to blue for selected states
+
+**Data Processing Fixes**:
+• **Amount Parsing** - Fixed CSV parsing to handle currency symbols ($27.29 → 27.29)
+• **Date Formatting** - Changed from 'MMM D, YYYY' to 'MM/DD' to avoid year confusion
+• **Toast Notifications** - Fixed category name lookup showing actual names instead of 'Unknown'
+• **Personal Expense Filtering** - Proper exclusion from AI categorization with `is_personal = FALSE OR is_personal IS NULL`
+
+**Technical Architecture**:
+• **Package Structure** - Clean separation with `ai/` package for business logic, `jobs/` for job management
+• **Error Handling** - Graceful fallback to synchronous processing when job manager unavailable
+• **Polling Strategy** - 1-second intervals for near-instant UI responsiveness (0-1 second delay)
+• **Job Lifecycle** - Complete tracking from creation through completion with cancellation support
+• **Mock AI Responses** - Fallback when no API keys configured for development/testing
+
+**Key Files Created/Modified**:
+• `backend/jobs/job_manager.go` - Job management and lifecycle
+• `backend/jobs/processor.go` - Asynchronous job processing
+• `backend/ai/categorize.go` - Core AI categorization logic
+• `backend/handlers/ai_categorize.go` - Updated API endpoints
+• `frontend/src/contexts/SpreadsheetContext.jsx` - Job polling integration
+• Enhanced UI components with job-aware processing states
+
+**Current Status**: System implemented and ready for testing with real AI API keys. Requires end-to-end validation of job tracking workflow.

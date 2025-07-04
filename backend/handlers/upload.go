@@ -49,7 +49,7 @@ func FileUpload(w http.ResponseWriter, r *http.Request) {
 	// Create timestamped filename
 	timestamp := time.Now().Format("20060102_150405")
 	filename := fmt.Sprintf("%s_%s", timestamp, header.Filename)
-	
+
 	UPLOADS_DIR := getEnv("UPLOADS_DIR", "uploads")
 	filepath := fmt.Sprintf("%s/%s", UPLOADS_DIR, filename)
 
@@ -120,7 +120,7 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 		VALUES ($1, $2, $3, $4, $5) 
 		RETURNING id, user_id, name, original_name, csv_path, row_count, created_at, updated_at
 	`, models.TEST_USER_ID, projectName, originalName, filepath, len(dataRows)).Scan(
-		&project.ID, &project.UserID, &project.Name, &project.OriginalName, 
+		&project.ID, &project.UserID, &project.Name, &project.OriginalName,
 		&project.CSVPath, &project.RowCount, &project.CreatedAt, &project.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
@@ -167,7 +167,7 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 			cleanAmount := strings.ReplaceAll(amtStr, "$", "")
 			cleanAmount = strings.ReplaceAll(cleanAmount, ",", "")
 			cleanAmount = strings.TrimSpace(cleanAmount)
-			
+
 			if amt, err := strconv.ParseFloat(cleanAmount, 64); err == nil {
 				amount = &amt
 			}
