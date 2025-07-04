@@ -554,7 +554,7 @@ const SpreadsheetTable = () => {
 };
 
 // Main SpreadsheetView component with contexts
-const SpreadsheetView = ({ project }) => {
+const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar }) => {
   const [activeTab, setActiveTab] = useState("expenses");
 
   if (!project) {
@@ -576,6 +576,8 @@ const SpreadsheetView = ({ project }) => {
           project={project}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebar={onToggleSidebar}
         />
       </TotalsContextProvider>
     </SpreadsheetContextProvider>
@@ -583,7 +585,7 @@ const SpreadsheetView = ({ project }) => {
 };
 
 // Main content component using contexts
-const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
+const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCollapsed, onToggleSidebar }) => {
   const {
     expenses,
     progress,
@@ -619,7 +621,16 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <CardTitle>{project.name}</CardTitle>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={onToggleSidebar}
+                  className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+                  title={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+                >
+                  {isSidebarCollapsed ? "→" : "←"}
+                </button>
+                <CardTitle>{project.name}</CardTitle>
+              </div>
               <p className="text-sm text-muted-foreground">
                 {project.row_count} rows • {project.original_name}
                 {activeTab === "expenses" &&

@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+
 import { Toaster } from "sonner";
 import "./App.css";
 
@@ -265,25 +265,14 @@ function App() {
           />
         </div>
 
-        {/* Collapse/Expand Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 h-12 w-8 rounded-r-md rounded-l-none border-l-0 bg-background hover:bg-muted"
-          style={{ left: isSidebarCollapsed ? '0px' : '256px' }}
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        >
-          {isSidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
-
         {/* Main Content */}
         <div className="flex-1 overflow-hidden">
           {selectedProject ? (
-            <SpreadsheetView project={selectedProject} />
+            <SpreadsheetView 
+              project={selectedProject} 
+              isSidebarCollapsed={isSidebarCollapsed}
+              onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            />
           ) : (
             <div className="flex items-center justify-center h-full">
               <Card>
