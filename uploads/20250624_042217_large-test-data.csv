@@ -1,117 +1,117 @@
-Date,Description,Amount,Category
-2024-01-01,Office Rent,-2500.00,Office Expenses
-2024-01-02,Client Retainer,5000.00,Income
-2024-01-03,Software License,-299.00,Software
-2024-01-04,Marketing Campaign,-1200.00,Marketing
-2024-01-05,Phone Bill,-89.50,Utilities
-2024-01-06,Consulting Revenue,3500.00,Income
-2024-01-07,Travel Expenses,-456.78,Travel
-2024-01-08,Office Supplies,-234.56,Office Expenses
-2024-01-09,Web Hosting,-29.99,Software
-2024-01-10,Client Meeting Lunch,-67.89,Meals
-2024-01-11,Freelancer Payment,-800.00,Professional Services
-2024-01-12,Domain Registration,-15.99,Software
-2024-01-13,Printer Ink,-89.99,Office Supplies
-2024-01-14,Coffee Subscription,-25.00,Office Supplies
-2024-01-15,Project Payment,4200.00,Income
-2024-01-16,Internet Bill,-79.99,Utilities
-2024-01-17,Taxi Fare,-34.50,Travel
-2024-01-18,Stationery,-45.67,Office Supplies
-2024-01-19,Cloud Storage,-9.99,Software
-2024-01-20,Business Lunch,-89.50,Meals
-2024-01-21,Graphic Design,-500.00,Professional Services
-2024-01-22,Electricity Bill,-156.78,Utilities
-2024-01-23,Parking Fees,-12.00,Travel
-2024-01-24,Online Course,-199.00,Education
-2024-01-25,Client Invoice,2800.00,Income
-2024-01-26,Backup Service,-19.99,Software
-2024-01-27,Team Lunch,-156.78,Meals
-2024-01-28,Fuel,-89.50,Travel
-2024-01-29,Legal Consultation,-350.00,Professional Services
-2024-01-30,Monthly Salary,-8000.00,Payroll
-2024-01-31,Bonus Payment,1500.00,Income
-2024-02-01,Office Rent,-2500.00,Office Expenses
-2024-02-02,Client Payment,6500.00,Income
-2024-02-03,Software Upgrade,-399.00,Software
-2024-02-04,Social Media Ads,-800.00,Marketing
-2024-02-05,Gas Bill,-125.45,Utilities
-2024-02-06,Consulting Fee,4200.00,Income
-2024-02-07,Conference Ticket,-450.00,Education
-2024-02-08,Printer Paper,-56.78,Office Supplies
-2024-02-09,Email Service,-15.99,Software
-2024-02-10,Client Dinner,-125.50,Meals
-2024-02-11,Contractor Payment,-1200.00,Professional Services
-2024-02-12,SSL Certificate,-89.99,Software
-2024-02-13,Cleaning Service,-150.00,Office Expenses
-2024-02-14,Valentine's Day Lunch,-89.99,Meals
-2024-02-15,Milestone Payment,5500.00,Income
-2024-02-16,Water Bill,-67.89,Utilities
-2024-02-17,Uber Ride,-23.45,Travel
-2024-02-18,Notebooks,-34.56,Office Supplies
-2024-02-19,Analytics Tool,-99.00,Software
-2024-02-20,Networking Event,-75.00,Marketing
-2024-02-21,Copywriting,-600.00,Professional Services
-2024-02-22,Heating Bill,-234.56,Utilities
-2024-02-23,Airport Parking,-45.00,Travel
-2024-02-24,Workshop Fee,-299.00,Education
-2024-02-25,Retainer Payment,3800.00,Income
-2024-02-26,Backup Storage,-39.99,Software
-2024-02-27,Pizza Party,-89.50,Meals
-2024-02-28,Mileage Reimbursement,-156.78,Travel
-2024-02-29,Accounting Service,-500.00,Professional Services
-2024-03-01,Office Rent,-2500.00,Office Expenses
-2024-03-02,New Client Payment,7200.00,Income
-2024-03-03,Design Software,-599.00,Software
-2024-03-04,Google Ads,-1500.00,Marketing
-2024-03-05,Trash Service,-45.67,Utilities
-2024-03-06,Hourly Consulting,2800.00,Income
-2024-03-07,Flight Tickets,-856.78,Travel
-2024-03-08,Desk Supplies,-123.45,Office Supplies
-2024-03-09,CRM Software,-199.00,Software
-2024-03-10,Team Building,-234.56,Meals
-2024-03-11,SEO Services,-800.00,Professional Services
-2024-03-12,Mobile App,-2.99,Software
-2024-03-13,Janitorial Service,-200.00,Office Expenses
-2024-03-14,St. Patrick's Lunch,-67.89,Meals
-2024-03-15,Quarterly Bonus,2500.00,Income
-2024-03-16,Sewer Bill,-89.50,Utilities
-2024-03-17,Train Ticket,-78.90,Travel
-2024-03-18,Pens and Pencils,-23.45,Office Supplies
-2024-03-19,Time Tracking,-19.99,Software
-2024-03-20,Trade Show,-1200.00,Marketing
-2024-03-21,Legal Review,-750.00,Professional Services
-2024-03-22,Internet Upgrade,-129.99,Utilities
-2024-03-23,Rental Car,-345.67,Travel
-2024-03-24,Certification Exam,-399.00,Education
-2024-03-25,Project Completion,8500.00,Income
-2024-03-26,Security Software,-89.99,Software
-2024-03-27,Company Retreat,-567.89,Travel
-2024-03-28,Gas Expense,-123.45,Travel
-2024-03-29,Tax Preparation,-600.00,Professional Services
-2024-03-30,Salary Bonus,-5000.00,Payroll
-2024-03-31,End of Quarter,3200.00,Income
-2024-04-01,Office Rent,-2500.00,Office Expenses
-2024-04-02,Spring Contract,9500.00,Income
-2024-04-03,Adobe Creative,-52.99,Software
-2024-04-04,LinkedIn Ads,-450.00,Marketing
-2024-04-05,Maintenance Fee,-234.56,Office Expenses
-2024-04-06,Consulting Hours,3600.00,Income
-2024-04-07,Hotel Stay,-289.99,Travel
-2024-04-08,Sticky Notes,-12.34,Office Supplies
-2024-04-09,Slack Premium,-8.00,Software
-2024-04-10,Easter Brunch,-89.50,Meals
-2024-04-11,Content Creation,-900.00,Professional Services
-2024-04-12,Antivirus,-49.99,Software
-2024-04-13,Equipment Repair,-345.67,Office Expenses
-2024-04-14,Team Outing,-156.78,Meals
-2024-04-15,Bi-weekly Pay,4800.00,Income
-2024-04-16,Garbage Collection,-67.89,Utilities
-2024-04-17,Bus Pass,-89.50,Travel
-2024-04-18,Highlighters,-15.67,Office Supplies
-2024-04-19,Zoom Pro,-14.99,Software
-2024-04-20,Webinar Series,-299.00,Education
-2024-04-21,Brand Design,-1200.00,Professional Services
-2024-04-22,Fiber Internet,-199.99,Utilities
-2024-04-23,Taxi to Airport,-67.89,Travel
-2024-04-24,Training Materials,-156.78,Education
-2024-04-25,Major Milestone,12000.00,Income
+Source,Date,Description,Amount
+A,2024-01-01,Office Rent,-2500.00
+A,2024-01-02,Client Retainer,5000.00
+A,2024-01-03,Software License,-299.00
+A,2024-01-04,Marketing Campaign,-1200.00
+A,2024-01-05,Phone Bill,-89.50
+A,2024-01-06,Consulting Revenue,3500.00
+A,2024-01-07,Travel Expenses,-456.78
+A,2024-01-08,Office Supplies,-234.56
+A,2024-01-09,Web Hosting,-29.99
+A,2024-01-10,Client Meeting Lunch,-67.89
+A,2024-01-11,Freelancer Payment,-800.00
+A,2024-01-12,Domain Registration,-15.99
+A,2024-01-13,Printer Ink,-89.99
+A,2024-01-14,Coffee Subscription,-25.00
+A,2024-01-15,Project Payment,4200.00
+A,2024-01-16,Internet Bill,-79.99
+A,2024-01-17,Taxi Fare,-34.50
+A,2024-01-18,Stationery,-45.67
+A,2024-01-19,Cloud Storage,-9.99
+A,2024-01-20,Business Lunch,-89.50
+A,2024-01-21,Graphic Design,-500.00
+A,2024-01-22,Electricity Bill,-156.78
+A,2024-01-23,Parking Fees,-12.00
+A,2024-01-24,Online Course,-199.00
+A,2024-01-25,Client Invoice,2800.00
+A,2024-01-26,Backup Service,-19.99
+A,2024-01-27,Team Lunch,-156.78
+A,2024-01-28,Fuel,-89.50
+A,2024-01-29,Legal Consultation,-350.00
+A,2024-01-30,Monthly Salary,-8000.00
+A,2024-01-31,Bonus Payment,1500.00
+A,2024-02-01,Office Rent,-2500.00
+A,2024-02-02,Client Payment,6500.00
+A,2024-02-03,Software Upgrade,-399.00
+A,2024-02-04,Social Media Ads,-800.00
+A,2024-02-05,Gas Bill,-125.45
+A,2024-02-06,Consulting Fee,4200.00
+A,2024-02-07,Conference Ticket,-450.00
+A,2024-02-08,Printer Paper,-56.78
+A,2024-02-09,Email Service,-15.99
+A,2024-02-10,Client Dinner,-125.50
+A,2024-02-11,Contractor Payment,-1200.00
+A,2024-02-12,SSL Certificate,-89.99
+A,2024-02-13,Cleaning Service,-150.00
+A,2024-02-14,Valentine's Day Lunch,-89.99
+A,2024-02-15,Milestone Payment,5500.00
+A,2024-02-16,Water Bill,-67.89
+A,2024-02-17,Uber Ride,-23.45
+A,2024-02-18,Notebooks,-34.56
+A,2024-02-19,Analytics Tool,-99.00
+A,2024-02-20,Networking Event,-75.00
+A,2024-02-21,Copywriting,-600.00
+A,2024-02-22,Heating Bill,-234.56
+A,2024-02-23,Airport Parking,-45.00
+A,2024-02-24,Workshop Fee,-299.00
+A,2024-02-25,Retainer Payment,3800.00
+A,2024-02-26,Backup Storage,-39.99
+A,2024-02-27,Pizza Party,-89.50
+A,2024-02-28,Mileage Reimbursement,-156.78
+A,2024-02-29,Accounting Service,-500.00
+A,2024-03-01,Office Rent,-2500.00
+A,2024-03-02,New Client Payment,7200.00
+A,2024-03-03,Design Software,-599.00
+A,2024-03-04,Google Ads,-1500.00
+A,2024-03-05,Trash Service,-45.67
+A,2024-03-06,Hourly Consulting,2800.00
+A,2024-03-07,Flight Tickets,-856.78
+A,2024-03-08,Desk Supplies,-123.45
+A,2024-03-09,CRM Software,-199.00
+A,2024-03-10,Team Building,-234.56
+A,2024-03-11,SEO Services,-800.00
+A,2024-03-12,Mobile App,-2.99
+A,2024-03-13,Janitorial Service,-200.00
+A,2024-03-14,St. Patrick's Lunch,-67.89
+A,2024-03-15,Quarterly Bonus,2500.00
+A,2024-03-16,Sewer Bill,-89.50
+A,2024-03-17,Train Ticket,-78.90
+A,2024-03-18,Pens and Pencils,-23.45
+A,2024-03-19,Time Tracking,-19.99
+A,2024-03-20,Trade Show,-1200.00
+A,2024-03-21,Legal Review,-750.00
+A,2024-03-22,Internet Upgrade,-129.99
+A,2024-03-23,Rental Car,-345.67
+A,2024-03-24,Certification Exam,-399.00
+A,2024-03-25,Project Completion,8500.00
+A,2024-03-26,Security Software,-89.99
+A,2024-03-27,Company Retreat,-567.89
+A,2024-03-28,Gas Expense,-123.45
+A,2024-03-29,Tax Preparation,-600.00
+A,2024-03-30,Salary Bonus,-5000.00
+A,2024-03-31,End of Quarter,3200.00
+A,2024-04-01,Office Rent,-2500.00
+A,2024-04-02,Spring Contract,9500.00
+A,2024-04-03,Adobe Creative,-52.99
+A,2024-04-04,LinkedIn Ads,-450.00
+A,2024-04-05,Maintenance Fee,-234.56
+A,2024-04-06,Consulting Hours,3600.00
+A,2024-04-07,Hotel Stay,-289.99
+A,2024-04-08,Sticky Notes,-12.34
+A,2024-04-09,Slack Premium,-8.00
+A,2024-04-10,Easter Brunch,-89.50
+A,2024-04-11,Content Creation,-900.00
+A,2024-04-12,Antivirus,-49.99
+A,2024-04-13,Equipment Repair,-345.67
+A,2024-04-14,Team Outing,-156.78
+A,2024-04-15,Bi-weekly Pay,4800.00
+A,2024-04-16,Garbage Collection,-67.89
+A,2024-04-17,Bus Pass,-89.50
+A,2024-04-18,Highlighters,-15.67
+A,2024-04-19,Zoom Pro,-14.99
+A,2024-04-20,Webinar Series,-299.00
+A,2024-04-21,Brand Design,-1200.00
+A,2024-04-22,Fiber Internet,-199.99
+A,2024-04-23,Taxi to Airport,-67.89
+A,2024-04-24,Training Materials,-156.78
+A,2024-04-25,Major Milestone,12000.00
