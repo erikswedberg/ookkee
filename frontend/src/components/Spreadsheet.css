@@ -92,12 +92,30 @@
 
 /* Personal row styling */
 .spreadsheet .row.personal {
-  background-color: #f9fafb;
-  color: #6b7280;
+  position: relative;
 }
 
-.spreadsheet .row.personal:hover {
-  background-color: #f9fafb;
+.spreadsheet .row.personal::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50px; /* Width of checkbox column */
+  right: 0;
+  bottom: 0;
+  background: #FFFFFF;
+  background: radial-gradient(at center, rgba(255,255,255,1), rgba(255,255,255,0));
+  pointer-events: none;
+  z-index: 1;
+}
+
+.spreadsheet .row.personal > * {
+  position: relative;
+  z-index: 2;
+}
+
+.spreadsheet .row.personal:hover::after {
+  background: #FFFFFF;
+  background: radial-gradient(at center, rgba(255,255,255,0.9), rgba(255,255,255,0));
 }
 
 /* Active row styling */

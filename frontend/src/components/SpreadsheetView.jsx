@@ -294,33 +294,9 @@ const SpreadsheetTable = () => {
         <span
           className="separator"
           style={{
-            visibility: expense.suggested_category_id ? "visible" : "hidden",
-          }}
-        >
-          |
-        </span>
-        <label className="checkbox-group">
-          <Checkbox
-            checked={expense.is_personal || false}
-            onCheckedChange={() => {
-              handleTogglePersonal(expense);
-            }}
-            onClick={e => e.stopPropagation()}
-          />
-          <span
-            onClick={e => {
-              e.stopPropagation();
-              handleTogglePersonal(expense);
-            }}
-          >
-            Personal
-          </span>
-        </label>
-        <span
-          className="separator"
-          style={{
             visibility:
-              expense.accepted_category_id || expense.suggested_category_id
+              expense.suggested_category_id &&
+              (expense.accepted_category_id || expense.suggested_category_id)
                 ? "visible"
                 : "hidden",
           }}
@@ -439,6 +415,7 @@ const SpreadsheetTable = () => {
       <table className="w-full caption-bottom text-sm" ref={tableRef}>
         <thead className="[&_tr]:border-b sticky top-0 z-10">
           <TableRow className="bg-background border-b">
+            <TableHead className="w-12 bg-background"></TableHead>
             <TableHead className="w-16 bg-background">#</TableHead>
             {columns.map(column => (
               <TableHead
@@ -474,6 +451,15 @@ const SpreadsheetTable = () => {
                   setActiveRowWithTabIndex(expenseIndex);
                 }}
               >
+                <TableCell className="text-center">
+                  <Checkbox
+                    checked={expense.is_personal || false}
+                    onCheckedChange={() => {
+                      handleTogglePersonal(expense);
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  />
+                </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {expense.row_index + 1}
                 </TableCell>
