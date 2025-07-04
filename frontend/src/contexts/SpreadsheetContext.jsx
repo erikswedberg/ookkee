@@ -234,7 +234,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     });
   };
 
-  // AI Categorization function - simplified to call backend endpoint
+  // AI Categorization function - now with job tracking
   const handleAiCategorization = async () => {
     if (!project?.id) {
       console.warn('Cannot categorize: no project selected');
@@ -245,7 +245,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setAiCategorizing(true);
 
     try {
-      // Call the simplified backend endpoint (no payload needed)
+      // Call the backend endpoint to start a job
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
       const response = await fetch(`${API_URL}/api/projects/${project.id}/ai-categorize`, {
         method: 'POST',
@@ -262,21 +262,129 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         throw new Error(`AI categorization failed: ${response.status} - ${errorText}`);
       }
 
-      const result = await response.json();
+      const jobResult = await response.json();
       
-      // Handle AICategorizeFullResponse structure
-      const suggestions = result.categorizations || [];
-      const selectedIds = result.selectedExpenseIds || [];
-      
-      if (suggestions.length === 0) {
-        console.log('No expenses were categorized (no uncategorized expenses found)');
-        if (result.message) {
-          console.log(`Backend message: ${result.message}`);
-        }
-        toast.info(result.message || 'No expenses needed categorization');
-        return;
+      // Check if this is a job response or direct response (fallback)
+      if (jobResult.job_id) {
+        // Job-based response - handle job tracking
+        console.log(`AI categorization job started: ${jobResult.job_id}`);
+        
+        // Set processing state for selected expenses
+        const selectedExpenses = jobResult.selected_expenses || [];
+        setProcessingRows(new Set(selectedExpenses));
+        
+        toast.info(`AI categorization started for ${selectedExpenses.length} expenses`);
+        
+        // Start polling for job completion
+        pollJobStatus(jobResult.job_id);
+      } else {
+        // Direct response (fallback) - handle like before
+        handleDirectAiResponse(jobResult);
       }
+      
+    } catch (error) {
+      console.error('AI categorization failed:', error);
+      toast.error(`AI categorization failed: ${error.message}`);
+      setAiCategorizing(false);
+    }
+  };
 
+  // Poll job status until completion
+  const pollJobStatus = async (jobId) => {
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+    let attempts = 0;
+    const maxAttempts = 30; // Poll for up to 5 minutes (10s intervals)
+    
+    const poll = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/jobs/${jobId}`);
+        
+        if (!response.ok) {
+          throw new Error(`Job status check failed: ${response.status}`);
+        }
+        
+        const jobStatus = await response.json();
+        console.log(`Job ${jobId} status: ${jobStatus.status}`);
+        
+        if (jobStatus.status === 'completed') {
+          // Job completed successfully
+          handleJobCompletion(jobStatus);
+          return;
+        } else if (jobStatus.status === 'failed') {
+          // Job failed
+          throw new Error(jobStatus.error || 'AI categorization job failed');
+        } else if (jobStatus.status === 'processing' || jobStatus.status === 'queued') {
+          // Job still in progress
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(poll, 10000); // Poll every 10 seconds
+          } else {
+            throw new Error('Job timeout: AI categorization took too long');
+          }
+        }
+      } catch (error) {
+        console.error('Job polling failed:', error);
+        toast.error(`Job polling failed: ${error.message}`);
+        setProcessingRows(new Set());
+        setAiCategorizing(false);
+      }
+    };
+    
+    // Start polling
+    poll();
+  };
+
+  // Handle job completion
+  const handleJobCompletion = (jobStatus) => {
+    const suggestions = jobStatus.categorizations || [];
+    const selectedIds = jobStatus.selected_expenses || [];
+    
+    if (suggestions.length === 0) {
+      console.log('No expenses were categorized (no uncategorized expenses found)');
+      toast.info(jobStatus.message || 'No expenses needed categorization');
+    } else {
+      // Update expenses with AI suggestions
+      setExpenses(currentExpenses => {
+        const updatedExpenses = currentExpenses.map(expense => {
+          // Find suggestion for this expense in the returned suggestions
+          const suggestion = suggestions.find(s => s.rowId === expense.id);
+          if (suggestion) {
+            return {
+              ...expense,
+              suggested_category_id: suggestion.categoryId,
+              ai_confidence: suggestion.confidence,
+              ai_reasoning: suggestion.reasoning
+            };
+          }
+          return expense;
+        });
+        return [...updatedExpenses]; // Create new array to force re-render
+      });
+      
+      console.log(`AI categorized ${suggestions.length} expenses`);
+      toast.success(jobStatus.message || `AI categorized ${suggestions.length} expenses`);
+      
+      // Refresh progress after successful categorization
+      fetchProgress();
+    }
+    
+    // Clear processing state
+    setProcessingRows(new Set());
+    setAiCategorizing(false);
+  };
+
+  // Handle direct AI response (fallback for when job tracking is not available)
+  const handleDirectAiResponse = (result) => {
+    const suggestions = result.categorizations || [];
+    const selectedIds = result.selectedExpenseIds || [];
+    
+    if (suggestions.length === 0) {
+      console.log('No expenses were categorized (no uncategorized expenses found)');
+      if (result.message) {
+        console.log(`Backend message: ${result.message}`);
+      }
+      toast.info(result.message || 'No expenses needed categorization');
+    } else {
       // Update expenses with AI suggestions
       setExpenses(currentExpenses => {
         const updatedExpenses = currentExpenses.map(expense => {
@@ -299,16 +407,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       if (result.message) {
         console.log(`Backend message: ${result.message}`);
       }
+      toast.success(result.message || `AI categorized ${suggestions.length} expenses`);
       
-      // Show success toast
-      toast.success(`AI categorized ${suggestions.length} expenses`);
-      
-    } catch (error) {
-      console.error(`AI categorization failed:`, error);
-      toast.error(`AI categorization failed: ${error.message}`);
-    } finally {
-      setAiCategorizing(false);
+      // Refresh progress after successful categorization
+      fetchProgress();
     }
+    
+    setAiCategorizing(false);
   };
 
   // Load expenses function

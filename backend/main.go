@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -13,6 +14,7 @@ import (
 
 	"ookkee/database"
 	"ookkee/handlers"
+	"ookkee/jobs"
 )
 
 func main() {
@@ -44,6 +46,19 @@ func main() {
 	// Migrations are now handled by dedicated migration container
 	log.Println("Database migrations handled by migration container at startup")
 
+	// Initialize job manager and processor
+	jobManager := jobs.NewJobManager()
+	jobProcessor := jobs.NewJobProcessor(jobManager, jobs.ProcessorConfig{
+		MaxWorkers: 2,
+		JobTimeout: 60 * time.Second,
+	})
+	jobProcessor.Start()
+	defer jobProcessor.Stop()
+
+	// Set global job manager for handlers
+	handlers.SetJobManager(jobManager)
+	handlers.SetJobProcessor(jobProcessor)
+
 	// Setup router
 	r := chi.NewRouter()
 
@@ -63,10 +78,10 @@ func main() {
 	r.Route("/api", func(r chi.Router) {
 		// Upload
 		r.Post("/upload", handlers.FileUpload)
-		
+
 		// Health
 		r.Get("/health", handlers.Health)
-		
+
 		// Projects
 		r.Get("/projects", handlers.GetProjects)
 		r.Get("/projects/{projectID}/expenses", handlers.GetExpenses)
@@ -76,10 +91,13 @@ func main() {
 		r.Put("/projects/{projectID}", handlers.UpdateProject)
 		r.Delete("/projects/{projectID}", handlers.DeleteProject)
 		r.Post("/projects/{projectID}/ai-categorize", handlers.AICategorizeExpenses)
-		
+
+		// Job endpoints
+		r.Get("/jobs/{jobID}", handlers.GetJobStatus)
+
 		// Expenses
 		r.Put("/expenses/{expenseID}", handlers.UpdateExpense)
-		
+
 		// Categories
 		r.Get("/categories", handlers.GetCategories)
 		r.Post("/categories", handlers.CreateCategory)
