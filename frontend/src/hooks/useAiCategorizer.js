@@ -29,9 +29,8 @@ export const useAiCategorizer = (rows = [], categories = [], learnedMap = {}) =>
 
     try {
       // Use provided rows or filter uncategorized from hook's rows
-      // Exclude personal expenses since they don't need business categorization
       const expensesToCategorize = customRows || rows
-        .filter(row => !row.accepted_category_id && !row.is_personal)
+        .filter(row => !row.accepted_category_id)
         .slice(0, 20); // Limit to max 20 as specified
 
       if (expensesToCategorize.length === 0) {

@@ -7,7 +7,7 @@ import {
   useRef,
 } from 'react';
 import { toast } from 'sonner';
-import { useAiCategorizer } from '../hooks/useAiCategorizer';
+// Removed useAiCategorizer import - now using simplified backend-driven approach
 
 const spreadsheetInitialValues = {
   // Data state
@@ -52,6 +52,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [processingRows, setProcessingRows] = useState(new Set());
+  const [aiCategorizing, setAiCategorizing] = useState(false);
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
@@ -62,15 +63,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const loadingRef = useRef(false);
   const LIMIT = 50;
 
-  // AI Categorization hook
-  const {
-    isLoading: aiCategorizing,
-    error: aiError,
-    suggestions: aiSuggestions,
-    categorizeExpenses,
-    getSuggestionForRow,
-    getAvailableModels
-  } = useAiCategorizer(expenses, categories);
+  // AI Categorization state (now handled directly in context)
+  // Removed useAiCategorizer hook dependency since backend now handles expense selection
 
   // Fetch project progress
   const fetchProgress = useCallback(async () => {
@@ -240,36 +234,50 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     });
   };
 
-  // AI Categorization function using the custom hook
+  // AI Categorization function - simplified to call backend endpoint
   const handleAiCategorization = async () => {
-    // Ensure we have data before proceeding
-    if (!expenses.length || !categories.length) {
-      console.warn('Cannot categorize: expenses or categories not loaded yet');
+    if (!project?.id) {
+      console.warn('Cannot categorize: no project selected');
       return;
     }
 
-    // Get next 20 uncategorized expenses that haven't been AI processed yet
-    // Exclude personal expenses since they don't need business categorization
-    const uncategorizedExpenses = expenses.filter(expense => 
-      !expense.accepted_category_id && 
-      !expense.suggested_category_id &&
-      !expense.is_personal &&
-      !processingRows.has(expense.id)
-    ).slice(0, 20);
-
-    if (uncategorizedExpenses.length === 0) {
-      console.log('No more uncategorized expenses to process');
-      return;
-    }
-
-    // Mark these rows as being processed
-    const processingIds = new Set(uncategorizedExpenses.map(e => e.id));
-    setProcessingRows(prev => new Set([...prev, ...processingIds]));
+    // Set AI categorizing state
+    setAiCategorizing(true);
 
     try {
-      const suggestions = await categorizeExpenses(project.id, 'openai', uncategorizedExpenses);
+      // Call the simplified backend endpoint (no payload needed)
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/ai-categorize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'openai'  // Optional: specify AI model
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`AI categorization failed: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
       
-      // Force a state update using the returned suggestions directly
+      // Handle AICategorizeFullResponse structure
+      const suggestions = result.categorizations || [];
+      const selectedIds = result.selectedExpenseIds || [];
+      
+      if (suggestions.length === 0) {
+        console.log('No expenses were categorized (no uncategorized expenses found)');
+        if (result.message) {
+          console.log(`Backend message: ${result.message}`);
+        }
+        toast.info(result.message || 'No expenses needed categorization');
+        return;
+      }
+
+      // Update expenses with AI suggestions
       setExpenses(currentExpenses => {
         const updatedExpenses = currentExpenses.map(expense => {
           // Find suggestion for this expense in the returned suggestions
@@ -288,16 +296,18 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       });
       
       console.log(`AI categorized ${suggestions.length} expenses`);
+      if (result.message) {
+        console.log(`Backend message: ${result.message}`);
+      }
+      
+      // Show success toast
+      toast.success(`AI categorized ${suggestions.length} expenses`);
       
     } catch (error) {
       console.error(`AI categorization failed:`, error);
+      toast.error(`AI categorization failed: ${error.message}`);
     } finally {
-      // Remove from processing state
-      setProcessingRows(prev => {
-        const newSet = new Set(prev);
-        processingIds.forEach(id => newSet.delete(id));
-        return newSet;
-      });
+      setAiCategorizing(false);
     }
   };
 

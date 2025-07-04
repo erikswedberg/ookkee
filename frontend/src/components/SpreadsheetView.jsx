@@ -668,7 +668,6 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab }) => {
                           e =>
                             !e.accepted_category_id &&
                             !e.suggested_category_id &&
-                            !e.is_personal &&
                             !processingRows.has(e.id)
                         ).length;
                         return uncategorizedCount > 0
