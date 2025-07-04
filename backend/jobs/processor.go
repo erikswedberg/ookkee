@@ -140,29 +140,17 @@ func (p *JobProcessor) processJob(jobID string) {
 func (p *JobProcessor) runAICategorizationJob(ctx context.Context, job *AICategorizationJob) (*AICategorizationResult, error) {
 	// This is the same logic as in the original handler, but adapted for job processing
 
-	// Step 1: Query next 20 uncategorized, non-personal expenses from database
-	expensesToCategorize, err := ai.GetUncategorizedExpenses(ctx, job.ProjectID, 20)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(expensesToCategorize) == 0 {
+	// Step 1: Get expenses from job (already selected when job was created)
+	if len(job.SelectedExpenses) == 0 {
 		return &AICategorizationResult{
 			SelectedExpenseIDs: []int{},
 			Categorizations:    []AICategorizeResponse{},
-			Message:            "No uncategorized expenses found",
+			Message:            "No expenses selected for processing",
 		}, nil
 	}
 
-	// Update job with selected expenses
-	selectedIDs := make([]int, len(expensesToCategorize))
-	for i, expense := range expensesToCategorize {
-		selectedIDs[i] = expense.ID
-	}
-
-	err = p.manager.UpdateJob(job.ID, func(j *AICategorizationJob) {
-		j.SelectedExpenses = selectedIDs
-	})
+	// Convert selected expense IDs to ExpenseForAI structs
+	expensesToCategorize, err := ai.GetExpensesByIDs(ctx, job.SelectedExpenses)
 	if err != nil {
 		return nil, err
 	}

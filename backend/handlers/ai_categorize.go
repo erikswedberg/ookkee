@@ -102,20 +102,58 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create job
+	// Query expenses to categorize BEFORE creating job
+	ctx := r.Context()
+	expensesToCategorize, err := ai.GetUncategorizedExpenses(ctx, projectID, 20)
+	if err != nil {
+		log.Printf("Failed to get uncategorized expenses: %v", err)
+		http.Error(w, "Failed to get expenses for categorization", http.StatusInternalServerError)
+		return
+	}
+
+	if len(expensesToCategorize) == 0 {
+		// No expenses to categorize - return direct response
+		response := map[string]interface{}{
+			"job_id":            nil,
+			"status":            "completed",
+			"selected_expenses": []int{},
+			"categorizations":   []interface{}{},
+			"message":           "No uncategorized expenses found",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Create job with selected expenses
 	job := globalJobManager.CreateJob(projectID, req.Model)
+
+	// Set selected expenses immediately
+	selectedIDs := make([]int, len(expensesToCategorize))
+	for i, expense := range expensesToCategorize {
+		selectedIDs[i] = expense.ID
+	}
+
+	err = globalJobManager.UpdateJob(job.GetID(), func(j *jobs.AICategorizationJob) {
+		j.SelectedExpenses = selectedIDs
+	})
+	if err != nil {
+		log.Printf("Failed to update job with selected expenses: %v", err)
+		http.Error(w, "Failed to create job", http.StatusInternalServerError)
+		return
+	}
 
 	// Submit job for processing
 	if globalJobProcessor != nil {
 		globalJobProcessor.SubmitJob(job.GetID())
 	}
 
-	// Return job info immediately
+	// Return job info immediately with selected expenses
 	response := map[string]interface{}{
 		"job_id":            job.GetID(),
 		"status":            job.GetStatus(),
-		"selected_expenses": job.GetSelectedExpenses(),
-		"message":           "Job created and queued for processing",
+		"selected_expenses": selectedIDs,
+		"message":           fmt.Sprintf("Job created and queued for processing %d expenses", len(selectedIDs)),
 	}
 
 	w.Header().Set("Content-Type", "application/json")

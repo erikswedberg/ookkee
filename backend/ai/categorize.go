@@ -70,6 +70,38 @@ func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int) ([]
 	return expenses, rows.Err()
 }
 
+// GetExpensesByIDs retrieves specific expenses by their IDs
+func GetExpensesByIDs(ctx context.Context, expenseIDs []int) ([]ExpenseForAI, error) {
+	if len(expenseIDs) == 0 {
+		return []ExpenseForAI{}, nil
+	}
+
+	query := `
+		SELECT id, COALESCE(description, '') as description, COALESCE(amount, 0) as amount
+		FROM expense 
+		WHERE id = ANY($1)
+		ORDER BY row_index ASC
+	`
+
+	rows, err := database.Pool.Query(ctx, query, expenseIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var expenses []ExpenseForAI
+	for rows.Next() {
+		var expense ExpenseForAI
+		err := rows.Scan(&expense.ID, &expense.Description, &expense.Amount)
+		if err != nil {
+			return nil, err
+		}
+		expenses = append(expenses, expense)
+	}
+
+	return expenses, rows.Err()
+}
+
 // GetAllCategories retrieves all available categories
 func GetAllCategories(ctx context.Context) ([]models.ExpenseCategory, error) {
 	query := `
