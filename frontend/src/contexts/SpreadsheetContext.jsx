@@ -138,7 +138,22 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       if (responseData.propagated_count > 0 && responseData.accepted_category_id) {
         // Ensure type-safe comparison - convert both to numbers
         const categoryId = parseInt(responseData.accepted_category_id);
-        const categoryName = categories.find(cat => parseInt(cat.id) === categoryId)?.name || 'Unknown';
+        
+        // Debug logging
+        console.log('Toast debug:', {
+          categoryId,
+          accepted_category_id: responseData.accepted_category_id,
+          categories: categories.map(cat => ({ id: cat.id, name: cat.name, parsed_id: parseInt(cat.id) })),
+          categoriesLength: categories.length
+        });
+        
+        const category = categories.find(cat => {
+          const catId = parseInt(cat.id);
+          return catId === categoryId;
+        });
+        
+        const categoryName = category?.name || `Category ID ${categoryId}`;
+        
         toast.success(`${responseData.propagated_count} other item${responseData.propagated_count === 1 ? '' : 's'} with same description set to "${categoryName}"`);
       }
 
