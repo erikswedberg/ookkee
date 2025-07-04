@@ -293,7 +293,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const pollJobStatus = async (jobId) => {
     const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
     let attempts = 0;
-    const maxAttempts = 30; // Poll for up to 5 minutes (10s intervals)
+    const maxAttempts = 300; // Poll for up to 5 minutes (1s intervals)
     
     const poll = async () => {
       try {
@@ -317,7 +317,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           // Job still in progress
           attempts++;
           if (attempts < maxAttempts) {
-            setTimeout(poll, 10000); // Poll every 10 seconds
+            setTimeout(poll, 1000); // Poll every 1 second
           } else {
             throw new Error('Job timeout: AI categorization took too long');
           }
