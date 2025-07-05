@@ -709,7 +709,7 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
 
             <TabsContent value="expenses2">
               <ExpenseTableVirtual 
-                projectId={selectedProject?.id}
+                projectId={project?.id}
                 totalExpenses={progress?.total_count || 0}
               />
             </TabsContent>
