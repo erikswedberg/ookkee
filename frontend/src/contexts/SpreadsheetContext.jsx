@@ -399,6 +399,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     if (suggestions.length === 0) {
       console.log('No expenses were categorized (no uncategorized expenses found)');
       toast.info(jobStatus.message || 'No expenses needed categorization');
+      
+      // Check autoplay continuation even with no suggestions
+      console.log('Job completion with no suggestions - checking autoplay continuation');
+      if (handleAutoplayContinuation(suggestions)) {
+        return; // Don't clear processing state yet
+      }
     } else {
       // Update expenses with AI suggestions
       setExpenses(currentExpenses => {
@@ -431,7 +437,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       }
     }
     
-    // Clear processing state
+    // Clear processing state (reached when autoplay doesn't continue)
     setProcessingRows(new Set());
     setAiCategorizing(false);
   };
@@ -447,6 +453,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         console.log(`Backend message: ${result.message}`);
       }
       toast.info(result.message || 'No expenses needed categorization');
+      
+      // Check autoplay continuation even with no suggestions
+      console.log('Direct response with no suggestions - checking autoplay continuation');
+      if (handleAutoplayContinuation(suggestions)) {
+        return; // Don't clear processing state yet
+      }
     } else {
       // Update expenses with AI suggestions
       setExpenses(currentExpenses => {
