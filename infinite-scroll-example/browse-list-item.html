@@ -1,0 +1,118 @@
+{% if config == 'survey' %}
+    <li class="{{ rowclass }}{% if fontface.is_first_face %} first{% endif %}{% if selected %} selected{% endif %}" data-url="font/{{ fontfamily.url_name }}" data-id="{{ fontface.id }}" data-row="{{ fontface.row }}">
+{% else %}
+    <li class="{{ rowclass }}" data-url="font/{{ fontfamily.url_name }}" data-id="{{ fontfamily.id }}">
+{% endif %}
+	<div class="item-table">
+		<div class="item-row">
+		{% if config == 'survey' %}
+		<div class="item-cell checkbox-cell">
+			<input type="checkbox"{% if selected %} checked="checked"{% endif %} data-id="{{ fontface.id }}" data-row="{{ fontface.row }}" class="faceselectcheckbox"/>
+		</div>
+		{% endif %}
+			<div class="item-cell info-cell">
+		{% if config == 'survey' %}
+				<div class="primary-name">{{ fontface.full_name }}</div>
+				<div class="secondary-name">{% if fontface.is_first_face %}{{ fontfamily.full_face_count }} face{{ fontfamily.full_face_count | pluralize('', 's') }}{% else %}&nbsp;{% endif %}</div>
+		{% else %}
+				<div class="primary-name"><a href="font/{{ fontfamily.url_name }}">{{ fontfamily.name }}</a></div>
+				<div class="secondary-name"><a href="font/{{ fontfamily.url_name }}">{{ fontfamily.full_face_count }} face{{ fontfamily.full_face_count | pluralize('', 's') }}</a></div>
+		{% endif %}
+			</div>
+			<div class="item-cell sample-cell">
+					<div class="fontface-sample font-{{ fontface.postscript_name | sanitizeFontName }}{% if not fontversion.subset_location %} notSubset{% endif %}">
+						<a href="font/{{ fontfamily.url_name }}">{{sampletouse}}</a>
+					</div>
+				<div class="fontface-sample-mask"></div>
+			</div>
+		</div>
+	</div>
+	<div class="item-mask">
+		<!--<div class="details-cont">
+			<a href="font/{{ fontfamily.url_name }}" class="btn btn-default btn-sm">
+			  Family Details
+			</a>
+		</div>-->
+	</div>
+
+	{% if fontfamily.mark_as_restricted or fontfamily.is_new_family or fontfamily.changed_version_count > 0 or fontfamily.new_face_count > 0 or fontfamily.is_legacy or fontfamily.is_deprecated or tags_length > 0 or surveys_length > 0 or is_survey %}
+		<ul class="whatsnew">
+			{% if tags_length > 0 %}
+				{% for tag in fontface.tags %}
+					<li class="tagx" data-tagurl="{{ tag.url_name }}">
+						<a title="tag" href="#" class="label label-default">
+							{{ tag.name }}
+						</a>
+					</li>
+				{% endfor %}
+			{% endif %}
+			{% if surveys_length > 0 %}
+				{% for survey in fontface.surveys %}
+					<li class="surveyx" data-surveyurl="{{ survey.url_name }}">
+						<a title="survey" href="#" class="label label-info">
+							{{ survey.url_name }}
+						</a>
+					</li>
+				{% endfor %}
+			{% endif %}
+			{% if fontfamily.is_new_family %}
+				<li class="new-family">
+					<a title="what's new" href="font/{{ fontfamily.url_name }}" class="label label-primary">
+						New Family
+						{% if compare_from_string %}
+							in {{ compare_from_string }}
+						{% endif %}
+					</a>
+				</li>
+			{% else %}
+				{% if fontfamily.new_face_count > 0 %}
+					<li class="new-face">
+						<a title="what's new" href="font/{{ fontfamily.url_name }}" class="label label-primary">
+							{{ fontfamily.new_face_count }} new face{{ fontfamily.new_face_count | pluralize }}
+							{% if compare_from_string %}
+								in {{ compare_from_string }}
+							{% endif %}
+						</a>
+					</li>
+				{% endif %}
+
+				{% if fontfamily.changed_version_count > 0 %}
+					<li class="changed-version">
+						<a title="what's new" href="font/{{ fontfamily.url_name }}" class="label label-primary">
+							{{ fontfamily.changed_version_count }} changed version{{ fontfamily.changed_version_count | pluralize }}
+							{% if compare_from_string %}
+								in {{ compare_from_string }}
+							{% endif %}
+						</a>
+					</li>
+				{% endif %}
+			{% endif %}
+			{% if fontfamily.is_legacy %}
+				<li class="legacy">
+					<a title="legacy" href="font/{{ fontfamily.url_name }}" class="label label-warning">
+						Legacy
+					</a>
+				</li>
+			{% endif %}
+			{% if fontfamily.mark_as_restricted %}
+				<li class="restricted">
+					<a title="restricted" href="font/{{ fontfamily.url_name }}" class="label label-danger">
+						Restricted
+					</a>
+				</li>
+			{% endif %}
+			{% if fontfamily.is_deprecated %}
+				<li class="deprecated">
+					<a title="deprecated" href="font/{{ fontfamily.url_name }}" class="label label-danger">
+						Deprecated
+					</a>
+				</li>
+			{% endif %}
+		</ul>
+	{% endif %}
+
+	{% if sort_tab_flag %}
+		<div class="sort-tab">{{ sort_tab }}</div>
+	{% endif %}
+
+</li>
