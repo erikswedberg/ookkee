@@ -320,6 +320,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       }
 
       const jobResult = await response.json();
+      console.log('AI categorization response:', jobResult);
       
       // Check if this is a job response or direct response (fallback)
       if (jobResult.job_id) {
