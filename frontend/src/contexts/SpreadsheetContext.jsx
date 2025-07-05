@@ -250,6 +250,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         setProcessingRows(new Set());
         setAiCategorizing(false);
       }
+      // If turning on autoplay, start the first round immediately
+      else if (newValue && !aiCategorizing) {
+        // Use setTimeout to ensure state update happens first
+        setTimeout(() => {
+          handleAiCategorization();
+        }, 0);
+      }
       return newValue;
     });
   };
