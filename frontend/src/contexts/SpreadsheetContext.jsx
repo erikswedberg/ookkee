@@ -281,11 +281,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       // If turning on autoplay, start the first round immediately
       else if (newValue && !aiCategorizing) {
         console.log('Turning on autoplay, starting first round');
-        // Use setTimeout to ensure state update happens first
-        setTimeout(() => {
-          handleAiCategorization();
-        }, 0);
+        // Don't use setTimeout - call directly since we know newValue is true
+        // The autoplayMode state will be updated by the time continuation runs
       }
+      
+
       return newValue;
     });
   };
@@ -595,6 +595,14 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       fetchProgress();
     }
   }, [fetchProgress, project?.id, expenses.length]);
+
+  // Handle autoplay mode changes
+  useEffect(() => {
+    if (autoplayMode && !aiCategorizing) {
+      console.log('Autoplay mode turned on, triggering initial categorization');
+      handleAiCategorization();
+    }
+  }, [autoplayMode, aiCategorizing]);
 
   // Keyboard navigation handlers
   useEffect(() => {
