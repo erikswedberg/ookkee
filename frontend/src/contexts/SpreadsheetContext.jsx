@@ -540,13 +540,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [fetchProgress, project?.id, expenses.length]);
 
-  // Handle autoplay mode changes
+  // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
     if (autoplayMode && !aiCategorizing) {
       console.log('Autoplay mode turned on, triggering initial categorization');
       handleAiCategorization();
     }
-  }, [autoplayMode, aiCategorizing]);
+  }, [autoplayMode]); // Only depend on autoplayMode, not aiCategorizing
 
   // Keyboard navigation handlers
   useEffect(() => {
