@@ -15,6 +15,7 @@ import {
 import { TotalsContextProvider } from "../contexts/TotalsContext";
 import TotalsView from "./TotalsView";
 import ExpenseTableVirtual from "./ExpenseTableVirtual";
+import ExpenseRow from "./ExpenseRow";
 import "./Spreadsheet.css";
 
 // Download Totals Button Component
@@ -85,245 +86,6 @@ const SpreadsheetTable = () => {
     loadingRef,
     loadExpenses,
   } = useContext(SpreadsheetContext);
-
-  // Utility functions
-  const formatAmount = amount => {
-    if (amount === null || amount === undefined) return "";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  const formatDate = dateString => {
-    if (!dateString) return "";
-    
-    // Try parsing with DayJS for MM/DD/YY format
-    const dateFormats = ['MM/DD/YY', 'MM/DD/YYYY', 'M/D/YY', 'M/D/YYYY'];
-    
-    for (const format of dateFormats) {
-      const parsedDate = dayjs(dateString, format, true);
-      if (parsedDate.isValid()) {
-        return parsedDate.format('MM/DD');
-      }
-    }
-    
-    // Try parsing as ISO date
-    const isoDate = dayjs(dateString);
-    if (isoDate.isValid()) {
-      return isoDate.format('MM/DD');
-    }
-    
-    // Fall back to original text if parsing fails
-    return dateString;
-  };
-
-  const getAmountClass = amount => {
-    if (amount === null || amount === undefined) return "";
-    return amount >= 0 ? "text-green-600" : "text-red-600";
-  };
-
-  // Column value getter
-  const getColumnValue = (expense, column) => {
-    switch (column) {
-      case "Source":
-        return expense.source || "";
-      case "Date":
-        return expense.date_text || "";
-      case "Description":
-        return expense.description || "";
-      case "Amount":
-        return expense.amount;
-      case "Category":
-        return (
-          expense.accepted_category_id || expense.suggested_category_id || ""
-        );
-      case "Action":
-        return null;
-      case "Status":
-        if (expense.is_personal) return "Personal";
-        if (expense.accepted_category_id) {
-          if (!expense.suggested_category_id) return "Manual";
-          if (expense.accepted_category_id !== expense.suggested_category_id)
-            return "Manual";
-          return "Accepted";
-        } else if (expense.suggested_category_id) {
-          return "Suggested";
-        } else {
-          return "Uncategorized";
-        }
-      default:
-        return "";
-    }
-  };
-
-  // Category column renderer
-  const renderCategory = expense => {
-    const getCategoryValue = expense => {
-      return expense.accepted_category_id
-        ? expense.accepted_category_id.toString()
-        : expense.suggested_category_id
-          ? expense.suggested_category_id.toString()
-          : "";
-    };
-
-    const getCategoryClassName = expense => {
-      const expenseIndex = expenses.indexOf(expense);
-
-      if (expense.is_personal && activeRowIndex !== expenseIndex) {
-        return "personal";
-      }
-
-      if (expense.accepted_category_id) {
-        return "accepted";
-      }
-
-      if (expense.suggested_category_id) {
-        return "suggested";
-      }
-
-      return "uncategorized";
-    };
-
-    const handleCategoryChange = e => {
-      const newCategoryId = e.target.value ? parseInt(e.target.value) : -1;
-
-      if (newCategoryId === -1) {
-        handleClearCategory(expense);
-      } else {
-        updateExpenseCategory(expense.id, newCategoryId);
-      }
-    };
-
-    return (
-      <div className={`category-column ${getCategoryClassName(expense)}`}>
-        <select
-          value={getCategoryValue(expense)}
-          onChange={handleCategoryChange}
-        >
-          <option value=""></option>
-          {categories.map(category => {
-            const isAiSuggested =
-              expense.suggested_category_id === category.id &&
-              !expense.accepted_category_id;
-            return (
-              <option key={category.id} value={category.id}>
-                {category.name}
-                {isAiSuggested ? " 💡" : ""}
-              </option>
-            );
-          })}
-        </select>
-      </div>
-    );
-  };
-
-  // Status column renderer
-  const renderStatus = expense => {
-    const getStatusValue = expense => {
-      if (expense.is_personal) return "Personal";
-
-      if (expense.accepted_category_id) {
-        if (!expense.suggested_category_id) return "Manual";
-        if (expense.accepted_category_id !== expense.suggested_category_id)
-          return "Manual";
-        return "Accepted";
-      } else if (expense.suggested_category_id) {
-        return "Suggested";
-      } else {
-        return "Uncategorized";
-      }
-    };
-
-    const getStatusClassName = expense => {
-      const status = getStatusValue(expense).toLowerCase();
-      return status;
-    };
-
-    // Show processing spinner if this row is being processed
-    if (processingRows.has(expense.id)) {
-      return (
-        <div className="status-column processing">
-          <RefreshCw className="spinner" size={12} />
-        </div>
-      );
-    }
-
-    const status = getStatusValue(expense);
-    const className = getStatusClassName(expense);
-
-    return (
-      <div className={`status-column ${className}`}>
-        <span className="badge">{status}</span>
-      </div>
-    );
-  };
-
-  // Action column renderer
-  const renderAction = (expense, expenseIndex) => {
-    return (
-      <div
-        className={`actions ${
-          activeRowIndex === expenseIndex
-            ? "opacity-100"
-            : "opacity-0 group-hover:opacity-100"
-        }`}
-      >
-        <button
-          className={`link ${
-            expense.accepted_category_id
-              ? "text-gray-400 cursor-not-allowed pointer-events-none"
-              : "text-blue-600 hover:text-blue-800"
-          }`}
-          onClick={e => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (
-              expense.suggested_category_id &&
-              !expense.accepted_category_id
-            ) {
-              handleAcceptSuggestion(expense);
-            }
-          }}
-          disabled={!!expense.accepted_category_id}
-          style={{
-            visibility: expense.suggested_category_id ? "visible" : "hidden",
-          }}
-        >
-          Accept
-        </button>
-        <span
-          className="separator"
-          style={{
-            visibility:
-              expense.suggested_category_id &&
-              (expense.accepted_category_id || expense.suggested_category_id)
-                ? "visible"
-                : "hidden",
-          }}
-        >
-          |
-        </span>
-        <button
-          className="link"
-          onClick={e => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleClearCategory(expense);
-          }}
-          style={{
-            visibility:
-              expense.accepted_category_id || expense.suggested_category_id
-                ? "visible"
-                : "hidden",
-          }}
-        >
-          Clear
-        </button>
-      </div>
-    );
-  };
 
   // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
   const getColumns = () => {
@@ -436,79 +198,33 @@ const SpreadsheetTable = () => {
         </thead>
         <tbody className="[&_tr:last-child]:border-0">
           {expenses.map((expense, expenseIndex) => {
-            const isPersonal = expense.is_personal;
             const isActive = activeRowIndex === expenseIndex;
 
             return (
-              <TableRow
+              <ExpenseRow
                 key={expense.id}
-                data-row-index={expenseIndex}
-                tabIndex={isActive ? 0 : -1}
-                className={`spreadsheet row group cursor-pointer ${
-                  isActive
-                    ? "active"
-                    : isPersonal
-                      ? "personal"
-                      : "hover:bg-sky-50"
-                }`}
-                onClick={() => {
+                expense={expense}
+                expenseIndex={expenseIndex}
+                categories={categories}
+                isActive={isActive}
+                processingRows={processingRows}
+                onTogglePersonal={(expenseId, isPersonal) => {
+                  handleTogglePersonal(expense);
+                }}
+                onUpdateCategory={(expenseId, categoryId) => {
+                  updateExpenseCategory(expenseId, categoryId);
+                }}
+                onAcceptSuggestion={(expense) => {
+                  handleAcceptSuggestion(expense);
+                }}
+                onClearCategory={(expense) => {
+                  handleClearCategory(expense);
+                }}
+                onClick={(expenseIndex) => {
                   setIsTableActive(true);
                   setActiveRowWithTabIndex(expenseIndex);
                 }}
-              >
-                <TableCell className="text-center">
-                  <Checkbox
-                    checked={expense.is_personal || false}
-                    onCheckedChange={() => {
-                      handleTogglePersonal(expense);
-                    }}
-                    onClick={e => e.stopPropagation()}
-                  />
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {expense.row_index + 1}
-                </TableCell>
-                {columns.map(column => {
-                  const value = getColumnValue(expense, column);
-                  const isAmount = column === "Amount";
-                  const isDate = column === "Date";
-                  const isCategory = column === "Category";
-                  const isAction = column === "Action";
-                  const isStatus = column === "Status";
-
-                  return (
-                    <TableCell
-                      key={column}
-                      className={
-                        isAmount
-                          ? `font-mono amount ${
-                              isPersonal && !isActive
-                                ? "text-gray-500"
-                                : getAmountClass(value)
-                            }`
-                          : isStatus
-                            ? "text-sm text-right"
-                            : ""
-                      }
-                      style={{
-                        minWidth: column === "Category" ? "175px" : undefined
-                      }}
-                    >
-                      {isCategory
-                        ? renderCategory(expense)
-                        : isAction
-                          ? renderAction(expense, expenseIndex)
-                          : isStatus
-                            ? renderStatus(expense)
-                            : isAmount && typeof value === "number"
-                              ? formatAmount(value)
-                              : isDate
-                                ? formatDate(value)
-                                : value || ""}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
+              />
             );
           })}
         </tbody>
