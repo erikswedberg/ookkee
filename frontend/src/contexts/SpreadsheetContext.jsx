@@ -322,23 +322,21 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       const jobResult = await response.json();
       console.log('AI categorization response:', jobResult);
       
-      // Check if this is a job response or direct response (fallback)
-      if (jobResult.job_id) {
-        // Job-based response - handle job tracking
-        console.log(`AI categorization job started: ${jobResult.job_id}`);
-        
-        // Set processing state for selected expenses
-        const selectedExpenses = jobResult.selected_expenses || [];
-        setProcessingRows(new Set(selectedExpenses));
-        
-        toast.info(`AI categorization started for ${selectedExpenses.length} expenses`);
-        
-        // Start polling for job completion
-        pollJobStatus(jobResult.job_id);
-      } else {
-        // Direct response (fallback) - handle like before
-        handleDirectAiResponse(jobResult);
+      // Always expect a job response now
+      if (!jobResult.job_id) {
+        throw new Error('Backend did not return a job_id - this should not happen');
       }
+      
+      console.log(`AI categorization job started: ${jobResult.job_id}`);
+      
+      // Set processing state for selected expenses
+      const selectedExpenses = jobResult.selected_expenses || [];
+      setProcessingRows(new Set(selectedExpenses));
+      
+      toast.info(`AI categorization started for ${selectedExpenses.length} expenses`);
+      
+      // Start polling for job completion
+      pollJobStatus(jobResult.job_id);
       
     } catch (error) {
       console.error('AI categorization failed:', error);
@@ -443,60 +441,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setAiCategorizing(false);
   };
 
-  // Handle direct AI response (fallback for when job tracking is not available)
-  const handleDirectAiResponse = (result) => {
-    const suggestions = result.categorizations || [];
-    const selectedIds = result.selectedExpenseIds || [];
-    
-    if (suggestions.length === 0) {
-      console.log('No expenses were categorized (no uncategorized expenses found)');
-      if (result.message) {
-        console.log(`Backend message: ${result.message}`);
-      }
-      toast.info(result.message || 'No expenses needed categorization');
-      
-      // Check autoplay continuation even with no suggestions
-      console.log('Direct response with no suggestions - checking autoplay continuation');
-      if (handleAutoplayContinuation(suggestions)) {
-        return; // Don't clear processing state yet
-      }
-    } else {
-      // Update expenses with AI suggestions
-      setExpenses(currentExpenses => {
-        const updatedExpenses = currentExpenses.map(expense => {
-          // Find suggestion for this expense in the returned suggestions
-          const suggestion = suggestions.find(s => s.rowId === expense.id);
-          if (suggestion) {
-            return {
-              ...expense,
-              suggested_category_id: suggestion.categoryId,
-              ai_confidence: suggestion.confidence,
-              ai_reasoning: suggestion.reasoning
-            };
-          }
-          return expense;
-        });
-        return [...updatedExpenses]; // Create new array to force re-render
-      });
-      
-      console.log(`AI categorized ${suggestions.length} expenses`);
-      if (result.message) {
-        console.log(`Backend message: ${result.message}`);
-      }
-      toast.success(result.message || `AI categorized ${suggestions.length} expenses`);
-      
-      // Refresh progress after successful categorization
-      fetchProgress();
-      
-      // Check if we should continue in autoplay mode
-      console.log('Direct response success - checking autoplay continuation');
-      if (handleAutoplayContinuation(suggestions)) {
-        return; // Don't clear processing state yet
-      }
-    }
-    
-    setAiCategorizing(false);
-  };
+
 
   // Load expenses function
   const loadExpenses = async (pageNum = 0, isInitial = false) => {
