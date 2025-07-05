@@ -153,37 +153,6 @@ const VirtualInfiniteScroll = ({
     }
   }, [loadingNodes]);
   
-  // Request a page of data
-  const requestPage = useCallback(async (page) => {
-    // If we have cached data, display it immediately
-    if (pageData[page]) {
-      displayPage(page, pageData[page]);
-      setRenderedPages(prev => ({ ...prev, [page]: true }));
-      return;
-    }
-    
-    if (!onRequestPage) return;
-    
-    showLoadingPage(page);
-    
-    try {
-      const data = await onRequestPage(page, pageSize);
-      setPageData(prev => ({ ...prev, [page]: data }));
-      
-      // Mark page as rendered
-      setRenderedPages(prev => ({ ...prev, [page]: true }));
-      
-      // Clear loading indicator
-      clearLoadingPage(page);
-      
-      // Display the page
-      displayPage(page, data);
-    } catch (error) {
-      console.error('Error requesting page:', error);
-      clearLoadingPage(page);
-    }
-  }, [pageData, onRequestPage, pageSize, showLoadingPage, clearLoadingPage, displayPage]);
-  
   // Display a page of data in the appropriate list node
   const displayPage = useCallback((page, data) => {
     const { node, index } = getListNode(page);
@@ -225,6 +194,37 @@ const VirtualInfiniteScroll = ({
       }
     });
   }, [getListNode, getPositionFromPage, pageHeight, maxPages, pageSize, renderItem]);
+  
+  // Request a page of data
+  const requestPage = useCallback(async (page) => {
+    // If we have cached data, display it immediately
+    if (pageData[page]) {
+      displayPage(page, pageData[page]);
+      setRenderedPages(prev => ({ ...prev, [page]: true }));
+      return;
+    }
+    
+    if (!onRequestPage) return;
+    
+    showLoadingPage(page);
+    
+    try {
+      const data = await onRequestPage(page, pageSize);
+      setPageData(prev => ({ ...prev, [page]: data }));
+      
+      // Mark page as rendered
+      setRenderedPages(prev => ({ ...prev, [page]: true }));
+      
+      // Clear loading indicator
+      clearLoadingPage(page);
+      
+      // Display the page
+      displayPage(page, data);
+    } catch (error) {
+      console.error('Error requesting page:', error);
+      clearLoadingPage(page);
+    }
+  }, [pageData, onRequestPage, pageSize, showLoadingPage, clearLoadingPage, displayPage]);
   
   // Handle scroll events
   const handleScroll = useCallback(() => {
