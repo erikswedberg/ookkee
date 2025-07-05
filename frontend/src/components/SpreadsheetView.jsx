@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
+import { DualProgress } from "@/components/ui/dual-progress";
+import { SplitButton } from "@/components/ui/split-button";
 import { RefreshCw, Download } from "lucide-react";
 import dayjs from "dayjs";
 import {
@@ -593,8 +594,10 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
     error,
     processingRows,
     aiCategorizing,
+    autoplayMode,
     categories,
     handleAiCategorization,
+    toggleAutoplay,
   } = useContext(SpreadsheetContext);
 
   if (error) {
@@ -638,9 +641,10 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
               </p>
               {project?.row_count > 0 && (
                 <div className="w-48">
-                  <Progress
-                    value={progress.percentage}
-                    className={`h-2 ${progress.isComplete ? "[&>div]:bg-green-500" : ""}`}
+                  <DualProgress
+                    suggestedValue={progress.total_count > 0 ? ((progress.total_count - progress.uncategorized_count) / progress.total_count) * 100 : 0}
+                    acceptedValue={progress.total_count > 0 ? (progress.categorized_count / progress.total_count) * 100 : 0}
+                    className="h-2"
                   />
                 </div>
               )}
@@ -657,17 +661,23 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
                 </TabsList>
               </Tabs>
               {activeTab === "expenses" && (
-                <Button
+                <SplitButton
                   variant="outline"
                   size="sm"
                   onClick={handleAiCategorization}
+                  onTogglePlay={toggleAutoplay}
+                  isPlaying={autoplayMode}
                   disabled={
-                    aiCategorizing ||
                     loading ||
                     expenses.length === 0 ||
                     categories.length === 0
                   }
-                  className="flex items-center gap-2"
+                  playDisabled={
+                    loading ||
+                    expenses.length === 0 ||
+                    categories.length === 0
+                  }
+                  className="flex items-center"
                 >
                   <RefreshCw
                     className={`h-4 w-4 ${aiCategorizing ? "animate-spin" : ""}`}
@@ -675,17 +685,12 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
                   {aiCategorizing
                     ? "AI Categorizing..."
                     : (() => {
-                        const uncategorizedCount = expenses.filter(
-                          e =>
-                            !e.accepted_category_id &&
-                            !e.suggested_category_id &&
-                            !processingRows.has(e.id)
-                        ).length;
+                        const uncategorizedCount = progress.uncategorized_count || 0;
                         return uncategorizedCount > 0
                           ? `AI Categorize (${Math.min(uncategorizedCount, 20)})`
                           : "AI Categorize";
                       })()}
-                </Button>
+                </SplitButton>
               )}
               {activeTab === "totals" && (
                 <DownloadTotalsButton project={project} />

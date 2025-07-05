@@ -13,11 +13,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/anthropic"
 	"github.com/tmc/langchaingo/llms/openai"
@@ -114,19 +111,8 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(expensesToCategorize) == 0 {
-		// No expenses to categorize - return direct response
-		response := map[string]interface{}{
-			"job_id":            nil,
-			"status":            "completed",
-			"selected_expenses": []int{},
-			"categorizations":   []interface{}{},
-			"message":           "No uncategorized expenses found",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
-		return
-	}
+	// Always create a job, even if no expenses to categorize
+	// This ensures consistent frontend behavior
 
 	// Create job with selected expenses
 	job := globalJobManager.CreateJob(projectID, req.Model)

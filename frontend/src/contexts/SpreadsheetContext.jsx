@@ -13,7 +13,7 @@ const spreadsheetInitialValues = {
   // Data state
   expenses: [],
   categories: [],
-  progress: { percentage: 0, isComplete: false },
+  progress: { percentage: 0, isComplete: false, total_count: 0, categorized_count: 0, uncategorized_count: 0 },
   
   // Loading states
   loading: false,
@@ -21,6 +21,8 @@ const spreadsheetInitialValues = {
   hasMore: true,
   page: 0,
   processingRows: new Set(),
+  aiCategorizing: false,
+  autoplayMode: false,
   
   // UI state
   isTableActive: false,
@@ -32,6 +34,7 @@ const spreadsheetInitialValues = {
   updateExpenseCategory: () => undefined,
   handleAcceptSuggestion: () => undefined,
   handleAiCategorization: () => undefined,
+  toggleAutoplay: () => undefined,
   handleClearCategory: () => undefined,
   fetchProgress: () => undefined,
   
@@ -46,13 +49,15 @@ export const SpreadsheetContext = createContext(spreadsheetInitialValues);
 export const SpreadsheetContextProvider = ({ children, project }) => {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [progress, setProgress] = useState({ percentage: 0, isComplete: false });
+  const [progress, setProgress] = useState({ percentage: 0, isComplete: false, total_count: 0, categorized_count: 0, uncategorized_count: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [processingRows, setProcessingRows] = useState(new Set());
   const [aiCategorizing, setAiCategorizing] = useState(false);
+  const [autoplayMode, setAutoplayMode] = useState(false);
+  const autoplayModeRef = useRef(false);
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
@@ -77,7 +82,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         const data = await response.json();
         setProgress({
           percentage: Math.round(data.percentage),
-          isComplete: data.is_complete
+          isComplete: data.is_complete,
+          total_count: data.total_count || 0,
+          categorized_count: data.categorized_count || 0,
+          uncategorized_count: data.uncategorized_count || 0
         });
       }
     } catch (error) {
@@ -234,6 +242,34 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     });
   };
 
+  // Handle autoplay continuation logic
+  const handleAutoplayContinuation = (suggestions) => {
+    const currentAutoplayMode = autoplayModeRef.current;
+    
+    // Check current autoplay mode using ref (not stale state)
+    if (!currentAutoplayMode) {
+      return false;
+    }
+    
+    if (suggestions.length > 0) {
+      handleAiCategorization();
+      return true; // Continue processing
+    } else {
+      setAutoplayMode(false);
+      autoplayModeRef.current = false; // Keep ref in sync
+      return false;
+    }
+  };
+
+  // Toggle autoplay mode
+  const toggleAutoplay = () => {
+    setAutoplayMode(prev => {
+      const newValue = !prev;
+      autoplayModeRef.current = newValue; // Keep ref in sync
+      return newValue;
+    });
+  };
+
   // AI Categorization function - now with job tracking
   const handleAiCategorization = async () => {
     if (!project?.id) {
@@ -264,23 +300,19 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
       const jobResult = await response.json();
       
-      // Check if this is a job response or direct response (fallback)
-      if (jobResult.job_id) {
-        // Job-based response - handle job tracking
-        console.log(`AI categorization job started: ${jobResult.job_id}`);
-        
-        // Set processing state for selected expenses
-        const selectedExpenses = jobResult.selected_expenses || [];
-        setProcessingRows(new Set(selectedExpenses));
-        
-        toast.info(`AI categorization started for ${selectedExpenses.length} expenses`);
-        
-        // Start polling for job completion
-        pollJobStatus(jobResult.job_id);
-      } else {
-        // Direct response (fallback) - handle like before
-        handleDirectAiResponse(jobResult);
+      // Always expect a job response now
+      if (!jobResult.job_id) {
+        throw new Error('Backend did not return a job_id - this should not happen');
       }
+      
+      // Set processing state for selected expenses
+      const selectedExpenses = jobResult.selected_expenses || [];
+      setProcessingRows(new Set(selectedExpenses));
+      
+      toast.info(`AI categorization started for ${selectedExpenses.length} expenses`);
+      
+      // Start polling for job completion
+      pollJobStatus(jobResult.job_id);
       
     } catch (error) {
       console.error('AI categorization failed:', error);
@@ -304,7 +336,6 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         }
         
         const jobStatus = await response.json();
-        console.log(`Job ${jobId} status: ${jobStatus.status}`);
         
         if (jobStatus.status === 'completed') {
           // Job completed successfully
@@ -340,8 +371,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     const selectedIds = jobStatus.selected_expenses || [];
     
     if (suggestions.length === 0) {
-      console.log('No expenses were categorized (no uncategorized expenses found)');
       toast.info(jobStatus.message || 'No expenses needed categorization');
+      
+      // Check autoplay continuation even with no suggestions
+      if (handleAutoplayContinuation(suggestions)) {
+        return; // Don't clear processing state yet
+      }
     } else {
       // Update expenses with AI suggestions
       setExpenses(currentExpenses => {
@@ -361,60 +396,23 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         return [...updatedExpenses]; // Create new array to force re-render
       });
       
-      console.log(`AI categorized ${suggestions.length} expenses`);
       toast.success(jobStatus.message || `AI categorized ${suggestions.length} expenses`);
       
       // Refresh progress after successful categorization
       fetchProgress();
+      
+      // Check if we should continue in autoplay mode
+      if (handleAutoplayContinuation(suggestions)) {
+        return; // Don't clear processing state yet
+      }
     }
     
-    // Clear processing state
+    // Clear processing state (reached when autoplay doesn't continue)
     setProcessingRows(new Set());
     setAiCategorizing(false);
   };
 
-  // Handle direct AI response (fallback for when job tracking is not available)
-  const handleDirectAiResponse = (result) => {
-    const suggestions = result.categorizations || [];
-    const selectedIds = result.selectedExpenseIds || [];
-    
-    if (suggestions.length === 0) {
-      console.log('No expenses were categorized (no uncategorized expenses found)');
-      if (result.message) {
-        console.log(`Backend message: ${result.message}`);
-      }
-      toast.info(result.message || 'No expenses needed categorization');
-    } else {
-      // Update expenses with AI suggestions
-      setExpenses(currentExpenses => {
-        const updatedExpenses = currentExpenses.map(expense => {
-          // Find suggestion for this expense in the returned suggestions
-          const suggestion = suggestions.find(s => s.rowId === expense.id);
-          if (suggestion) {
-            return {
-              ...expense,
-              suggested_category_id: suggestion.categoryId,
-              ai_confidence: suggestion.confidence,
-              ai_reasoning: suggestion.reasoning
-            };
-          }
-          return expense;
-        });
-        return [...updatedExpenses]; // Create new array to force re-render
-      });
-      
-      console.log(`AI categorized ${suggestions.length} expenses`);
-      if (result.message) {
-        console.log(`Backend message: ${result.message}`);
-      }
-      toast.success(result.message || `AI categorized ${suggestions.length} expenses`);
-      
-      // Refresh progress after successful categorization
-      fetchProgress();
-    }
-    
-    setAiCategorizing(false);
-  };
+
 
   // Load expenses function
   const loadExpenses = async (pageNum = 0, isInitial = false) => {
@@ -527,6 +525,14 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [fetchProgress, project?.id, expenses.length]);
 
+  // Handle autoplay mode activation - only trigger initial round
+  useEffect(() => {
+    autoplayModeRef.current = autoplayMode; // Keep ref in sync
+    if (autoplayMode && !aiCategorizing) {
+      handleAiCategorization();
+    }
+  }, [autoplayMode]); // Only depend on autoplayMode, not aiCategorizing
+
   // Keyboard navigation handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -594,6 +600,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     page,
     processingRows,
     aiCategorizing,
+    autoplayMode,
     
     // UI state
     isTableActive,
@@ -607,6 +614,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     updateExpenseCategory,
     handleAcceptSuggestion,
     handleAiCategorization,
+    toggleAutoplay,
     handleClearCategory,
     fetchProgress,
     loadExpenses,
