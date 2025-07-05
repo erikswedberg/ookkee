@@ -272,11 +272,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       const newValue = !prev;
       console.log('toggleAutoplay called:', { oldValue: prev, newValue });
       
-      // If turning off autoplay, stop any current processing
+      // If turning off autoplay, let current job complete but don't start new ones
       if (!newValue && aiCategorizing) {
-        console.log('Turning off autoplay, stopping processing');
-        setProcessingRows(new Set());
-        setAiCategorizing(false);
+        console.log('Turning off autoplay, current job will complete but autoplay will stop after');
+        // Don't cancel the current job - let it finish naturally
+        // handleAutoplayContinuation will see autoplayMode: false and not continue
       }
       // If turning on autoplay, start the first round immediately
       else if (newValue && !aiCategorizing) {
