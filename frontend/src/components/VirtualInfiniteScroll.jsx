@@ -3,7 +3,7 @@ import './VirtualInfiniteScroll.css';
 
 const VirtualInfiniteScroll = ({
   totalItems,
-  itemHeight = 46,
+  itemHeight = 60,
   pageSize = 20,
   onRequestPage,
   renderItem,

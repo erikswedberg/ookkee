@@ -241,6 +241,7 @@ const ExpenseRow = ({
         const value = getColumnValue(expense, column);
         const isAmount = column === "Amount";
         const isDate = column === "Date";
+        const isDescription = column === "Description";
         const isCategory = column === "Category";
         const isAction = column === "Action";
         const isStatus = column === "Status";
@@ -269,11 +270,25 @@ const ExpenseRow = ({
                 ? renderAction(expense, expenseIndex)
                 : isStatus
                   ? renderStatus(expense)
-                  : isAmount && typeof value === "number"
-                    ? formatAmount(value)
-                    : isDate
-                      ? formatDate(value)
-                      : value || ""}
+                  : isDescription
+                    ? (
+                        <div style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          lineHeight: '1.3',
+                          maxHeight: '2.6em'
+                        }}>
+                          {value || ''}
+                        </div>
+                      )
+                    : isAmount && typeof value === "number"
+                      ? formatAmount(value)
+                      : isDate
+                        ? formatDate(value)
+                        : value || ""}
           </TableCell>
         );
       })}

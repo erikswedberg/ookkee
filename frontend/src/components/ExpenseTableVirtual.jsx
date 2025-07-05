@@ -3,6 +3,10 @@ import VirtualInfiniteScroll from './VirtualInfiniteScroll';
 import ExpenseRow from './ExpenseRow';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
+// Constants for expense table configuration
+const LIST_ITEM_HEIGHT = 60; // Height of each row in pixels
+const ROWS_PER_PAGE = 20;    // Number of rows per virtual page
+
 const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   const [categories, setCategories] = useState([]);
   const apiCache = useRef({});
@@ -61,7 +65,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     
     // Create a wrapper div that will contain the React component
     const wrapper = document.createElement('div');
-    wrapper.style.height = '46px'; // Ensure consistent height
+    wrapper.style.height = `${LIST_ITEM_HEIGHT}px`; // Ensure consistent height
     
     // We need to use ReactDOM.render for this to work, but that's complex
     // Instead, let's return the raw HTML that matches ExpenseRow structure
@@ -92,7 +96,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     
     wrapper.innerHTML = `
       <div class="flex items-center border-b border-gray-200 hover:bg-sky-50 ${expense.is_personal ? 'personal' : ''}" 
-           style="height: 46px; position: relative;">
+           style="height: ${LIST_ITEM_HEIGHT}px; position: relative;">
         
         <!-- Personal Checkbox -->
         <div class="w-12 px-3">
@@ -118,7 +122,15 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         
         <!-- Description -->
         <div class="flex-1 px-3" style="min-width: 200px;">
-          <span class="text-sm">${expense.description || ''}</span>
+          <div class="text-sm" style="
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.3;
+            max-height: 2.6em;
+          ">${expense.description || ''}</div>
         </div>
         
         <!-- Amount -->
@@ -307,8 +319,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       {/* Virtual Scrolling Table Body */}
       <VirtualInfiniteScroll
         totalItems={totalExpenses}
-        itemHeight={46}
-        pageSize={20}
+        itemHeight={LIST_ITEM_HEIGHT}
+        pageSize={ROWS_PER_PAGE}
         onRequestPage={requestExpensePage}
         renderItem={renderExpenseRow}
         containerHeight="calc(100vh - 200px)"
