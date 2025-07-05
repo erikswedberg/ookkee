@@ -14,6 +14,7 @@ import {
 } from "../contexts/SpreadsheetContext";
 import { TotalsContextProvider } from "../contexts/TotalsContext";
 import TotalsView from "./TotalsView";
+import ExpenseTableVirtual from "./ExpenseTableVirtual";
 import "./Spreadsheet.css";
 
 // Download Totals Button Component
@@ -657,6 +658,7 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
               >
                 <TabsList>
                   <TabsTrigger value="expenses">Expenses</TabsTrigger>
+                  <TabsTrigger value="expenses2">Expenses 2</TabsTrigger>
                   <TabsTrigger value="totals">Totals</TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -703,6 +705,13 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsContent value="expenses">
               <SpreadsheetTable />
+            </TabsContent>
+
+            <TabsContent value="expenses2">
+              <ExpenseTableVirtual 
+                projectId={selectedProject?.id}
+                totalExpenses={progress?.total_count || 0}
+              />
             </TabsContent>
 
             <TabsContent value="totals">
