@@ -358,3 +358,62 @@ cd frontend && npm test
 • Enhanced UI components with job-aware processing states
 
 **Current Status**: System implemented and ready for testing with real AI API keys. Requires end-to-end validation of job tracking workflow.
+## Phase 7: AI Autoplay Mode and Dual Progress Bars (Commits: 099175972 → latest)
+
+**Goal**: Add continuous AI categorization mode with visual progress indicators and simplified architecture
+
+**Key Features Implemented**:
+1. **Split Button Interface**: Left side for one-off AI categorization, right side for play/stop autoplay toggle
+2. **Continuous AI Processing**: Autoplay mode automatically triggers successive rounds until all expenses are categorized
+3. **Dual Progress Bars**: Blue bar for suggestions progress, green bar for accepted progress
+4. **Single-Path Architecture**: Eliminated dual response handling for consistent behavior
+
+**Split Button Component**:
+• **SplitButton Component** - Custom UI component with play ▶️/stop ⏹️ toggle
+• **Left Side**: One-off AI categorization (disabled during autoplay)
+• **Right Side**: Continuous mode toggle with icon state management
+• **State Management**: Proper disabled states and visual feedback
+
+**Autoplay State Management**:
+• **autoplayMode State**: Controls continuous processing behavior
+• **useRef Pattern**: autoplayModeRef prevents stale closure issues in async callbacks
+• **State Synchronization**: Both React state and ref updated together for consistency
+• **Race Condition Prevention**: Single useEffect dependency on autoplayMode only
+
+**Dual Progress Bar System**:
+• **DualProgress Component** - Overlapping blue and green progress bars
+• **Blue Bar**: Shows suggestion progress `(total - uncategorized) / total`
+• **Green Bar**: Shows acceptance progress `categorized_count / total`
+• **Replaces**: Single progress bar with richer visual information
+
+**Architecture Simplification**:
+• **Single Job Path**: Eliminated dual response handling (job vs direct response)
+• **Backend**: Always creates jobs, even for empty result sets
+• **Frontend**: Removed handleDirectAiResponse function entirely
+• **Consistency**: All AI categorization follows same job polling workflow
+
+**Autoplay Logic**:
+• **Start**: Play button triggers autoplay mode and initial categorization
+• **Continue**: handleAutoplayContinuation checks for more work after each job
+• **Stop**: Stop button disables autoplay, current job completes naturally
+• **End**: Autoplay stops when no uncategorized expenses remain
+
+**Technical Challenges Solved**:
+• **State Closure Issues**: Used useRef to avoid stale autoplayMode in async callbacks
+• **Button State Management**: Proper disabled states during different processing phases
+• **Race Conditions**: Removed aiCategorizing from useEffect dependencies
+• **Dual Path Complexity**: Simplified to single job-based approach throughout
+
+**UI/UX Improvements**:
+• **Visual Feedback**: Dual progress bars show both suggestion and acceptance progress
+• **Button States**: Clear visual distinction between play/stop modes
+• **Seamless UI**: Split button appears as single cohesive component
+• **Natural Flow**: Stop button lets current work finish, prevents new work
+
+**Key Files Created/Modified**:
+• `frontend/src/components/ui/split-button.jsx` - Split button component
+• `frontend/src/components/ui/dual-progress.jsx` - Dual progress bar component
+• `frontend/src/contexts/SpreadsheetContext.jsx` - Autoplay state management
+• `backend/handlers/ai_categorize.go` - Simplified to single job path
+
+**Current Status**: Autoplay mode fully functional with proper start/stop behavior and visual progress indicators.

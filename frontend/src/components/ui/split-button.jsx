@@ -13,8 +13,6 @@ function SplitButton({
   playDisabled = false,
   ...props
 }) {
-  console.log('SplitButton render - isPlaying:', isPlaying);
-  
   return (
     <div className={cn("flex", className)}>
       {/* Main button (left side) */}

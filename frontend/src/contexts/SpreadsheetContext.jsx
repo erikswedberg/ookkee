@@ -245,25 +245,16 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Handle autoplay continuation logic
   const handleAutoplayContinuation = (suggestions) => {
     const currentAutoplayMode = autoplayModeRef.current;
-    console.log('handleAutoplayContinuation called:', {
-      autoplayMode,
-      autoplayModeRef: currentAutoplayMode,
-      suggestionsLength: suggestions.length,
-      aiCategorizing
-    });
     
     // Check current autoplay mode using ref (not stale state)
     if (!currentAutoplayMode) {
-      console.log('Autoplay mode is off (via ref), not continuing');
       return false;
     }
     
     if (suggestions.length > 0) {
-      console.log('Autoplay continuing - found suggestions, triggering next round');
       handleAiCategorization();
       return true; // Continue processing
     } else {
-      console.log('No suggestions found, stopping autoplay');
       setAutoplayMode(false);
       autoplayModeRef.current = false; // Keep ref in sync
       return false;
@@ -272,10 +263,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Toggle autoplay mode
   const toggleAutoplay = () => {
-    console.log('toggleAutoplay called, current autoplayMode:', autoplayMode);
     setAutoplayMode(prev => {
       const newValue = !prev;
-      console.log('Changing autoplayMode from', prev, 'to', newValue);
       autoplayModeRef.current = newValue; // Keep ref in sync
       return newValue;
     });
@@ -283,7 +272,6 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // AI Categorization function - now with job tracking
   const handleAiCategorization = async () => {
-    console.log('handleAiCategorization called, autoplayMode:', autoplayMode);
     if (!project?.id) {
       console.warn('Cannot categorize: no project selected');
       return;
@@ -311,14 +299,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       }
 
       const jobResult = await response.json();
-      console.log('AI categorization response:', jobResult);
       
       // Always expect a job response now
       if (!jobResult.job_id) {
         throw new Error('Backend did not return a job_id - this should not happen');
       }
-      
-      console.log(`AI categorization job started: ${jobResult.job_id}`);
       
       // Set processing state for selected expenses
       const selectedExpenses = jobResult.selected_expenses || [];
@@ -351,7 +336,6 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         }
         
         const jobStatus = await response.json();
-        console.log(`Job ${jobId} status: ${jobStatus.status}`);
         
         if (jobStatus.status === 'completed') {
           // Job completed successfully
@@ -387,11 +371,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     const selectedIds = jobStatus.selected_expenses || [];
     
     if (suggestions.length === 0) {
-      console.log('No expenses were categorized (no uncategorized expenses found)');
       toast.info(jobStatus.message || 'No expenses needed categorization');
       
       // Check autoplay continuation even with no suggestions
-      console.log('Job completion with no suggestions - checking autoplay continuation');
       if (handleAutoplayContinuation(suggestions)) {
         return; // Don't clear processing state yet
       }
@@ -414,14 +396,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         return [...updatedExpenses]; // Create new array to force re-render
       });
       
-      console.log(`AI categorized ${suggestions.length} expenses`);
       toast.success(jobStatus.message || `AI categorized ${suggestions.length} expenses`);
       
       // Refresh progress after successful categorization
       fetchProgress();
       
       // Check if we should continue in autoplay mode
-      console.log('Job polling success - checking autoplay continuation');
       if (handleAutoplayContinuation(suggestions)) {
         return; // Don't clear processing state yet
       }
@@ -549,7 +529,6 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   useEffect(() => {
     autoplayModeRef.current = autoplayMode; // Keep ref in sync
     if (autoplayMode && !aiCategorizing) {
-      console.log('Autoplay mode turned on, triggering initial categorization');
       handleAiCategorization();
     }
   }, [autoplayMode]); // Only depend on autoplayMode, not aiCategorizing
