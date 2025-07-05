@@ -15,6 +15,7 @@ const VirtualInfiniteScroll = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [scrollLock, setScrollLock] = useState(false);
   const [lastScrollPos, setLastScrollPos] = useState(0);
+  const [loadingPages, setLoadingPages] = useState(new Set()); // Track pages being loaded
   
   const containerRef = useRef(null);
   const listNodeA = useRef(null);
@@ -87,17 +88,26 @@ const VirtualInfiniteScroll = ({
     let returnNode = null;
     let activeIndex = 0;
     
-    // First, try to find an empty node
+    // First, check if this page is already rendered in a node
     for (let i = 0; i < listNodes.length; i++) {
       const node = listNodes[i].current;
-      if (!node?.dataset.page) {
+      const thisPage = parseInt(node?.dataset.page || '0', 10);
+      if (thisPage === page) {
+        return { node, index: i };
+      }
+    }
+    
+    // Second, try to find an empty node
+    for (let i = 0; i < listNodes.length; i++) {
+      const node = listNodes[i].current;
+      if (!node?.dataset.page || node.dataset.page === '') {
         activeIndex = i;
         returnNode = node;
         break;
       }
     }
     
-    // If no empty node, find the furthest node from current page
+    // If no empty node, find the furthest node from current page to recycle
     if (!returnNode) {
       let furthestDistance = 0;
       let furthestIndex = 0;
@@ -115,6 +125,12 @@ const VirtualInfiniteScroll = ({
       
       activeIndex = furthestIndex;
       returnNode = listNodes[furthestIndex].current;
+      
+      // Clear the node before reuse (like emptyNode in original)
+      if (returnNode) {
+        returnNode.innerHTML = '';
+        returnNode.dataset.page = '';
+      }
     }
     
     return { node: returnNode, index: activeIndex };
@@ -204,8 +220,15 @@ const VirtualInfiniteScroll = ({
       return;
     }
     
+    // If page is already being loaded, don't load again
+    if (loadingPages.has(page)) {
+      return;
+    }
+    
     if (!onRequestPage) return;
     
+    // Mark page as loading
+    setLoadingPages(prev => new Set([...prev, page]));
     showLoadingPage(page);
     
     try {
@@ -215,18 +238,28 @@ const VirtualInfiniteScroll = ({
       // Mark page as rendered
       setRenderedPages(prev => ({ ...prev, [page]: true }));
       
-      // Clear loading indicator
+      // Clear loading indicator and remove from loading set
       clearLoadingPage(page);
+      setLoadingPages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(page);
+        return newSet;
+      });
       
       // Display the page
       displayPage(page, data);
     } catch (error) {
       console.error('Error requesting page:', error);
       clearLoadingPage(page);
+      setLoadingPages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(page);
+        return newSet;
+      });
     }
-  }, [pageData, onRequestPage, pageSize, showLoadingPage, clearLoadingPage, displayPage]);
+  }, [pageData, loadingPages, onRequestPage, pageSize, showLoadingPage, clearLoadingPage, displayPage]);
   
-  // Handle scroll events
+  // Handle scroll events with aggressive pre-rendering
   const handleScroll = useCallback(() => {
     if (scrollLock) return;
     
@@ -237,25 +270,61 @@ const VirtualInfiniteScroll = ({
     setCurrentPage(page);
     setScrollLock(true);
     
-    // Unlock scroll after a delay
+    // Aggressive pre-rendering based on scroll direction
+    if (direction === 'down') {
+      const nextPage = page + 1;
+      if (nextPage <= maxPages && !renderedPages[nextPage]) {
+        requestPage(nextPage);
+      }
+    } else if (direction === 'up') {
+      const prevPage = page - 1;
+      if (prevPage >= 1 && !renderedPages[prevPage]) {
+        requestPage(prevPage);
+      }
+    }
+    
+    // Unlock scroll after a shorter delay for more responsiveness
     setTimeout(() => {
       setScrollLock(false);
-    }, 100);
-  }, [scrollLock, getScrollDirection, getPageFromPosition]);
+    }, 50);
+  }, [scrollLock, getScrollDirection, getPageFromPosition, maxPages, renderedPages, requestPage]);
   
-  // Page watchdog - checks which pages should be visible and requests them
+  // Page watchdog - aggressively checks which pages should be visible and requests them
   const pageWatchdog = useCallback(() => {
     if (scrollLock) return;
     
     const pos = containerRef.current?.scrollTop || 0;
     const pages = getPagesFromPosition(pos);
     
+    // Request all visible pages
     pages.forEach(page => {
       if (!renderedPages[page] && page <= maxPages) {
         requestPage(page);
       }
     });
-  }, [scrollLock, getPagesFromPosition, renderedPages, maxPages, requestPage]);
+    
+    // Aggressive pre-loading: load pages ahead in scroll direction
+    const currentPage = getPageFromPosition(pos);
+    const direction = getScrollDirection(pos);
+    
+    if (direction === 'down') {
+      // Pre-load 2 pages ahead when scrolling down
+      for (let i = 1; i <= 2; i++) {
+        const nextPage = currentPage + i;
+        if (nextPage <= maxPages && !renderedPages[nextPage]) {
+          requestPage(nextPage);
+        }
+      }
+    } else if (direction === 'up') {
+      // Pre-load 2 pages behind when scrolling up
+      for (let i = 1; i <= 2; i++) {
+        const prevPage = currentPage - i;
+        if (prevPage >= 1 && !renderedPages[prevPage]) {
+          requestPage(prevPage);
+        }
+      }
+    }
+  }, [scrollLock, getPagesFromPosition, renderedPages, maxPages, requestPage, getPageFromPosition, getScrollDirection]);
   
   // Set up scroll listener and page watchdog
   useEffect(() => {
@@ -264,8 +333,8 @@ const VirtualInfiniteScroll = ({
     
     container.addEventListener('scroll', handleScroll);
     
-    // Start page watchdog
-    pageWatchdogRef.current = setInterval(pageWatchdog, 1000);
+    // Start page watchdog (more aggressive like original - 500ms)
+    pageWatchdogRef.current = setInterval(pageWatchdog, 500);
     
     // Initial page request
     if (!pageData[1]) {
@@ -322,6 +391,8 @@ const VirtualInfiniteScroll = ({
           <div>Total Pages: {maxPages}</div>
           <div>Rendered Pages: {Object.keys(renderedPages).join(', ')}</div>
           <div>Cached Pages: {Object.keys(pageData).join(', ')}</div>
+          <div>Loading Pages: {Array.from(loadingPages).join(', ')}</div>
+          <div>Scroll Direction: {lastScrollPos}</div>
         </div>
       )}
     </div>
