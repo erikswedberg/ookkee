@@ -249,29 +249,38 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       aiCategorizing
     });
     
-    if (autoplayMode && suggestions.length > 0) {
-      console.log('Autoplay continuing - scheduling next round');
-      // Remove delay to see if that helps
+    // Check current autoplay mode (not stale state)
+    if (!autoplayMode) {
+      console.log('Autoplay mode is off, not continuing');
+      return false;
+    }
+    
+    if (suggestions.length > 0) {
+      console.log('Autoplay continuing - found suggestions, triggering next round');
       handleAiCategorization();
       return true; // Continue processing
-    } else if (autoplayMode && suggestions.length === 0) {
+    } else {
       console.log('No suggestions found, stopping autoplay');
       setAutoplayMode(false);
+      return false;
     }
-    return false; // Stop processing
   };
 
   // Toggle autoplay mode
   const toggleAutoplay = () => {
     setAutoplayMode(prev => {
       const newValue = !prev;
+      console.log('toggleAutoplay called:', { oldValue: prev, newValue });
+      
       // If turning off autoplay, stop any current processing
       if (!newValue && aiCategorizing) {
+        console.log('Turning off autoplay, stopping processing');
         setProcessingRows(new Set());
         setAiCategorizing(false);
       }
       // If turning on autoplay, start the first round immediately
       else if (newValue && !aiCategorizing) {
+        console.log('Turning on autoplay, starting first round');
         // Use setTimeout to ensure state update happens first
         setTimeout(() => {
           handleAiCategorization();
@@ -283,6 +292,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // AI Categorization function - now with job tracking
   const handleAiCategorization = async () => {
+    console.log('handleAiCategorization called, autoplayMode:', autoplayMode);
     if (!project?.id) {
       console.warn('Cannot categorize: no project selected');
       return;
