@@ -13,7 +13,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_URL}/api/categories`);
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
@@ -33,9 +34,10 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     }
     
     try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
       const offset = (page - 1) * pageSize;
       const response = await fetch(
-        `/api/projects/${projectId}/expenses?limit=${pageSize}&offset=${offset}`
+        `${API_URL}/api/projects/${projectId}/expenses?limit=${pageSize}&offset=${offset}`
       );
       
       if (response.ok) {
@@ -106,8 +108,9 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   React.useEffect(() => {
     window.togglePersonal = async (expenseId, isPersonal) => {
       try {
-        const response = await fetch(`/api/projects/${projectId}/expenses/${expenseId}`, {
-          method: 'PATCH',
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
           },
@@ -127,8 +130,9 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     
     window.updateCategory = async (expenseId, categoryId) => {
       try {
-        const response = await fetch(`/api/projects/${projectId}/expenses/${expenseId}`, {
-          method: 'PATCH',
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
           },
