@@ -155,7 +155,14 @@ const VirtualInfiniteScroll = ({
   
   // Request a page of data
   const requestPage = useCallback(async (page) => {
-    if (pageData[page] || !onRequestPage) return;
+    // If we have cached data, display it immediately
+    if (pageData[page]) {
+      displayPage(page, pageData[page]);
+      setRenderedPages(prev => ({ ...prev, [page]: true }));
+      return;
+    }
+    
+    if (!onRequestPage) return;
     
     showLoadingPage(page);
     
@@ -175,11 +182,11 @@ const VirtualInfiniteScroll = ({
       console.error('Error requesting page:', error);
       clearLoadingPage(page);
     }
-  }, [pageData, onRequestPage, pageSize, showLoadingPage, clearLoadingPage]);
+  }, [pageData, onRequestPage, pageSize, showLoadingPage, clearLoadingPage, displayPage]);
   
   // Display a page of data in the appropriate list node
   const displayPage = useCallback((page, data) => {
-    const { node } = getListNode(page);
+    const { node, index } = getListNode(page);
     if (!node) return;
     
     // Set page data attribute
@@ -195,6 +202,11 @@ const VirtualInfiniteScroll = ({
     } else {
       node.style.height = `${pageHeight}px`;
     }
+    
+    // Add page coloring for debugging
+    const pageColors = ['skyblue', 'gold', 'indianred'];
+    node.style.backgroundColor = pageColors[index % 3];
+    node.style.opacity = '0.1';
     
     // Render items
     const items = data || [];
