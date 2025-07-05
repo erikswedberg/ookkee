@@ -241,6 +241,26 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     });
   };
 
+  // Handle autoplay continuation logic
+  const handleAutoplayContinuation = (suggestions) => {
+    console.log('handleAutoplayContinuation called:', {
+      autoplayMode,
+      suggestionsLength: suggestions.length,
+      aiCategorizing
+    });
+    
+    if (autoplayMode && suggestions.length > 0) {
+      console.log('Autoplay continuing - scheduling next round');
+      // Remove delay to see if that helps
+      handleAiCategorization();
+      return true; // Continue processing
+    } else if (autoplayMode && suggestions.length === 0) {
+      console.log('No suggestions found, stopping autoplay');
+      setAutoplayMode(false);
+    }
+    return false; // Stop processing
+  };
+
   // Toggle autoplay mode
   const toggleAutoplay = () => {
     setAutoplayMode(prev => {
@@ -395,13 +415,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       fetchProgress();
       
       // Check if we should continue in autoplay mode
-      if (autoplayMode && suggestions.length > 0) {
-        // Schedule next round after a brief delay
-        setTimeout(() => {
-          if (autoplayMode) { // Double-check autoplay is still enabled
-            handleAiCategorization();
-          }
-        }, 1000);
+      console.log('Job polling success - checking autoplay continuation');
+      if (handleAutoplayContinuation(suggestions)) {
         return; // Don't clear processing state yet
       }
     }
@@ -451,13 +466,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       fetchProgress();
       
       // Check if we should continue in autoplay mode
-      if (autoplayMode && suggestions.length > 0) {
-        // Schedule next round after a brief delay
-        setTimeout(() => {
-          if (autoplayMode) { // Double-check autoplay is still enabled
-            handleAiCategorization();
-          }
-        }, 1000);
+      console.log('Direct response success - checking autoplay continuation');
+      if (handleAutoplayContinuation(suggestions)) {
         return; // Don't clear processing state yet
       }
     }
