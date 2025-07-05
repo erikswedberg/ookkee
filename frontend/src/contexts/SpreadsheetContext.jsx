@@ -268,24 +268,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Toggle autoplay mode
   const toggleAutoplay = () => {
+    console.log('toggleAutoplay called, current autoplayMode:', autoplayMode);
     setAutoplayMode(prev => {
       const newValue = !prev;
-      console.log('toggleAutoplay called:', { oldValue: prev, newValue });
-      
-      // If turning off autoplay, let current job complete but don't start new ones
-      if (!newValue && aiCategorizing) {
-        console.log('Turning off autoplay, current job will complete but autoplay will stop after');
-        // Don't cancel the current job - let it finish naturally
-        // handleAutoplayContinuation will see autoplayMode: false and not continue
-      }
-      // If turning on autoplay, start the first round immediately
-      else if (newValue && !aiCategorizing) {
-        console.log('Turning on autoplay, starting first round');
-        // Don't use setTimeout - call directly since we know newValue is true
-        // The autoplayMode state will be updated by the time continuation runs
-      }
-      
-
+      console.log('Changing autoplayMode from', prev, 'to', newValue);
       return newValue;
     });
   };
