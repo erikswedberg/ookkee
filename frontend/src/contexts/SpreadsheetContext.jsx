@@ -57,6 +57,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [processingRows, setProcessingRows] = useState(new Set());
   const [aiCategorizing, setAiCategorizing] = useState(false);
   const [autoplayMode, setAutoplayMode] = useState(false);
+  const autoplayModeRef = useRef(false);
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
@@ -243,15 +244,17 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Handle autoplay continuation logic
   const handleAutoplayContinuation = (suggestions) => {
+    const currentAutoplayMode = autoplayModeRef.current;
     console.log('handleAutoplayContinuation called:', {
       autoplayMode,
+      autoplayModeRef: currentAutoplayMode,
       suggestionsLength: suggestions.length,
       aiCategorizing
     });
     
-    // Check current autoplay mode (not stale state)
-    if (!autoplayMode) {
-      console.log('Autoplay mode is off, not continuing');
+    // Check current autoplay mode using ref (not stale state)
+    if (!currentAutoplayMode) {
+      console.log('Autoplay mode is off (via ref), not continuing');
       return false;
     }
     
@@ -262,6 +265,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     } else {
       console.log('No suggestions found, stopping autoplay');
       setAutoplayMode(false);
+      autoplayModeRef.current = false; // Keep ref in sync
       return false;
     }
   };
@@ -272,6 +276,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setAutoplayMode(prev => {
       const newValue = !prev;
       console.log('Changing autoplayMode from', prev, 'to', newValue);
+      autoplayModeRef.current = newValue; // Keep ref in sync
       return newValue;
     });
   };
@@ -542,6 +547,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
+    autoplayModeRef.current = autoplayMode; // Keep ref in sync
     if (autoplayMode && !aiCategorizing) {
       console.log('Autoplay mode turned on, triggering initial categorization');
       handleAiCategorization();
