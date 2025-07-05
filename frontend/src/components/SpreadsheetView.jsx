@@ -678,7 +678,7 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
                     expenses.length === 0 ||
                     categories.length === 0
                   }
-                  className="flex items-center gap-2"
+                  className="flex items-center"
                 >
                   <RefreshCw
                     className={`h-4 w-4 ${aiCategorizing ? "animate-spin" : ""}`}

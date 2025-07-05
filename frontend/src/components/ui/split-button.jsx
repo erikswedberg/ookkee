@@ -30,7 +30,7 @@ function SplitButton({
         onClick={onTogglePlay}
         disabled={playDisabled}
         variant={isPlaying ? "destructive" : "default"}
-        className="rounded-l-none px-3 min-w-0 -ml-px"
+        className="rounded-l-none px-3 min-w-0"
         {...props}
       >
         {isPlaying ? (
