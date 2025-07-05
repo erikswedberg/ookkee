@@ -673,7 +673,6 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
                     categories.length === 0
                   }
                   playDisabled={
-                    aiCategorizing ||
                     loading ||
                     expenses.length === 0 ||
                     categories.length === 0
