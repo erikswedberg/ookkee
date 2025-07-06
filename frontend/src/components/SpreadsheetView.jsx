@@ -216,6 +216,7 @@ const SpreadsheetTable = () => {
                 handleClearCategory={handleClearCategory}
                 setIsTableActive={setIsTableActive}
                 setActiveRowWithTabIndex={setActiveRowWithTabIndex}
+                useTableElements={true}
               />
             );
           })}

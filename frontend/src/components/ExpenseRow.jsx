@@ -1,5 +1,6 @@
 import React from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { RefreshCw } from "lucide-react";
 import { formatCurrency, formatDate } from '../utils/formatters';
 import dayjs from 'dayjs';
@@ -19,7 +20,8 @@ const ExpenseRow = ({
   handleClearCategory,
   setIsTableActive,
   setActiveRowWithTabIndex,
-  isVisible = true
+  isVisible = true,
+  useTableElements = false  // When true, use tr/td, when false use div with CSS table display
 }) => {
   // Hide row if not visible (for virtual scroll empty slots)
   if (!isVisible || !expense) {
@@ -251,25 +253,26 @@ const ExpenseRow = ({
 
   const columns = getColumns();
 
-  // EXACT copy of the structure from original, now using div with CSS display properties
+  // Choose elements based on context
+  const RowElement = useTableElements ? TableRow : 'div';
+  const CellElement = useTableElements ? TableCell : 'div';
+  const rowClassName = useTableElements 
+    ? `spreadsheet row group cursor-pointer ${isActive ? "active" : isPersonal ? "personal" : "hover:bg-sky-50"}` 
+    : `virtual-table-row spreadsheet row group cursor-pointer ${isActive ? "active" : isPersonal ? "personal" : "hover:bg-sky-50"}`;
+  const cellClassName = useTableElements ? "" : "virtual-table-cell";
+
+  // EXACT copy of the structure from original, but adaptable elements
   return (
-    <div
-      key={expense.id}
+    <RowElement
       data-row-index={expenseIndex}
       tabIndex={isActive ? 0 : -1}
-      className={`virtual-table-row spreadsheet row group cursor-pointer ${
-        isActive
-          ? "active"
-          : isPersonal
-            ? "personal"
-            : "hover:bg-sky-50"
-      }`}
+      className={rowClassName}
       onClick={() => {
         setIsTableActive(true);
         setActiveRowWithTabIndex(expenseIndex);
       }}
     >
-      <div className="virtual-table-cell text-center w-12">
+      <CellElement className={`${cellClassName} text-center w-12`}>
         <Checkbox
           checked={expense.is_personal || false}
           onCheckedChange={() => {
@@ -277,10 +280,10 @@ const ExpenseRow = ({
           }}
           onClick={e => e.stopPropagation()}
         />
-      </div>
-      <div className="virtual-table-cell font-mono text-xs text-muted-foreground w-16">
+      </CellElement>
+      <CellElement className={`${cellClassName} font-mono text-xs text-muted-foreground w-16`}>
         {expense.row_index + 1}
-      </div>
+      </CellElement>
       {columns.map(column => {
         const value = getColumnValue(expense, column);
         const isAmount = column === "Amount";
@@ -291,10 +294,10 @@ const ExpenseRow = ({
         const isStatus = column === "Status";
 
         return (
-          <div
+          <CellElement
             key={column}
             className={
-              `virtual-table-cell ${
+              `${cellClassName} ${
                 isAmount
                   ? `font-mono amount ${
                       isPersonal && !isActive
@@ -335,10 +338,10 @@ const ExpenseRow = ({
                       : isDate
                         ? formatDate(value)
                         : value || ""}
-          </div>
+          </CellElement>
         );
       })}
-    </div>
+    </RowElement>
   );
 };
 

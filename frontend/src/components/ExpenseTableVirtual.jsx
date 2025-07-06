@@ -217,7 +217,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   return (
     <div className="spreadsheet overflow-auto relative h-[calc(100vh-250px)]">
       {/* Virtual Scrolling Table with Header */}
-      totalItems={totalExpenses}
+      <VirtualInfiniteScroll
+        totalItems={totalExpenses}
         itemHeight={LIST_ITEM_HEIGHT}
         pageSize={ROWS_PER_PAGE}
         onRequestPage={requestExpensePage}
