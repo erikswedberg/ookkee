@@ -208,22 +208,14 @@ const SpreadsheetTable = () => {
                 categories={categories}
                 isActive={isActive}
                 processingRows={processingRows}
-                onTogglePersonal={(expenseId, isPersonal) => {
-                  handleTogglePersonal(expense);
-                }}
-                onUpdateCategory={(expenseId, categoryId) => {
-                  updateExpenseCategory(expenseId, categoryId);
-                }}
-                onAcceptSuggestion={(expense) => {
-                  handleAcceptSuggestion(expense);
-                }}
-                onClearCategory={(expense) => {
-                  handleClearCategory(expense);
-                }}
-                onClick={(expenseIndex) => {
-                  setIsTableActive(true);
-                  setActiveRowWithTabIndex(expenseIndex);
-                }}
+                activeRowIndex={activeRowIndex}
+                expenses={expenses}
+                handleTogglePersonal={handleTogglePersonal}
+                updateExpenseCategory={updateExpenseCategory}
+                handleAcceptSuggestion={handleAcceptSuggestion}
+                handleClearCategory={handleClearCategory}
+                setIsTableActive={setIsTableActive}
+                setActiveRowWithTabIndex={setActiveRowWithTabIndex}
               />
             );
           })}

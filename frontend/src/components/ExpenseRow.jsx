@@ -3,26 +3,34 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw } from "lucide-react";
 import { formatCurrency, formatDate } from '../utils/formatters';
+import dayjs from 'dayjs';
 
-// Shared ExpenseRow component for both regular and virtual tables
+// Shared ExpenseRow component - EXACT copy from original SpreadsheetView
 const ExpenseRow = ({ 
   expense, 
   expenseIndex, 
   categories = [], 
   isActive = false,
   processingRows = new Set(),
-  onTogglePersonal,
-  onUpdateCategory,
-  onAcceptSuggestion,
-  onClearCategory,
-  onClick
+  activeRowIndex,
+  expenses = [],
+  handleTogglePersonal,
+  updateExpenseCategory,
+  handleAcceptSuggestion,
+  handleClearCategory,
+  setIsTableActive,
+  setActiveRowWithTabIndex
 }) => {
   const isPersonal = expense.is_personal;
   
-  // Amount formatting and styling
+  // EXACT copy of utility functions from original SpreadsheetView
   const formatAmount = amount => {
     if (amount === null || amount === undefined) return "";
-    return formatCurrency(amount);
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(amount);
   };
 
   const getAmountClass = amount => {
@@ -30,7 +38,7 @@ const ExpenseRow = ({
     return amount >= 0 ? "text-green-600" : "text-red-600";
   };
 
-  // Column value getter
+  // EXACT copy of getColumnValue from original
   const getColumnValue = (expense, column) => {
     switch (column) {
       case "Source":
@@ -64,7 +72,7 @@ const ExpenseRow = ({
     }
   };
 
-  // Category column renderer
+  // EXACT copy of renderCategory from original
   const renderCategory = expense => {
     const getCategoryValue = expense => {
       return expense.accepted_category_id
@@ -75,36 +83,44 @@ const ExpenseRow = ({
     };
 
     const getCategoryClassName = expense => {
-      if (expense.is_personal && !isActive) {
-        return "text-gray-500";
+      const expenseIndex = expenses.indexOf(expense);
+
+      if (expense.is_personal && activeRowIndex !== expenseIndex) {
+        return "personal";
       }
-      
+
       if (expense.accepted_category_id) {
         return "accepted";
-      } else if (expense.suggested_category_id) {
+      }
+
+      if (expense.suggested_category_id) {
         return "suggested";
+      }
+
+      return "uncategorized";
+    };
+
+    const handleCategoryChange = e => {
+      const newCategoryId = e.target.value ? parseInt(e.target.value) : -1;
+
+      if (newCategoryId === -1) {
+        handleClearCategory(expense);
       } else {
-        return "uncategorized";
+        updateExpenseCategory(expense.id, newCategoryId);
       }
     };
 
     return (
-      <div className={`category-selection ${getCategoryClassName(expense)}`}>
+      <div className={`category-column ${getCategoryClassName(expense)}`}>
         <select
           value={getCategoryValue(expense)}
-          onChange={e => {
-            const categoryId = e.target.value ? parseInt(e.target.value) : null;
-            onUpdateCategory?.(expense.id, categoryId);
-          }}
-          className="
-            w-full p-1 text-xs border rounded
-            focus:border-blue-600 focus:ring-2 focus:ring-blue-200
-            hover:border-gray-400
-          "
+          onChange={handleCategoryChange}
         >
-          <option value="">Select category...</option>
+          <option value=""></option>
           {categories.map(category => {
-            const isAiSuggested = category.id === expense.suggested_category_id;
+            const isAiSuggested =
+              expense.suggested_category_id === category.id &&
+              !expense.accepted_category_id;
             return (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -117,7 +133,7 @@ const ExpenseRow = ({
     );
   };
 
-  // Status column renderer
+  // EXACT copy of renderStatus from original
   const renderStatus = expense => {
     const getStatusValue = expense => {
       if (expense.is_personal) return "Personal";
@@ -158,12 +174,12 @@ const ExpenseRow = ({
     );
   };
 
-  // Action column renderer
+  // EXACT copy of renderAction from original
   const renderAction = (expense, expenseIndex) => {
     return (
       <div
         className={`actions ${
-          isActive
+          activeRowIndex === expenseIndex
             ? "opacity-100"
             : "opacity-0 group-hover:opacity-100"
         }`}
@@ -181,23 +197,40 @@ const ExpenseRow = ({
               expense.suggested_category_id &&
               !expense.accepted_category_id
             ) {
-              onAcceptSuggestion?.(expense);
+              handleAcceptSuggestion(expense);
             }
+          }}
+          disabled={!!expense.accepted_category_id}
+          style={{
+            visibility: expense.suggested_category_id ? "visible" : "hidden",
           }}
         >
           Accept
         </button>
-        {" | "}
+        <span
+          className="separator"
+          style={{
+            visibility:
+              expense.suggested_category_id &&
+              (expense.accepted_category_id || expense.suggested_category_id)
+                ? "visible"
+                : "hidden",
+          }}
+        >
+          |
+        </span>
         <button
-          className={`link text-red-600 hover:text-red-800 ${
-            expense.accepted_category_id || expense.suggested_category_id
-              ? "visible"
-              : "hidden"
-          }`}
+          className="link"
           onClick={e => {
             e.preventDefault();
             e.stopPropagation();
-            onClearCategory?.(expense);
+            handleClearCategory(expense);
+          }}
+          style={{
+            visibility:
+              expense.accepted_category_id || expense.suggested_category_id
+                ? "visible"
+                : "hidden",
           }}
         >
           Clear
@@ -206,11 +239,17 @@ const ExpenseRow = ({
     );
   };
 
-  // Get fixed columns
-  const columns = ["Source", "Date", "Description", "Amount", "Category", "Action", "Status"];
+  // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
+  const getColumns = () => {
+    return ["Source", "Date", "Description", "Amount", "Category", "Action", "Status"];
+  };
 
+  const columns = getColumns();
+
+  // EXACT copy of the TableRow structure from original
   return (
     <TableRow
+      key={expense.id}
       data-row-index={expenseIndex}
       tabIndex={isActive ? 0 : -1}
       className={`spreadsheet row group cursor-pointer ${
@@ -220,23 +259,23 @@ const ExpenseRow = ({
             ? "personal"
             : "hover:bg-sky-50"
       }`}
-      onClick={() => onClick?.(expenseIndex)}
+      onClick={() => {
+        setIsTableActive(true);
+        setActiveRowWithTabIndex(expenseIndex);
+      }}
     >
-      {/* Personal Checkbox */}
-      <TableCell className="w-12">
+      <TableCell className="text-center">
         <Checkbox
-          checked={isPersonal}
-          onCheckedChange={checked => onTogglePersonal?.(expense.id, checked)}
-          className="focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-opacity-30 !important"
+          checked={expense.is_personal || false}
+          onCheckedChange={() => {
+            handleTogglePersonal(expense);
+          }}
+          onClick={e => e.stopPropagation()}
         />
       </TableCell>
-      
-      {/* Row Index */}
-      <TableCell className="w-16 font-mono text-xs text-muted-foreground">
+      <TableCell className="font-mono text-xs text-muted-foreground">
         {expense.row_index + 1}
       </TableCell>
-      
-      {/* Dynamic Columns */}
       {columns.map(column => {
         const value = getColumnValue(expense, column);
         const isAmount = column === "Amount";
