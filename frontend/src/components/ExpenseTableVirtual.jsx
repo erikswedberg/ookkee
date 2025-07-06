@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import VirtualInfiniteScroll from './VirtualInfiniteScroll';
 import ExpenseRow from './ExpenseRow';
+import { TableHead, TableRow } from "@/components/ui/table";
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 // Constants for expense table configuration
@@ -178,6 +179,13 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     };
   }, [projectId]);
   
+  // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
+  const getColumns = () => {
+    return ["Source", "Date", "Description", "Amount", "Category", "Action", "Status"];
+  };
+  
+  const columns = getColumns();
+
   if (!projectId) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-500">
@@ -187,55 +195,58 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   }
   
   return (
-    <div className="expense-table-virtual">
-      {/* Table Header */}
-      <div className="expense-header" style={{
-        display: 'flex',
-        alignItems: 'center',
-        height: '40px',
-        backgroundColor: '#f9fafb',
-        borderBottom: '2px solid #e5e7eb',
-        padding: '0',
-        fontSize: '12px',
-        fontWeight: '600',
-        color: '#374151',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10
-      }}>
-        <div className="px-3" style={{ width: '48px', minWidth: '48px' }}></div>
-        <div className="px-3" style={{ width: '64px', minWidth: '64px' }}>#</div>
-        <div className="px-3" style={{ minWidth: '80px' }}>Source</div>
-        <div className="px-3" style={{ minWidth: '80px' }}>Date</div>
-        <div className="px-3" style={{ flex: 1, minWidth: '200px' }}>Description</div>
-        <div className="px-3" style={{ width: '100px', minWidth: '100px', textAlign: 'right' }}>Amount</div>
-        <div className="px-3" style={{ width: '175px', minWidth: '175px' }}>Category</div>
-        <div className="px-3" style={{ minWidth: '80px' }}>Action</div>
-        <div className="px-3" style={{ width: '100px', minWidth: '100px', textAlign: 'right' }}>Status</div>
-      </div>
-      
-      {/* Virtual Scrolling Table Body */}
-      <VirtualInfiniteScroll
-        totalItems={totalExpenses}
-        itemHeight={LIST_ITEM_HEIGHT}
-        pageSize={ROWS_PER_PAGE}
-        onRequestPage={requestExpensePage}
-        ItemComponent={ExpenseRow}
-        itemProps={expenseRowProps()}
-        containerHeight="calc(100vh - 200px)"
-        loadingComponent={() => (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              border: '2px solid #e5e7eb',
-              borderTop: '2px solid #3b82f6',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }}></div>
-          </div>
-        )}
-      />
+    <div
+      className="spreadsheet overflow-auto relative h-[calc(100vh-250px)]"
+    >
+      <table className="w-full caption-bottom text-sm">
+        <thead className="[&_tr]:border-b sticky top-0 z-10">
+          <TableRow className="bg-background border-b">
+            <TableHead className="w-12 bg-background"></TableHead>
+            <TableHead className="w-16 bg-background">#</TableHead>
+            {columns.map(column => (
+              <TableHead
+                key={column}
+                className={`bg-background ${
+                  column === "Status" ? "text-right" : ""
+                }`}
+                style={{
+                  minWidth: column === "Category" ? "175px" : undefined
+                }}
+              >
+                {column}
+              </TableHead>
+            ))}
+          </TableRow>
+        </thead>
+        <tbody className="[&_tr:last-child]:border-0">
+          {/* Virtual Scrolling Table Body */}
+          <tr>
+            <td colSpan={columns.length + 2} style={{ padding: 0, border: 'none' }}>
+              <VirtualInfiniteScroll
+                totalItems={totalExpenses}
+                itemHeight={LIST_ITEM_HEIGHT}
+                pageSize={ROWS_PER_PAGE}
+                onRequestPage={requestExpensePage}
+                ItemComponent={ExpenseRow}
+                itemProps={expenseRowProps()}
+                containerHeight="calc(100vh - 200px)"
+                loadingComponent={() => (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid #e5e7eb',
+                      borderTop: '2px solid #3b82f6',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }}></div>
+                  </div>
+                )}
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 };
