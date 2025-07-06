@@ -30,6 +30,31 @@
   background-color: rgba(205, 92, 92, 0.3); /* indianred with 30% opacity */
 }
 
+/* CSS Table Display Properties for Virtual Scroll */
+.virtual-table {
+  display: table;
+  width: 100%;
+}
+
+.virtual-table-header {
+  display: table-header-group;
+}
+
+.virtual-table-body {
+  display: table-row-group;
+}
+
+.virtual-table-row {
+  display: table-row;
+}
+
+.virtual-table-cell {
+  display: table-cell;
+  vertical-align: middle;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
 /* Hidden row styling for virtual scroll empty slots */
 .virtual-infinite-scroll .expense-row-hidden {
   display: none;
