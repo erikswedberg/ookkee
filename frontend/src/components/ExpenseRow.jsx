@@ -19,8 +19,14 @@ const ExpenseRow = ({
   handleAcceptSuggestion,
   handleClearCategory,
   setIsTableActive,
-  setActiveRowWithTabIndex
+  setActiveRowWithTabIndex,
+  isVisible = true
 }) => {
+  // Hide row if not visible (for virtual scroll empty slots)
+  if (!isVisible || !expense) {
+    return <TableRow className="expense-row-hidden" />;
+  }
+  
   const isPersonal = expense.is_personal;
   
   // EXACT copy of utility functions from original SpreadsheetView

@@ -6,7 +6,8 @@ const VirtualInfiniteScroll = ({
   itemHeight = 60,
   pageSize = 20,
   onRequestPage,
-  renderItem,
+  ItemComponent, // React component instead of renderItem function
+  itemProps = {}, // Additional props to pass to each item
   containerHeight = '400px',
   loadingComponent = null
 }) => {
@@ -16,6 +17,16 @@ const VirtualInfiniteScroll = ({
   const [scrollLock, setScrollLock] = useState(false);
   const [lastScrollPos, setLastScrollPos] = useState(0);
   const [loadingPages, setLoadingPages] = useState(new Set()); // Track pages being loaded
+  
+  // Fixed page data arrays - 20 items each, null for empty slots
+  const [pageAData, setPageAData] = useState(Array(pageSize).fill(null));
+  const [pageBData, setPageBData] = useState(Array(pageSize).fill(null));
+  const [pageCData, setPageCData] = useState(Array(pageSize).fill(null));
+  
+  // Track which page number each container is currently showing
+  const [currentPageA, setCurrentPageA] = useState(1);
+  const [currentPageB, setCurrentPageB] = useState(1);
+  const [currentPageC, setCurrentPageC] = useState(1);
   
   const containerRef = useRef(null);
   const listNodeA = useRef(null);
@@ -169,12 +180,12 @@ const VirtualInfiniteScroll = ({
     }
   }, [loadingNodes]);
   
-  // Display a page of data in the appropriate list node
+  // Display a page of data by updating React component props
   const displayPage = useCallback((page, data) => {
     const { node, index } = getListNode(page);
     if (!node) return;
     
-    // Set page data attribute
+    // Set page data attribute for debugging
     node.dataset.page = page;
     
     // Position the node
@@ -188,27 +199,21 @@ const VirtualInfiniteScroll = ({
       node.style.height = `${pageHeight}px`;
     }
     
-    // Add page debugging classes
-    const pageClasses = ['scroll-page-a', 'scroll-page-b', 'scroll-page-c'];
-    node.className = `virtual-scroll-page ${pageClasses[index % 3]}`;
-    
-    // Render items
+    // Update the appropriate page data state (triggers React re-render)
     const items = data || [];
-    const itemElements = items.map((item, index) => {
-      const globalIndex = (page - 1) * pageSize + index;
-      return renderItem(item, globalIndex);
-    });
+    const paddedItems = items.concat(Array(pageSize - items.length).fill(null));
     
-    // Clear and populate the node
-    node.innerHTML = '';
-    itemElements.forEach(element => {
-      if (typeof element === 'string') {
-        node.insertAdjacentHTML('beforeend', element);
-      } else if (element instanceof HTMLElement) {
-        node.appendChild(element);
-      }
-    });
-  }, [getListNode, getPositionFromPage, pageHeight, maxPages, pageSize, renderItem]);
+    if (index === 0) {
+      setPageAData(paddedItems);
+      setCurrentPageA(page);
+    } else if (index === 1) {
+      setPageBData(paddedItems);
+      setCurrentPageB(page);
+    } else if (index === 2) {
+      setPageCData(paddedItems);
+      setCurrentPageC(page);
+    }
+  }, [getListNode, getPositionFromPage, pageHeight, maxPages, pageSize]);
   
   // Request a page of data
   const requestPage = useCallback(async (page) => {
@@ -366,10 +371,40 @@ const VirtualInfiniteScroll = ({
         className="virtual-scroll-container"
         style={{ height: `${totalHeight}px`, position: 'relative' }}
       >
-        {/* Three list nodes for page cycling */}
-        <div ref={listNodeA} className="virtual-scroll-page scroll-page-a" data-page=""></div>
-        <div ref={listNodeB} className="virtual-scroll-page scroll-page-b" data-page=""></div>
-        <div ref={listNodeC} className="virtual-scroll-page scroll-page-c" data-page=""></div>
+        {/* Three pages with fixed React components */}
+        <div ref={listNodeA} className="virtual-scroll-page scroll-page-a" data-page="">
+          {pageAData.map((item, index) => (
+            <ItemComponent
+              key={`page-a-${index}`}
+              expense={item}
+              expenseIndex={(currentPageA - 1) * pageSize + index}
+              isVisible={item !== null}
+              {...itemProps}
+            />
+          ))}
+        </div>
+        <div ref={listNodeB} className="virtual-scroll-page scroll-page-b" data-page="">
+          {pageBData.map((item, index) => (
+            <ItemComponent
+              key={`page-b-${index}`}
+              expense={item}
+              expenseIndex={(currentPageB - 1) * pageSize + index}
+              isVisible={item !== null}
+              {...itemProps}
+            />
+          ))}
+        </div>
+        <div ref={listNodeC} className="virtual-scroll-page scroll-page-c" data-page="">
+          {pageCData.map((item, index) => (
+            <ItemComponent
+              key={`page-c-${index}`}
+              expense={item}
+              expenseIndex={(currentPageC - 1) * pageSize + index}
+              isVisible={item !== null}
+              {...itemProps}
+            />
+          ))}
+        </div>
         
         {/* Loading indicators */}
         <div ref={loadingNodeA} className="virtual-scroll-loading" data-page="">
