@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './VirtualInfiniteScroll.css';
 
-const VirtualInfiniteScroll = React.forwardRef(({
+const VirtualInfiniteScroll = ({
   totalItems,
   itemHeight = 60,
   pageSize = 20,
@@ -9,7 +9,7 @@ const VirtualInfiniteScroll = React.forwardRef(({
   renderItem,
   containerHeight = '400px',
   loadingComponent = null
-}, ref) => {
+}) => {
   const [renderedPages, setRenderedPages] = useState({ 1: true });
   const [pageData, setPageData] = useState({}); // Cache for page data
   const [currentPage, setCurrentPage] = useState(1);
@@ -355,15 +355,6 @@ const VirtualInfiniteScroll = React.forwardRef(({
     </div>
   ));
   
-  // Expose scroll reset functionality
-  React.useImperativeHandle(ref, () => ({
-    resetScroll: () => {
-      if (containerRef.current) {
-        containerRef.current.scrollTop = 0;
-      }
-    }
-  }));
-  
   return (
     <div 
       ref={containerRef}
@@ -405,8 +396,6 @@ const VirtualInfiniteScroll = React.forwardRef(({
       )}
     </div>
   );
-});
-
-VirtualInfiniteScroll.displayName = 'VirtualInfiniteScroll';
+};
 
 export default VirtualInfiniteScroll;

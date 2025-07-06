@@ -524,13 +524,6 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       fetchProgress();
     }
   }, [fetchProgress, project?.id, expenses.length]);
-  
-  // Reset scroll position when project changes
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = 0;
-    }
-  }, [project?.id]);
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {

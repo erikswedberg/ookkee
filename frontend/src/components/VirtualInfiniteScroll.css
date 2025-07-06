@@ -80,9 +80,9 @@
   margin-bottom: 0;
 }
 
-/* Ensure smooth scrolling */
+/* Remove smooth scrolling for instant position changes */
 .virtual-infinite-scroll {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
 }
 
 /* Hide scrollbar in WebKit browsers if desired */

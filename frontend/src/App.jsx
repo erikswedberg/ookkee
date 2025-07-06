@@ -269,6 +269,7 @@ function App() {
         <div className="flex-1 overflow-hidden">
           {selectedProject ? (
             <SpreadsheetView 
+              key={selectedProject.id} 
               project={selectedProject} 
               isSidebarCollapsed={isSidebarCollapsed}
               onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
