@@ -372,7 +372,7 @@ const VirtualInfiniteScroll = ({
         style={{ height: `${totalHeight}px`, position: 'relative' }}
       >
         {/* Three pages with fixed React components */}
-        <div ref={listNodeA} className="virtual-scroll-page scroll-page-a" data-page="">
+        <tbody ref={listNodeA} className="virtual-scroll-page scroll-page-a" data-page="">
           {pageAData.map((item, index) => (
             <ItemComponent
               key={`page-a-${index}`}
@@ -382,8 +382,8 @@ const VirtualInfiniteScroll = ({
               {...itemProps}
             />
           ))}
-        </div>
-        <div ref={listNodeB} className="virtual-scroll-page scroll-page-b" data-page="">
+        </tbody>
+        <tbody ref={listNodeB} className="virtual-scroll-page scroll-page-b" data-page="">
           {pageBData.map((item, index) => (
             <ItemComponent
               key={`page-b-${index}`}
@@ -393,8 +393,8 @@ const VirtualInfiniteScroll = ({
               {...itemProps}
             />
           ))}
-        </div>
-        <div ref={listNodeC} className="virtual-scroll-page scroll-page-c" data-page="">
+        </tbody>
+        <tbody ref={listNodeC} className="virtual-scroll-page scroll-page-c" data-page="">
           {pageCData.map((item, index) => (
             <ItemComponent
               key={`page-c-${index}`}
@@ -404,7 +404,7 @@ const VirtualInfiniteScroll = ({
               {...itemProps}
             />
           ))}
-        </div>
+        </tbody>
         
         {/* Loading indicators */}
         <div ref={loadingNodeA} className="virtual-scroll-loading" data-page="">

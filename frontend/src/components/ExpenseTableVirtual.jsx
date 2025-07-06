@@ -218,34 +218,28 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
             ))}
           </TableRow>
         </thead>
-        <tbody className="[&_tr:last-child]:border-0">
-          {/* Virtual Scrolling Table Body */}
-          <tr>
-            <td colSpan={columns.length + 2} style={{ padding: 0, border: 'none' }}>
-              <VirtualInfiniteScroll
-                totalItems={totalExpenses}
-                itemHeight={LIST_ITEM_HEIGHT}
-                pageSize={ROWS_PER_PAGE}
-                onRequestPage={requestExpensePage}
-                ItemComponent={ExpenseRow}
-                itemProps={expenseRowProps()}
-                containerHeight="calc(100vh - 200px)"
-                loadingComponent={() => (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <div style={{
-                      width: '16px',
-                      height: '16px',
-                      border: '2px solid #e5e7eb',
-                      borderTop: '2px solid #3b82f6',
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite'
-                    }}></div>
-                  </div>
-                )}
-              />
-            </td>
-          </tr>
-        </tbody>
+        {/* Virtual Scrolling Table Body - VirtualInfiniteScroll renders its own tbody elements */}
+        <VirtualInfiniteScroll
+          totalItems={totalExpenses}
+          itemHeight={LIST_ITEM_HEIGHT}
+          pageSize={ROWS_PER_PAGE}
+          onRequestPage={requestExpensePage}
+          ItemComponent={ExpenseRow}
+          itemProps={expenseRowProps()}
+          containerHeight="calc(100vh - 200px)"
+          loadingComponent={() => (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '2px solid #e5e7eb',
+                borderTop: '2px solid #3b82f6',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+            </div>
+          )}
+        />
       </table>
     </div>
   );
