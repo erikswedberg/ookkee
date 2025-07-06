@@ -9,7 +9,8 @@ const VirtualInfiniteScroll = ({
   ItemComponent, // React component instead of renderItem function
   itemProps = {}, // Additional props to pass to each item
   containerHeight = '400px',
-  loadingComponent = null
+  loadingComponent = null,
+  headerComponent = null // Optional header component
 }) => {
   const [renderedPages, setRenderedPages] = useState({ 1: true });
   const [pageData, setPageData] = useState({}); // Cache for page data
@@ -366,13 +367,20 @@ const VirtualInfiniteScroll = ({
       className="virtual-infinite-scroll"
       style={{ height: containerHeight, overflow: 'auto', position: 'relative' }}
     >
+      {/* Render header if provided */}
+      {headerComponent && (
+        <div className="virtual-table-header sticky top-0 z-10 bg-background border-b">
+          {headerComponent}
+        </div>
+      )}
+      
       {/* Container with full height to maintain scrollbar proportions */}
       <div 
-        className="virtual-scroll-container"
+        className="virtual-scroll-container virtual-table"
         style={{ height: `${totalHeight}px`, position: 'relative' }}
       >
-        {/* Three pages with fixed React components */}
-        <tbody ref={listNodeA} className="virtual-scroll-page scroll-page-a" data-page="">
+        {/* Three pages with fixed React components using CSS display: table-row-group */}
+        <div ref={listNodeA} className="virtual-scroll-page scroll-page-a virtual-table-body" data-page="">
           {pageAData.map((item, index) => (
             <ItemComponent
               key={`page-a-${index}`}
@@ -382,8 +390,8 @@ const VirtualInfiniteScroll = ({
               {...itemProps}
             />
           ))}
-        </tbody>
-        <tbody ref={listNodeB} className="virtual-scroll-page scroll-page-b" data-page="">
+        </div>
+        <div ref={listNodeB} className="virtual-scroll-page scroll-page-b virtual-table-body" data-page="">
           {pageBData.map((item, index) => (
             <ItemComponent
               key={`page-b-${index}`}
@@ -393,8 +401,8 @@ const VirtualInfiniteScroll = ({
               {...itemProps}
             />
           ))}
-        </tbody>
-        <tbody ref={listNodeC} className="virtual-scroll-page scroll-page-c" data-page="">
+        </div>
+        <div ref={listNodeC} className="virtual-scroll-page scroll-page-c virtual-table-body" data-page="">
           {pageCData.map((item, index) => (
             <ItemComponent
               key={`page-c-${index}`}
@@ -404,7 +412,7 @@ const VirtualInfiniteScroll = ({
               {...itemProps}
             />
           ))}
-        </tbody>
+        </div>
         
         {/* Loading indicators */}
         <div ref={loadingNodeA} className="virtual-scroll-loading" data-page="">

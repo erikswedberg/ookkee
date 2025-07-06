@@ -1,5 +1,4 @@
 import React from 'react';
-import { TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw } from "lucide-react";
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -24,7 +23,7 @@ const ExpenseRow = ({
 }) => {
   // Hide row if not visible (for virtual scroll empty slots)
   if (!isVisible || !expense) {
-    return <TableRow className="expense-row-hidden" />;
+    return <div className="expense-row-hidden" />;
   }
   
   const isPersonal = expense.is_personal;
@@ -252,13 +251,13 @@ const ExpenseRow = ({
 
   const columns = getColumns();
 
-  // EXACT copy of the TableRow structure from original
+  // EXACT copy of the structure from original, now using div with CSS display properties
   return (
-    <TableRow
+    <div
       key={expense.id}
       data-row-index={expenseIndex}
       tabIndex={isActive ? 0 : -1}
-      className={`spreadsheet row group cursor-pointer ${
+      className={`virtual-table-row spreadsheet row group cursor-pointer ${
         isActive
           ? "active"
           : isPersonal
@@ -270,7 +269,7 @@ const ExpenseRow = ({
         setActiveRowWithTabIndex(expenseIndex);
       }}
     >
-      <TableCell className="text-center">
+      <div className="virtual-table-cell text-center w-12">
         <Checkbox
           checked={expense.is_personal || false}
           onCheckedChange={() => {
@@ -278,10 +277,10 @@ const ExpenseRow = ({
           }}
           onClick={e => e.stopPropagation()}
         />
-      </TableCell>
-      <TableCell className="font-mono text-xs text-muted-foreground">
+      </div>
+      <div className="virtual-table-cell font-mono text-xs text-muted-foreground w-16">
         {expense.row_index + 1}
-      </TableCell>
+      </div>
       {columns.map(column => {
         const value = getColumnValue(expense, column);
         const isAmount = column === "Amount";
@@ -292,18 +291,20 @@ const ExpenseRow = ({
         const isStatus = column === "Status";
 
         return (
-          <TableCell
+          <div
             key={column}
             className={
-              isAmount
-                ? `font-mono amount ${
-                    isPersonal && !isActive
-                      ? "text-gray-500"
-                      : getAmountClass(value)
-                  }`
-                : isStatus
-                  ? "text-sm text-right"
-                  : ""
+              `virtual-table-cell ${
+                isAmount
+                  ? `font-mono amount ${
+                      isPersonal && !isActive
+                        ? "text-gray-500"
+                        : getAmountClass(value)
+                    }`
+                  : isStatus
+                    ? "text-sm text-right"
+                    : ""
+              }`
             }
             style={{
               minWidth: column === "Category" ? "175px" : undefined
@@ -334,10 +335,10 @@ const ExpenseRow = ({
                       : isDate
                         ? formatDate(value)
                         : value || ""}
-          </TableCell>
+          </div>
         );
       })}
-    </TableRow>
+    </div>
   );
 };
 

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import VirtualInfiniteScroll from './VirtualInfiniteScroll';
 import ExpenseRow from './ExpenseRow';
-import { TableHead, TableRow } from "@/components/ui/table";
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 // Constants for expense table configuration
@@ -194,53 +193,51 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     );
   }
   
+  // Create header component
+  const headerComponent = (
+    <div className="virtual-table-row">
+      <div className="virtual-table-cell w-12"></div>
+      <div className="virtual-table-cell w-16 font-mono text-xs text-muted-foreground">#</div>
+      {columns.map(column => (
+        <div
+          key={column}
+          className={`virtual-table-cell font-semibold text-xs ${
+            column === "Status" ? "text-right" : ""
+          }`}
+          style={{
+            minWidth: column === "Category" ? "175px" : undefined
+          }}
+        >
+          {column}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <div
-      className="spreadsheet overflow-auto relative h-[calc(100vh-250px)]"
-    >
-      <table className="w-full caption-bottom text-sm">
-        <thead className="[&_tr]:border-b sticky top-0 z-10">
-          <TableRow className="bg-background border-b">
-            <TableHead className="w-12 bg-background"></TableHead>
-            <TableHead className="w-16 bg-background">#</TableHead>
-            {columns.map(column => (
-              <TableHead
-                key={column}
-                className={`bg-background ${
-                  column === "Status" ? "text-right" : ""
-                }`}
-                style={{
-                  minWidth: column === "Category" ? "175px" : undefined
-                }}
-              >
-                {column}
-              </TableHead>
-            ))}
-          </TableRow>
-        </thead>
-        {/* Virtual Scrolling Table Body - VirtualInfiniteScroll renders its own tbody elements */}
-        <VirtualInfiniteScroll
-          totalItems={totalExpenses}
-          itemHeight={LIST_ITEM_HEIGHT}
-          pageSize={ROWS_PER_PAGE}
-          onRequestPage={requestExpensePage}
-          ItemComponent={ExpenseRow}
-          itemProps={expenseRowProps()}
-          containerHeight="calc(100vh - 200px)"
-          loadingComponent={() => (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <div style={{
-                width: '16px',
-                height: '16px',
-                border: '2px solid #e5e7eb',
-                borderTop: '2px solid #3b82f6',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }}></div>
-            </div>
-          )}
-        />
-      </table>
+    <div className="spreadsheet overflow-auto relative h-[calc(100vh-250px)]">
+      {/* Virtual Scrolling Table with Header */}
+      totalItems={totalExpenses}
+        itemHeight={LIST_ITEM_HEIGHT}
+        pageSize={ROWS_PER_PAGE}
+        onRequestPage={requestExpensePage}
+        ItemComponent={ExpenseRow}
+        itemProps={expenseRowProps()}
+        containerHeight="calc(100vh - 200px)"
+        headerComponent={headerComponent}
+        loadingComponent={() => (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid #e5e7eb',
+              borderTop: '2px solid #3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+          </div>
+        )}
+      />
     </div>
   );
 };
