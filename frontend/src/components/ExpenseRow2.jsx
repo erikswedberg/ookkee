@@ -1,12 +1,11 @@
 import React from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
-import { TableCell, TableRow } from "@/components/ui/table";
 import { RefreshCw } from "lucide-react";
 import { formatCurrency, formatDate } from '../utils/formatters';
 import dayjs from 'dayjs';
 
-// ExpenseRow component for traditional HTML table context
-const ExpenseRow = ({ 
+// ExpenseRow2 component for virtual scroll with div elements and CSS table display
+const ExpenseRow2 = ({ 
   expense, 
   expenseIndex, 
   categories = [], 
@@ -252,12 +251,12 @@ const ExpenseRow = ({
 
   const columns = getColumns();
 
-  // Traditional HTML table structure
+  // Virtual scroll div structure with CSS table display
   return (
-    <TableRow
+    <div
       data-row-index={expenseIndex}
       tabIndex={isActive ? 0 : -1}
-      className={`spreadsheet row group cursor-pointer ${
+      className={`virtual-table-row spreadsheet row group cursor-pointer ${
         isActive
           ? "active"
           : isPersonal
@@ -269,7 +268,7 @@ const ExpenseRow = ({
         setActiveRowWithTabIndex(expenseIndex);
       }}
     >
-      <TableCell className="text-center w-12">
+      <div className="virtual-table-cell text-center w-12">
         <Checkbox
           checked={expense.is_personal || false}
           onCheckedChange={() => {
@@ -277,10 +276,10 @@ const ExpenseRow = ({
           }}
           onClick={e => e.stopPropagation()}
         />
-      </TableCell>
-      <TableCell className="font-mono text-xs text-muted-foreground w-16">
+      </div>
+      <div className="virtual-table-cell font-mono text-xs text-muted-foreground w-16">
         {expense.row_index + 1}
-      </TableCell>
+      </div>
       {columns.map(column => {
         const value = getColumnValue(expense, column);
         const isAmount = column === "Amount";
@@ -291,18 +290,20 @@ const ExpenseRow = ({
         const isStatus = column === "Status";
 
         return (
-          <TableCell
+          <div
             key={column}
             className={
-              isAmount
-                ? `font-mono amount ${
-                    isPersonal && !isActive
-                      ? "text-gray-500"
-                      : getAmountClass(value)
-                  }`
-                : isStatus
-                  ? "text-sm text-right"
-                  : ""
+              `virtual-table-cell ${
+                isAmount
+                  ? `font-mono amount ${
+                      isPersonal && !isActive
+                        ? "text-gray-500"
+                        : getAmountClass(value)
+                    }`
+                  : isStatus
+                    ? "text-sm text-right"
+                    : ""
+              }`
             }
             style={{
               minWidth: column === "Category" ? "175px" : undefined
@@ -333,11 +334,11 @@ const ExpenseRow = ({
                       : isDate
                         ? formatDate(value)
                         : value || ""}
-          </TableCell>
+          </div>
         );
       })}
-    </TableRow>
+    </div>
   );
 };
 
-export default ExpenseRow;
+export default ExpenseRow2;

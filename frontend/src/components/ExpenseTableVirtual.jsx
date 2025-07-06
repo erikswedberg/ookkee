@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import VirtualInfiniteScroll from './VirtualInfiniteScroll';
-import ExpenseRow from './ExpenseRow';
+import ExpenseRow2 from './ExpenseRow2';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 // Constants for expense table configuration
@@ -64,7 +64,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     }
   }, [projectId]);
   
-  // Prepare props for ExpenseRow components
+  // Prepare props for ExpenseRow2 components
   const expenseRowProps = useCallback(() => {
     return {
       categories,
@@ -222,7 +222,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         itemHeight={LIST_ITEM_HEIGHT}
         pageSize={ROWS_PER_PAGE}
         onRequestPage={requestExpensePage}
-        ItemComponent={ExpenseRow}
+        ItemComponent={ExpenseRow2}
         itemProps={expenseRowProps()}
         containerHeight="calc(100vh - 200px)"
         headerComponent={headerComponent}
