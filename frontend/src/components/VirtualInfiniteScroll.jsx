@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './VirtualInfiniteScroll.css';
 
-const VirtualInfiniteScroll = ({
+const VirtualInfiniteScroll = React.forwardRef(({
   totalItems,
   itemHeight = 60,
   pageSize = 20,
@@ -9,7 +9,7 @@ const VirtualInfiniteScroll = ({
   renderItem,
   containerHeight = '400px',
   loadingComponent = null
-}) => {
+}, ref) => {
   const [renderedPages, setRenderedPages] = useState({ 1: true });
   const [pageData, setPageData] = useState({}); // Cache for page data
   const [currentPage, setCurrentPage] = useState(1);
@@ -188,10 +188,9 @@ const VirtualInfiniteScroll = ({
       node.style.height = `${pageHeight}px`;
     }
     
-    // Add page coloring for debugging
-    const pageColors = ['skyblue', 'gold', 'indianred'];
-    node.style.backgroundColor = pageColors[index % 3];
-    node.style.opacity = '0.1';
+    // Add page debugging classes
+    const pageClasses = ['scroll-page-a', 'scroll-page-b', 'scroll-page-c'];
+    node.className = `virtual-scroll-page ${pageClasses[index % 3]}`;
     
     // Render items
     const items = data || [];
@@ -356,6 +355,15 @@ const VirtualInfiniteScroll = ({
     </div>
   ));
   
+  // Expose scroll reset functionality
+  React.useImperativeHandle(ref, () => ({
+    resetScroll: () => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = 0;
+      }
+    }
+  }));
+  
   return (
     <div 
       ref={containerRef}
@@ -368,9 +376,9 @@ const VirtualInfiniteScroll = ({
         style={{ height: `${totalHeight}px`, position: 'relative' }}
       >
         {/* Three list nodes for page cycling */}
-        <div ref={listNodeA} className="virtual-scroll-page" data-page=""></div>
-        <div ref={listNodeB} className="virtual-scroll-page" data-page=""></div>
-        <div ref={listNodeC} className="virtual-scroll-page" data-page=""></div>
+        <div ref={listNodeA} className="virtual-scroll-page scroll-page-a" data-page=""></div>
+        <div ref={listNodeB} className="virtual-scroll-page scroll-page-b" data-page=""></div>
+        <div ref={listNodeC} className="virtual-scroll-page scroll-page-c" data-page=""></div>
         
         {/* Loading indicators */}
         <div ref={loadingNodeA} className="virtual-scroll-loading" data-page="">
@@ -397,6 +405,8 @@ const VirtualInfiniteScroll = ({
       )}
     </div>
   );
-};
+});
+
+VirtualInfiniteScroll.displayName = 'VirtualInfiniteScroll';
 
 export default VirtualInfiniteScroll;

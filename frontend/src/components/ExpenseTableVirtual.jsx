@@ -10,11 +10,21 @@ const ROWS_PER_PAGE = 20;    // Number of rows per virtual page
 const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   const [categories, setCategories] = useState([]);
   const apiCache = useRef({});
+  const virtualScrollRef = useRef(null);
   
   // Fetch categories on component mount
   React.useEffect(() => {
     fetchCategories();
   }, []);
+  
+  // Clear cache and reset scroll when project changes
+  React.useEffect(() => {
+    apiCache.current = {};
+    // Reset virtual scroll position
+    if (virtualScrollRef.current) {
+      virtualScrollRef.current.resetScroll();
+    }
+  }, [projectId]);
   
   const fetchCategories = async () => {
     try {
@@ -318,6 +328,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       
       {/* Virtual Scrolling Table Body */}
       <VirtualInfiniteScroll
+        ref={virtualScrollRef}
         totalItems={totalExpenses}
         itemHeight={LIST_ITEM_HEIGHT}
         pageSize={ROWS_PER_PAGE}

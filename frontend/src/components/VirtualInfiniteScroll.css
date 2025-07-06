@@ -17,6 +17,19 @@
   top: 0;
 }
 
+/* Page debugging colors */
+.scroll-page-a {
+  background-color: rgba(135, 206, 235, 0.3); /* skyblue with 30% opacity */
+}
+
+.scroll-page-b {
+  background-color: rgba(255, 215, 0, 0.3); /* gold with 30% opacity */
+}
+
+.scroll-page-c {
+  background-color: rgba(205, 92, 92, 0.3); /* indianred with 30% opacity */
+}
+
 .virtual-scroll-loading {
   position: absolute;
   width: 100%;
