@@ -365,11 +365,11 @@ const VirtualInfiniteScroll = ({
     <div 
       ref={containerRef}
       className="virtual-infinite-scroll"
-      style={{ height: containerHeight, overflow: 'auto', position: 'relative' }}
+      style={{ height: containerHeight, overflow: 'auto', position: 'relative', width: '100%' }}
     >
       {/* Render header if provided */}
       {headerComponent && (
-        <div className="virtual-table-header sticky top-0 z-10 bg-background border-b">
+        <div className="virtual-table-header sticky top-0 z-10 bg-background">
           {headerComponent}
         </div>
       )}

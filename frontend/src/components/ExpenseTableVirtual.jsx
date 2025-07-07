@@ -204,17 +204,15 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     );
   }
 
-  // Create header component
+  // Create header component to match traditional table header
   const headerComponent = (
     <div className="virtual-table-row">
       <div className="virtual-table-cell w-12"></div>
-      <div className="virtual-table-cell w-16 font-mono text-xs text-muted-foreground">
-        #
-      </div>
+      <div className="virtual-table-cell w-16">#</div>
       {columns.map(column => (
         <div
           key={column}
-          className={`virtual-table-cell font-semibold text-xs ${
+          className={`virtual-table-cell ${
             column === "Status" ? "text-right" : ""
           }`}
           style={{
@@ -237,7 +235,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         onRequestPage={requestExpensePage}
         ItemComponent={ExpenseRow2}
         itemProps={expenseRowProps()}
-        containerHeight="calc(100vh - 200px)"
+        containerHeight="calc(100vh - 172px)"
         headerComponent={headerComponent}
         loadingComponent={() => (
           <div
