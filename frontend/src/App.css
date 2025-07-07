@@ -239,14 +239,16 @@
 }
 
 .spreadsheet-table th,
-.spreadsheet-table td {
+.spreadsheet-table td, 
+.spreadsheet-table .virtual-table-header .virtual-table-cell {
   padding: 0.75rem 1rem;
   text-align: left;
   border-bottom: 1px solid #dee2e6;
   border-right: 1px solid #f1f3f4;
 }
 
-.spreadsheet-table th {
+.spreadsheet-table th, 
+.spreadsheet-table .virtual-table-header .virtual-table-cell {
   background: #f8f9fa;
   font-weight: 600;
   color: #2c3e50;

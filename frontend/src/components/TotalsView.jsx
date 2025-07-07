@@ -59,7 +59,7 @@ const TotalsView = () => {
   }
 
   return (
-    <div className="overflow-auto h-[calc(100vh-250px)]">
+    <div className="overflow-auto h-[calc(100vh-172px)]">
       <table className="w-full caption-bottom text-sm">
         <thead className="[&_tr]:border-b sticky top-0 z-10">
           <TableRow className="bg-background border-b">

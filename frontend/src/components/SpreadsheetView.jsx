@@ -89,7 +89,15 @@ const SpreadsheetTable = () => {
 
   // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
   const getColumns = () => {
-    return ["Source", "Date", "Description", "Amount", "Category", "Action", "Status"];
+    return [
+      "Source",
+      "Date",
+      "Description",
+      "Amount",
+      "Category",
+      "Action",
+      "Status",
+    ];
   };
 
   // Intersection Observer for infinite scroll
@@ -173,7 +181,7 @@ const SpreadsheetTable = () => {
 
   return (
     <div
-      className="spreadsheet overflow-auto relative h-[calc(100vh-250px)]"
+      className="spreadsheet overflow-auto relative h-[calc(100vh-172px)]"
       ref={containerRef}
     >
       <table className="w-full caption-bottom text-sm" ref={tableRef}>
@@ -188,7 +196,7 @@ const SpreadsheetTable = () => {
                   column === "Status" ? "text-right" : ""
                 }`}
                 style={{
-                  minWidth: column === "Category" ? "175px" : undefined
+                  minWidth: column === "Category" ? "175px" : undefined,
                 }}
               >
                 {column}
@@ -295,7 +303,13 @@ const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar }) => {
 };
 
 // Main content component using contexts
-const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCollapsed, onToggleSidebar }) => {
+const SpreadsheetViewContent = ({
+  project,
+  activeTab,
+  setActiveTab,
+  isSidebarCollapsed,
+  onToggleSidebar,
+}) => {
   const {
     expenses,
     progress,
@@ -334,7 +348,7 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
           <div className="flex items-center justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={onToggleSidebar}
                   className="text-muted-foreground hover:text-foreground transition-colors text-sm"
                   title={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
@@ -351,8 +365,20 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
               {project?.row_count > 0 && (
                 <div className="w-48">
                   <DualProgress
-                    suggestedValue={progress.total_count > 0 ? ((progress.total_count - progress.uncategorized_count) / progress.total_count) * 100 : 0}
-                    acceptedValue={progress.total_count > 0 ? (progress.categorized_count / progress.total_count) * 100 : 0}
+                    suggestedValue={
+                      progress.total_count > 0
+                        ? ((progress.total_count -
+                            progress.uncategorized_count) /
+                            progress.total_count) *
+                          100
+                        : 0
+                    }
+                    acceptedValue={
+                      progress.total_count > 0
+                        ? (progress.categorized_count / progress.total_count) *
+                          100
+                        : 0
+                    }
                     className="h-2"
                   />
                 </div>
@@ -378,14 +404,10 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
                   onTogglePlay={toggleAutoplay}
                   isPlaying={autoplayMode}
                   disabled={
-                    loading ||
-                    expenses.length === 0 ||
-                    categories.length === 0
+                    loading || expenses.length === 0 || categories.length === 0
                   }
                   playDisabled={
-                    loading ||
-                    expenses.length === 0 ||
-                    categories.length === 0
+                    loading || expenses.length === 0 || categories.length === 0
                   }
                   className="flex items-center"
                 >
@@ -395,7 +417,8 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
                   {aiCategorizing
                     ? "AI Categorizing..."
                     : (() => {
-                        const uncategorizedCount = progress.uncategorized_count || 0;
+                        const uncategorizedCount =
+                          progress.uncategorized_count || 0;
                         return uncategorizedCount > 0
                           ? `AI Categorize (${Math.min(uncategorizedCount, 20)})`
                           : "AI Categorize";
@@ -416,7 +439,7 @@ const SpreadsheetViewContent = ({ project, activeTab, setActiveTab, isSidebarCol
             </TabsContent>
 
             <TabsContent value="expenses2">
-              <ExpenseTableVirtual 
+              <ExpenseTableVirtual
                 projectId={project?.id}
                 totalExpenses={progress?.total_count || 0}
               />
