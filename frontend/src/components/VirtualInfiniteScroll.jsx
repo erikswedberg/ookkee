@@ -17,6 +17,7 @@ const VirtualInfiniteScroll = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [scrollLock, setScrollLock] = useState(false);
   const [lastScrollPos, setLastScrollPos] = useState(0);
+  const lastScrollPosRef = useRef(0);
   const [loadingPages, setLoadingPages] = useState(new Set()); // Track pages being loaded
 
   // Fixed page data arrays - 20 items each, null for empty slots
@@ -74,7 +75,7 @@ const VirtualInfiniteScroll = ({
       const nextPage = page + 1;
       if (nextPage <= maxPages) {
         const nextPos = getPositionFromPage(nextPage);
-        const viewportHeight = containerRef.current?.clientHeight || 400;
+        const viewportHeight = containerRef.current?.parentElement?.clientHeight || 400;
 
         if (nextPos > pos && nextPos < pos + viewportHeight) {
           pages.push(nextPage);
@@ -85,7 +86,7 @@ const VirtualInfiniteScroll = ({
       const prevPage = page - 1;
       if (prevPage >= 1) {
         const prevPos = getPositionFromPage(prevPage);
-        const viewportHeight = containerRef.current?.clientHeight || 400;
+        const viewportHeight = containerRef.current?.parentElement?.clientHeight || 400;
 
         if (prevPos < pos + viewportHeight && prevPos > pos - pageHeight) {
           pages.unshift(prevPage);
@@ -100,11 +101,12 @@ const VirtualInfiniteScroll = ({
   // Get scroll direction
   const getScrollDirection = useCallback(
     pos => {
-      const direction = pos > lastScrollPos ? 'down' : 'up';
+      const direction = pos > lastScrollPosRef.current ? 'down' : 'up';
+      lastScrollPosRef.current = pos;
       setLastScrollPos(pos);
       return direction;
     },
-    [lastScrollPos]
+    []
   );
 
   // Find available list node for rendering a page ("Follow the Yellow Brick Road")
@@ -305,7 +307,7 @@ const VirtualInfiniteScroll = ({
   const handleScroll = useCallback(() => {
     if (scrollLock) return;
 
-    const pos = containerRef.current?.scrollTop || 0;
+    const pos = containerRef.current?.parentElement?.scrollTop || 0;
     const direction = getScrollDirection(pos);
     const page = getPageFromPosition(pos);
 
@@ -342,7 +344,7 @@ const VirtualInfiniteScroll = ({
   const pageWatchdog = useCallback(() => {
     if (scrollLock) return;
 
-    const pos = containerRef.current?.scrollTop || 0;
+    const pos = containerRef.current?.parentElement?.scrollTop || 0;
     const pages = getPagesFromPosition(pos);
 
     // Request all visible pages
@@ -388,7 +390,11 @@ const VirtualInfiniteScroll = ({
     const container = containerRef.current;
     if (!container) return;
 
-    container.addEventListener('scroll', handleScroll);
+    // Listen to scroll events on the parent container (the one with overflow-auto)
+    const scrollContainer = container.parentElement;
+    if (!scrollContainer) return;
+
+    scrollContainer.addEventListener('scroll', handleScroll);
 
     // Start page watchdog (more aggressive like original - 500ms)
     pageWatchdogRef.current = setInterval(pageWatchdog, 500);
@@ -399,7 +405,7 @@ const VirtualInfiniteScroll = ({
     }
 
     return () => {
-      container.removeEventListener('scroll', handleScroll);
+      scrollContainer.removeEventListener('scroll', handleScroll);
       if (pageWatchdogRef.current) {
         clearInterval(pageWatchdogRef.current);
       }
@@ -517,7 +523,7 @@ const VirtualInfiniteScroll = ({
             <div>Rendered Pages: {Object.keys(renderedPages).join(', ')}</div>
             <div>Cached Pages: {Object.keys(pageData).join(', ')}</div>
             <div>Loading Pages: {Array.from(loadingPages).join(', ')}</div>
-            <div>Scroll Direction: {lastScrollPos}</div>
+            <div>Scroll Position: {lastScrollPos}</div>
           </div>
         )}
       </div>
