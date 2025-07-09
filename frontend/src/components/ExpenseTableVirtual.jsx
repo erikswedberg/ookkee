@@ -204,47 +204,44 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     );
   }
 
-  // Create header component
+  // Create header component with flex layout matching the row structure
   const headerComponent = (
-    <div className="virtual-table-row">
-      <div className="virtual-table-cell w-12"></div>
-      <div className="virtual-table-cell w-16 font-mono text-xs text-muted-foreground">
-        #
-      </div>
-      {columns.map(column => (
-        <div
-          key={column}
-          className={`virtual-table-cell font-semibold text-xs ${
-            column === "Status" ? "text-right" : ""
-          }`}
-          style={{
-            minWidth: column === "Category" ? "175px" : undefined,
-          }}
-        >
-          {column}
-        </div>
-      ))}
+    <div className="flex border-b bg-background sticky top-0 z-10">
+      <div className="expense-col-personal px-3 py-2 text-xs font-medium text-center flex items-center justify-center"></div>
+      <div className="expense-col-number px-3 py-2 text-xs font-medium flex items-center">#</div>
+      <div className="expense-col-source px-3 py-2 text-xs font-medium flex items-center">Source</div>
+      <div className="expense-col-date px-3 py-2 text-xs font-medium flex items-center">Date</div>
+      <div className="expense-col-description px-3 py-2 text-xs font-medium flex items-center">Description</div>
+      <div className="expense-col-amount px-3 py-2 text-xs font-medium flex items-center">Amount</div>
+      <div className="expense-col-category px-3 py-2 text-xs font-medium flex items-center">Category</div>
+      <div className="expense-col-action px-3 py-2 text-xs font-medium flex items-center">Action</div>
+      <div className="expense-col-status px-3 py-2 text-xs font-medium flex items-center justify-end">Status</div>
     </div>
   );
 
   return (
-    <div className="spreadsheet overflow-auto relative h-[calc(100vh-172px)]">
-      {/* Virtual Scrolling Table with Header */}
-      <VirtualInfiniteScroll
-        totalItems={totalExpenses}
-        itemHeight={LIST_ITEM_HEIGHT}
-        pageSize={ROWS_PER_PAGE}
-        onRequestPage={requestExpensePage}
-        ItemComponent={ExpenseRow2}
-        itemProps={expenseRowProps()}
-        containerHeight="calc(100vh - 172px)"
-        headerComponent={headerComponent}
-        loadingComponent={() => (
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-          </div>
-        )}
-      />
+    <div className="spreadsheet relative h-[calc(100vh-172px)]">
+      {/* Header outside of virtual scroll container */}
+      {headerComponent}
+      
+      {/* Virtual Scrolling Table */}
+      <div className="overflow-auto" style={{ height: 'calc(100% - 41px)' }}>
+        <VirtualInfiniteScroll
+          totalItems={totalExpenses}
+          itemHeight={LIST_ITEM_HEIGHT}
+          pageSize={ROWS_PER_PAGE}
+          onRequestPage={requestExpensePage}
+          ItemComponent={ExpenseRow2}
+          itemProps={expenseRowProps()}
+          containerHeight="100%"
+          headerComponent={null}
+          loadingComponent={() => (
+            <div className="loading-spinner">
+              <div className="spinner"></div>
+            </div>
+          )}
+        />
+      </div>
     </div>
   );
 };
