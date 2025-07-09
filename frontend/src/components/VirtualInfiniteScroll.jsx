@@ -153,7 +153,6 @@ const VirtualInfiniteScroll = ({
 
         // Clear the node before reuse (like emptyNode in original)
         if (returnNode) {
-          returnNode.innerHTML = '';
           returnNode.dataset.page = '';
         }
       }
