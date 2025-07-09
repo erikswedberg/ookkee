@@ -208,7 +208,8 @@ const VirtualInfiniteScroll = ({
       if (!node) return;
 
       // Get the old page that was in this container (if any)
-      const oldPage = parseInt(node.dataset.page || '0', 10);
+      const oldPage = node.dataset.page ? parseInt(node.dataset.page, 10) : null;
+      console.log('displayPage:', { page, oldPage, datasetPage: node.dataset.page, index });
 
       // Set page data attribute for debugging
       node.dataset.page = page;
