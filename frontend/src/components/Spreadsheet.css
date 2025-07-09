@@ -114,11 +114,11 @@
   position: relative;
 }
 
-.spreadsheet .row.personal::after {
+.spreadsheet .row.personal > .column:not(:first-child)::after {
   content: '';
   position: absolute;
   top: 0;
-  left: 50px; /* Width of checkbox column */
+  left: 0; /* Width of checkbox column */
   right: 0;
   bottom: 0;
   background: #FFFFFF;

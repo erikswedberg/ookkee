@@ -1,14 +1,14 @@
 import React from 'react';
-import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw } from "lucide-react";
+import { Checkbox } from '@/components/ui/checkbox';
+import { RefreshCw } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import dayjs from 'dayjs';
 
-// ExpenseRow2 component for virtual scroll with div elements and CSS table display
-const ExpenseRow2 = ({ 
-  expense, 
-  expenseIndex, 
-  categories = [], 
+// ExpenseRow2 component for virtual scroll with flex layout and percentage-based column widths
+const ExpenseRow2 = ({
+  expense,
+  expenseIndex,
+  categories = [],
   isActive = false,
   processingRows = new Set(),
   activeRowIndex,
@@ -19,61 +19,61 @@ const ExpenseRow2 = ({
   handleClearCategory,
   setIsTableActive,
   setActiveRowWithTabIndex,
-  isVisible = true
+  isVisible = true,
 }) => {
   // Hide row if not visible (for virtual scroll empty slots)
   if (!isVisible || !expense) {
     return <div className="expense-row-hidden" />;
   }
-  
+
   const isPersonal = expense.is_personal;
-  
+
   // EXACT copy of utility functions from original SpreadsheetView
   const formatAmount = amount => {
-    if (amount === null || amount === undefined) return "";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    if (amount === null || amount === undefined) return '';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
       minimumFractionDigits: 2,
     }).format(amount);
   };
 
   const getAmountClass = amount => {
-    if (amount === null || amount === undefined) return "";
-    return amount >= 0 ? "text-green-600" : "text-red-600";
+    if (amount === null || amount === undefined) return '';
+    return amount >= 0 ? 'text-green-600' : 'text-red-600';
   };
 
   // EXACT copy of getColumnValue from original
   const getColumnValue = (expense, column) => {
     switch (column) {
-      case "Source":
-        return expense.source || "";
-      case "Date":
-        return expense.date_text || "";
-      case "Description":
-        return expense.description || "";
-      case "Amount":
+      case 'Source':
+        return expense.source || '';
+      case 'Date':
+        return expense.date_text || '';
+      case 'Description':
+        return expense.description || '';
+      case 'Amount':
         return expense.amount;
-      case "Category":
+      case 'Category':
         return (
-          expense.accepted_category_id || expense.suggested_category_id || ""
+          expense.accepted_category_id || expense.suggested_category_id || ''
         );
-      case "Action":
+      case 'Action':
         return null;
-      case "Status":
-        if (expense.is_personal) return "Personal";
+      case 'Status':
+        if (expense.is_personal) return 'Personal';
         if (expense.accepted_category_id) {
-          if (!expense.suggested_category_id) return "Manual";
+          if (!expense.suggested_category_id) return 'Manual';
           if (expense.accepted_category_id !== expense.suggested_category_id)
-            return "Manual";
-          return "Accepted";
+            return 'Manual';
+          return 'Accepted';
         } else if (expense.suggested_category_id) {
-          return "Suggested";
+          return 'Suggested';
         } else {
-          return "Uncategorized";
+          return 'Uncategorized';
         }
       default:
-        return "";
+        return '';
     }
   };
 
@@ -84,25 +84,25 @@ const ExpenseRow2 = ({
         ? expense.accepted_category_id.toString()
         : expense.suggested_category_id
           ? expense.suggested_category_id.toString()
-          : "";
+          : '';
     };
 
     const getCategoryClassName = expense => {
       const expenseIndex = expenses.indexOf(expense);
 
       if (expense.is_personal && activeRowIndex !== expenseIndex) {
-        return "personal";
+        return 'personal';
       }
 
       if (expense.accepted_category_id) {
-        return "accepted";
+        return 'accepted';
       }
 
       if (expense.suggested_category_id) {
-        return "suggested";
+        return 'suggested';
       }
 
-      return "uncategorized";
+      return 'uncategorized';
     };
 
     const handleCategoryChange = e => {
@@ -129,7 +129,7 @@ const ExpenseRow2 = ({
             return (
               <option key={category.id} value={category.id}>
                 {category.name}
-                {isAiSuggested ? " 💡" : ""}
+                {isAiSuggested ? ' 💡' : ''}
               </option>
             );
           })}
@@ -141,17 +141,17 @@ const ExpenseRow2 = ({
   // EXACT copy of renderStatus from original
   const renderStatus = expense => {
     const getStatusValue = expense => {
-      if (expense.is_personal) return "Personal";
+      if (expense.is_personal) return 'Personal';
 
       if (expense.accepted_category_id) {
-        if (!expense.suggested_category_id) return "Manual";
+        if (!expense.suggested_category_id) return 'Manual';
         if (expense.accepted_category_id !== expense.suggested_category_id)
-          return "Manual";
-        return "Accepted";
+          return 'Manual';
+        return 'Accepted';
       } else if (expense.suggested_category_id) {
-        return "Suggested";
+        return 'Suggested';
       } else {
-        return "Uncategorized";
+        return 'Uncategorized';
       }
     };
 
@@ -185,15 +185,15 @@ const ExpenseRow2 = ({
       <div
         className={`actions ${
           activeRowIndex === expenseIndex
-            ? "opacity-100"
-            : "opacity-0 group-hover:opacity-100"
+            ? 'opacity-100'
+            : 'opacity-0 group-hover:opacity-100'
         }`}
       >
         <button
           className={`link ${
             expense.accepted_category_id
-              ? "text-gray-400 cursor-not-allowed pointer-events-none"
-              : "text-blue-600 hover:text-blue-800"
+              ? 'text-gray-400 cursor-not-allowed pointer-events-none'
+              : 'text-blue-600 hover:text-blue-800'
           }`}
           onClick={e => {
             e.preventDefault();
@@ -207,7 +207,7 @@ const ExpenseRow2 = ({
           }}
           disabled={!!expense.accepted_category_id}
           style={{
-            visibility: expense.suggested_category_id ? "visible" : "hidden",
+            visibility: expense.suggested_category_id ? 'visible' : 'hidden',
           }}
         >
           Accept
@@ -218,8 +218,8 @@ const ExpenseRow2 = ({
             visibility:
               expense.suggested_category_id &&
               (expense.accepted_category_id || expense.suggested_category_id)
-                ? "visible"
-                : "hidden",
+                ? 'visible'
+                : 'hidden',
           }}
         >
           |
@@ -234,8 +234,8 @@ const ExpenseRow2 = ({
           style={{
             visibility:
               expense.accepted_category_id || expense.suggested_category_id
-                ? "visible"
-                : "hidden",
+                ? 'visible'
+                : 'hidden',
           }}
         >
           Clear
@@ -246,29 +246,33 @@ const ExpenseRow2 = ({
 
   // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
   const getColumns = () => {
-    return ["Source", "Date", "Description", "Amount", "Category", "Action", "Status"];
+    return [
+      'Source',
+      'Date',
+      'Description',
+      'Amount',
+      'Category',
+      'Action',
+      'Status',
+    ];
   };
 
   const columns = getColumns();
 
-  // Virtual scroll div structure with CSS table display
+  // Virtual scroll div structure with flex layout and nth-child column widths
   return (
     <div
       data-row-index={expenseIndex}
       tabIndex={isActive ? 0 : -1}
-      className={`virtual-table-row spreadsheet row group cursor-pointer ${
-        isActive
-          ? "active"
-          : isPersonal
-            ? "personal"
-            : "hover:bg-sky-50"
+      className={`scroll-row border-b spreadsheet row group cursor-pointer ${
+        isActive ? 'active' : isPersonal ? 'personal' : 'hover:bg-sky-50'
       }`}
       onClick={() => {
         setIsTableActive(true);
         setActiveRowWithTabIndex(expenseIndex);
       }}
     >
-      <div className="virtual-table-cell text-center w-12">
+      <div className="scroll-column px-3 py-2 text-center">
         <Checkbox
           checked={expense.is_personal || false}
           onCheckedChange={() => {
@@ -277,63 +281,60 @@ const ExpenseRow2 = ({
           onClick={e => e.stopPropagation()}
         />
       </div>
-      <div className="virtual-table-cell font-mono text-xs text-muted-foreground w-16">
+      <div className="scroll-column px-3 py-2 font-mono text-xs text-muted-foreground">
         {expense.row_index + 1}
       </div>
       {columns.map(column => {
         const value = getColumnValue(expense, column);
-        const isAmount = column === "Amount";
-        const isDate = column === "Date";
-        const isDescription = column === "Description";
-        const isCategory = column === "Category";
-        const isAction = column === "Action";
-        const isStatus = column === "Status";
+        const isAmount = column === 'Amount';
+        const isDate = column === 'Date';
+        const isDescription = column === 'Description';
+        const isCategory = column === 'Category';
+        const isAction = column === 'Action';
+        const isStatus = column === 'Status';
 
         return (
           <div
             key={column}
-            className={
-              `virtual-table-cell ${
-                isAmount
-                  ? `font-mono amount ${
-                      isPersonal && !isActive
-                        ? "text-gray-500"
-                        : getAmountClass(value)
-                    }`
-                  : isStatus
-                    ? "text-sm text-right"
-                    : ""
-              }`
-            }
-            style={{
-              minWidth: column === "Category" ? "175px" : undefined
-            }}
-          >
-            {isCategory
-              ? renderCategory(expense)
-              : isAction
-                ? renderAction(expense, expenseIndex)
+            className={`scroll-column px-3 py-2 ${
+              isAmount
+                ? `font-mono amount text-sm ${
+                    isPersonal && !isActive
+                      ? 'text-gray-500'
+                      : getAmountClass(value)
+                  }`
                 : isStatus
-                  ? renderStatus(expense)
-                  : isDescription
-                    ? (
-                        <div style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          lineHeight: '1.3',
-                          maxHeight: '2.6em'
-                        }}>
-                          {value || ''}
-                        </div>
-                      )
-                    : isAmount && typeof value === "number"
-                      ? formatAmount(value)
-                      : isDate
-                        ? formatDate(value)
-                        : value || ""}
+                  ? 'text-sm justify-end'
+                  : ''
+            }`}
+          >
+            {isCategory ? (
+              renderCategory(expense)
+            ) : isAction ? (
+              renderAction(expense, expenseIndex)
+            ) : isStatus ? (
+              renderStatus(expense)
+            ) : isDescription ? (
+              <div
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: '1.3',
+                  maxHeight: '2.6em',
+                }}
+              >
+                {value || ''}
+              </div>
+            ) : isAmount && typeof value === 'number' ? (
+              formatAmount(value)
+            ) : isDate ? (
+              formatDate(value)
+            ) : (
+              value || ''
+            )}
           </div>
         );
       })}

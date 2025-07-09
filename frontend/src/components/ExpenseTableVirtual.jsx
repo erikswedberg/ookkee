@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useRef } from "react";
-import VirtualInfiniteScroll from "./VirtualInfiniteScroll";
-import ExpenseRow2 from "./ExpenseRow2";
-import { formatCurrency, formatDate } from "../utils/formatters";
+import React, { useState, useCallback, useRef } from 'react';
+import VirtualInfiniteScroll from './VirtualInfiniteScroll';
+import ExpenseRow2 from './ExpenseRow2';
+import { formatCurrency, formatDate } from '../utils/formatters';
 
 // Constants for expense table configuration
 const LIST_ITEM_HEIGHT = 60; // Height of each row in pixels
@@ -23,14 +23,14 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
 
   const fetchCategories = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const response = await fetch(`${API_URL}/api/categories`);
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
       }
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -45,7 +45,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       }
 
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const offset = (page - 1) * pageSize;
         const response = await fetch(
           `${API_URL}/api/projects/${projectId}/expenses?limit=${pageSize}&offset=${offset}`
@@ -57,10 +57,10 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
           apiCache.current[cacheKey] = data;
           return data;
         } else {
-          throw new Error("Failed to fetch expenses");
+          throw new Error('Failed to fetch expenses');
         }
       } catch (error) {
-        console.error("Error fetching expenses:", error);
+        console.error('Error fetching expenses:', error);
         return [];
       }
     },
@@ -96,33 +96,33 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   React.useEffect(() => {
     window.togglePersonal = async (expenseId, isPersonal) => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: "PUT",
+          method: 'PUT',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({ is_personal: isPersonal }),
         });
 
         if (!response.ok) {
-          throw new Error("Failed to update expense");
+          throw new Error('Failed to update expense');
         }
 
         // Clear cache to force refresh
         apiCache.current = {};
       } catch (error) {
-        console.error("Error updating personal status:", error);
+        console.error('Error updating personal status:', error);
       }
     };
 
     window.updateCategory = async (expenseId, categoryId) => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: "PUT",
+          method: 'PUT',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             accepted_category_id: categoryId ? parseInt(categoryId) : null,
@@ -130,30 +130,30 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         });
 
         if (!response.ok) {
-          throw new Error("Failed to update category");
+          throw new Error('Failed to update category');
         }
 
         // Clear cache to force refresh
         apiCache.current = {};
       } catch (error) {
-        console.error("Error updating category:", error);
+        console.error('Error updating category:', error);
       }
     };
 
     window.acceptSuggestion = async expenseId => {
       // Find the expense to get its suggested category
       // This is a simplified implementation - in a real app you'd track this better
-      console.log("Accept suggestion for expense:", expenseId);
+      console.log('Accept suggestion for expense:', expenseId);
       // Would need to implement proper suggestion acceptance
     };
 
     window.clearCategory = async expenseId => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: "PUT",
+          method: 'PUT',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             accepted_category_id: -1,
@@ -162,13 +162,13 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         });
 
         if (!response.ok) {
-          throw new Error("Failed to clear category");
+          throw new Error('Failed to clear category');
         }
 
         // Clear cache to force refresh
         apiCache.current = {};
       } catch (error) {
-        console.error("Error clearing category:", error);
+        console.error('Error clearing category:', error);
       }
     };
 
@@ -181,20 +181,16 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     };
   }, [projectId]);
 
-  // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
-  const getColumns = () => {
-    return [
-      "Source",
-      "Date",
-      "Description",
-      "Amount",
-      "Category",
-      "Action",
-      "Status",
-    ];
-  };
-
-  const columns = getColumns();
+  // Fixed columns for expense table
+  const columns = [
+    'Source',
+    'Date',
+    'Description',
+    'Amount',
+    'Category',
+    'Action',
+    'Status',
+  ];
 
   if (!projectId) {
     return (
@@ -203,23 +199,16 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       </div>
     );
   }
-
-  // Create header component
   const headerComponent = (
-    <div className="virtual-table-row">
-      <div className="virtual-table-cell w-12"></div>
-      <div className="virtual-table-cell w-16 font-mono text-xs text-muted-foreground">
-        #
-      </div>
+    <div className="scroll-header border-b bg-background ">
+      <div className="scroll-th px-3 py-2 text-xs font-medium text-center"></div>
+      <div className="scroll-th scroll-th px-3 py-2 text-xs font-medium">#</div>
       {columns.map(column => (
         <div
           key={column}
-          className={`virtual-table-cell font-semibold text-xs ${
-            column === "Status" ? "text-right" : ""
+          className={`scroll-th px-3 py-2 text-xs font-medium ${
+            column === 'Status' ? 'text-right' : ''
           }`}
-          style={{
-            minWidth: column === "Category" ? "175px" : undefined,
-          }}
         >
           {column}
         </div>
@@ -228,23 +217,25 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   );
 
   return (
-    <div className="spreadsheet overflow-auto relative h-[calc(100vh-172px)]">
-      {/* Virtual Scrolling Table with Header */}
-      <VirtualInfiniteScroll
-        totalItems={totalExpenses}
-        itemHeight={LIST_ITEM_HEIGHT}
-        pageSize={ROWS_PER_PAGE}
-        onRequestPage={requestExpensePage}
-        ItemComponent={ExpenseRow2}
-        itemProps={expenseRowProps()}
-        containerHeight="calc(100vh - 172px)"
-        headerComponent={headerComponent}
-        loadingComponent={() => (
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-          </div>
-        )}
-      />
+    <div className="spreadsheet relative h-[calc(100vh-172px)]">
+      {/* Virtual Scrolling Table */}
+      <div className="overflow-auto" style={{ height: 'calc(100% - 41px)' }}>
+        <VirtualInfiniteScroll
+          totalItems={totalExpenses}
+          itemHeight={LIST_ITEM_HEIGHT}
+          pageSize={ROWS_PER_PAGE}
+          onRequestPage={requestExpensePage}
+          ItemComponent={ExpenseRow2}
+          itemProps={expenseRowProps()}
+          containerHeight="100%"
+          headerComponent={headerComponent}
+          loadingComponent={() => (
+            <div className="loading-spinner">
+              <div className="spinner"></div>
+            </div>
+          )}
+        />
+      </div>
     </div>
   );
 };

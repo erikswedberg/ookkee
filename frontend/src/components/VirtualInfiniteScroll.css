@@ -9,8 +9,6 @@
 .virtual-scroll-container {
   position: relative;
   width: 100%;
-      display: table;
-
 }
 
 .virtual-scroll-page {
@@ -20,6 +18,21 @@
   top: 0;
 }
 
+.scroll-table {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.scroll-table-header-group {
+  display: table-header-group;
+}
+.scroll-row, .scroll-header {
+  display: table-row;
+}
+.scroll-column, .scroll-th {
+  display: table-cell;
+}
 
 /* Page debugging colors */
 .scroll-page-a {
@@ -34,30 +47,50 @@
   background-color: rgba(205, 92, 92, 0.3); /* indianred with 30% opacity */
 }
 
-/* CSS Table Display Properties for Virtual Scroll */
-.virtual-table {
-  display: table;
-  width: 100%;
+.scroll-row > .scroll-column {
+  height: 60px;
+  border-bottom: 1px solid #e5e7eb; /* Light gray border */
 }
 
-.virtual-table-header {
-  display: table-header-group;
-}
+/* Column width utilities using nth-child selectors */
+/* Personal checkbox column */
+.scroll-header > .scroll-th:nth-child(1),
+.scroll-row > .scroll-column:nth-child(1) { width: 4%; }
 
-.virtual-table-body {
-  display: table-row-group;
+.scroll-header > .scroll-th, .scroll-row > .scroll-column {
+  border-right: 1px solid black;
 }
+/* Row number column */
+.scroll-header > .scroll-th:nth-child(2),
+.scroll-row > .scroll-column:nth-child(2) { width: 4%; }
 
-.virtual-table-row {
-  display: table-row;
-}
+/* Source column */
+.scroll-header > .scroll-th:nth-child(3),
+.scroll-row > .scroll-column:nth-child(3) { width: 11%; }
 
-.virtual-table-cell {
-  display: table-cell;
-  vertical-align: middle;
-  padding: 0.75rem;
-  border-bottom: 1px solid #e5e7eb;
-}
+/* Date column */
+.scroll-header > .scroll-th:nth-child(4),
+.scroll-row > .scroll-column:nth-child(4) { width: 9%; }
+
+/* Description column */
+.scroll-header > .scroll-th:nth-child(5),
+.scroll-row > .scroll-column:nth-child(5) { width: 31%; }
+
+/* Amount column */
+.scroll-header > .scroll-th:nth-child(6),
+.scroll-row > .scroll-column:nth-child(6) { width: 11%; }
+
+/* Category column */
+.scroll-header > .scroll-th:nth-child(7),
+.scroll-row > .scroll-column:nth-child(7) { width: 13%; }
+
+/* Action column */
+.scroll-header > .scroll-th:nth-child(8),
+.scroll-row > .column:nth-child(8) { width: 8%; }
+
+/* Status column */
+.scroll-header > .scroll-th:nth-child(9),
+.scroll-row > .scroll-column:nth-child(9) { width: 9%; }
 
 /* Hidden row styling for virtual scroll empty slots */
 .virtual-infinite-scroll .expense-row-hidden {
