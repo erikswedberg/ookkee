@@ -237,26 +237,11 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         onRequestPage={requestExpensePage}
         ItemComponent={ExpenseRow2}
         itemProps={expenseRowProps()}
-        containerHeight="calc(100vh - 200px)"
+        containerHeight="calc(100vh - 172px)"
         headerComponent={headerComponent}
         loadingComponent={() => (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <div
-              style={{
-                width: "16px",
-                height: "16px",
-                border: "2px solid #e5e7eb",
-                borderTop: "2px solid #3b82f6",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-              }}
-            ></div>
+          <div className="loading-spinner">
+            <div className="spinner"></div>
           </div>
         )}
       />

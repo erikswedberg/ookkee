@@ -2,12 +2,15 @@
 .virtual-infinite-scroll {
   position: relative;
   width: 100%;
+
   overflow: auto;
 }
 
 .virtual-scroll-container {
   position: relative;
   width: 100%;
+      display: table;
+
 }
 
 .virtual-scroll-page {
@@ -16,6 +19,7 @@
   left: 0;
   top: 0;
 }
+
 
 /* Page debugging colors */
 .scroll-page-a {
@@ -131,4 +135,18 @@
 
 .virtual-infinite-scroll::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.loading-spinner .spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
