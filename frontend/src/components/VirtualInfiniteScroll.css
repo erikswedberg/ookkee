@@ -86,7 +86,7 @@
 
 /* Action column */
 .scroll-header > .scroll-th:nth-child(8),
-.scroll-row > .column:nth-child(8) { width: 8%; }
+.scroll-row > .scroll-column:nth-child(8) { width: 8%; }
 
 /* Status column */
 .scroll-header > .scroll-th:nth-child(9),
