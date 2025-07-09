@@ -251,12 +251,12 @@ const ExpenseRow2 = ({
 
   const columns = getColumns();
 
-  // Virtual scroll div structure with flex layout and percentage-based column widths
+  // Virtual scroll div structure with flex layout and nth-child column widths
   return (
     <div
       data-row-index={expenseIndex}
       tabIndex={isActive ? 0 : -1}
-      className={`flex border-b spreadsheet row group cursor-pointer ${
+      className={`virtual-scroll-row flex border-b spreadsheet row group cursor-pointer ${
         isActive
           ? "active"
           : isPersonal

@@ -181,20 +181,16 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     };
   }, [projectId]);
 
-  // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
-  const getColumns = () => {
-    return [
-      "Source",
-      "Date",
-      "Description",
-      "Amount",
-      "Category",
-      "Action",
-      "Status",
-    ];
-  };
-
-  const columns = getColumns();
+  // Fixed columns for expense table
+  const columns = [
+    "Source",
+    "Date",
+    "Description",
+    "Amount",
+    "Category",
+    "Action",
+    "Status",
+  ];
 
   if (!projectId) {
     return (
@@ -205,17 +201,21 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   }
 
   // Create header component with flex layout matching the row structure
+  // Create header component with dynamic column generation
   const headerComponent = (
-    <div className="flex border-b bg-background sticky top-0 z-10">
-      <div className="expense-col-personal px-3 py-2 text-xs font-medium text-center flex items-center justify-center"></div>
-      <div className="expense-col-number px-3 py-2 text-xs font-medium flex items-center">#</div>
-      <div className="expense-col-source px-3 py-2 text-xs font-medium flex items-center">Source</div>
-      <div className="expense-col-date px-3 py-2 text-xs font-medium flex items-center">Date</div>
-      <div className="expense-col-description px-3 py-2 text-xs font-medium flex items-center">Description</div>
-      <div className="expense-col-amount px-3 py-2 text-xs font-medium flex items-center">Amount</div>
-      <div className="expense-col-category px-3 py-2 text-xs font-medium flex items-center">Category</div>
-      <div className="expense-col-action px-3 py-2 text-xs font-medium flex items-center">Action</div>
-      <div className="expense-col-status px-3 py-2 text-xs font-medium flex items-center justify-end">Status</div>
+    <div className="virtual-scroll-header flex border-b bg-background sticky top-0 z-10">
+      <div className="px-3 py-2 text-xs font-medium text-center"></div>
+      <div className="px-3 py-2 text-xs font-medium">#</div>
+      {columns.map(column => (
+        <div
+          key={column}
+          className={`px-3 py-2 text-xs font-medium ${
+            column === "Status" ? "text-right" : ""
+          }`}
+        >
+          {column}
+        </div>
+      ))}
     </div>
   );
 

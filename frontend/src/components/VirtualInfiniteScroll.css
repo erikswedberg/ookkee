@@ -32,16 +32,42 @@
   background-color: rgba(205, 92, 92, 0.3); /* indianred with 30% opacity */
 }
 
-/* Column width utilities for consistent sizing */
-.expense-col-personal { width: 5%; }
-.expense-col-number { width: 5%; }
-.expense-col-source { width: 12%; }
-.expense-col-date { width: 10%; }
-.expense-col-description { width: 35%; }
-.expense-col-amount { width: 12%; }
-.expense-col-category { width: 15%; }
-.expense-col-action { width: 8%; }
-.expense-col-status { width: 10%; }
+/* Column width utilities using nth-child selectors */
+/* Personal checkbox column */
+.virtual-scroll-header > div:nth-child(1),
+.virtual-scroll-row > div:nth-child(1) { width: 5%; }
+
+/* Row number column */
+.virtual-scroll-header > div:nth-child(2),
+.virtual-scroll-row > div:nth-child(2) { width: 5%; }
+
+/* Source column */
+.virtual-scroll-header > div:nth-child(3),
+.virtual-scroll-row > div:nth-child(3) { width: 12%; }
+
+/* Date column */
+.virtual-scroll-header > div:nth-child(4),
+.virtual-scroll-row > div:nth-child(4) { width: 10%; }
+
+/* Description column */
+.virtual-scroll-header > div:nth-child(5),
+.virtual-scroll-row > div:nth-child(5) { width: 35%; }
+
+/* Amount column */
+.virtual-scroll-header > div:nth-child(6),
+.virtual-scroll-row > div:nth-child(6) { width: 12%; }
+
+/* Category column */
+.virtual-scroll-header > div:nth-child(7),
+.virtual-scroll-row > div:nth-child(7) { width: 15%; }
+
+/* Action column */
+.virtual-scroll-header > div:nth-child(8),
+.virtual-scroll-row > div:nth-child(8) { width: 8%; }
+
+/* Status column */
+.virtual-scroll-header > div:nth-child(9),
+.virtual-scroll-row > div:nth-child(9) { width: 10%; }
 
 /* Hidden row styling for virtual scroll empty slots */
 .virtual-infinite-scroll .expense-row-hidden {
