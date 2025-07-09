@@ -2,8 +2,7 @@
 .virtual-infinite-scroll {
   position: relative;
   width: 100%;
-
-  overflow: auto;
+  overflow: hidden;
 }
 
 .virtual-scroll-container {
