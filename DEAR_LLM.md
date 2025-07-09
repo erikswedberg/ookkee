@@ -417,3 +417,75 @@ cd frontend && npm test
 • `backend/handlers/ai_categorize.go` - Simplified to single job path
 
 **Current Status**: Autoplay mode fully functional with proper start/stop behavior and visual progress indicators.
+
+## Phase 8: Virtual Infinite Scroll Implementation (Commits: 68cd693 → 33c41eb)
+
+**Goal**: Implement sophisticated virtual scrolling system for expense table performance optimization
+
+**Problem Context**: The existing expense table loads all items into DOM (2000+ elements for large datasets), causing performance issues. Need virtual scrolling that only renders visible items while maintaining proper scrollbar behavior.
+
+**Reference Implementation**: Based on user's 10-year-old JavaScript `browse-list.js` with proven 3-page cycling architecture.
+
+**Core Implementation**:
+
+**VirtualInfiniteScroll Component** (`frontend/src/components/VirtualInfiniteScroll.jsx`):
+- **3-Page Architecture**: A/B/C page cycling with only 60 DOM elements maximum (20 items × 3 pages)
+- **"Follow the Yellow Brick Road" Algorithm**: Intelligent page recycling that finds furthest page from current view
+- **Aggressive Pre-rendering**: Predicts scroll direction and loads next/previous pages immediately
+- **Scroll Position Calculation**: `Math.floor(scrollTop / pageHeight) + 1` for precise page detection
+- **Proper Scrollbar**: Maintains correct proportions with full container height (`totalItems × itemHeight`)
+
+**ExpenseTableVirtual Component** (`frontend/src/components/ExpenseTableVirtual.jsx`):
+- **Expense-specific Integration**: Virtual scrolling specifically for expense data with 60px row height
+- **API Caching**: Local cache prevents redundant API calls with `${projectId}-${page}-${pageSize}` keys
+- **Row Interactions**: Handles category selection, personal checkboxes, and action buttons
+- **Constants Configuration**: `LIST_ITEM_HEIGHT = 60`, `ROWS_PER_PAGE = 20` as defaults
+
+**ExpenseRow Component** (`frontend/src/components/ExpenseRow.jsx`):
+- **Exact Copy**: Extracted exact JSX structure from original SpreadsheetView (not rewritten)
+- **Shared Component**: Used by both "Expenses" and "Expenses 2" tabs for perfect consistency
+- **Original Styling**: Preserved all CSS classes (`category-column`, `status-column`, etc.)
+- **Multi-line Description**: 2-line text truncation with ellipsis using `-webkit-line-clamp`
+
+**Performance Optimizations**:
+- **Fixed React Components**: 60 components mount once, only props update (no unmount/remount)
+- **Aggressive Pre-loading**: 2-page lookahead in both scroll directions
+- **Scroll Prediction**: Immediate next/previous page requests based on scroll direction
+- **Caching Strategy**: API responses cached locally for instant revisiting
+- **Responsive Intervals**: 500ms page watchdog, 50ms scroll lock for smooth experience
+
+**UI Integration**:
+- **"Expenses 2" Tab**: Added alongside "Expenses | Totals" for testing virtual scroll
+- **Project Switching**: Component rebuild strategy (React key prop) for instant state reset
+- **Visual Debugging**: Page containers colored skyblue/gold/indianred at 30% opacity
+- **Scroll Reset**: Automatic scroll to top when switching projects
+
+**Technical Challenges Solved**:
+- **HTML Validation**: Final refactor to CSS display properties (`display: table`, `display: table-row`, `display: table-cell`) to resolve "<tr> cannot be a child of <div>" errors
+- **Node Recycling**: Proper "Follow the Yellow Brick Road" algorithm for page container reuse
+- **Blank Page Issues**: Fixed caching display to show cached data immediately
+- **API Integration**: Proper endpoint configuration with `VITE_API_URL` and correct HTTP methods
+- **Style Consistency**: Ensured exact visual match between original and virtual scroll tabs
+
+**Files Created**:
+- `frontend/src/components/VirtualInfiniteScroll.jsx` - Core virtual scrolling component
+- `frontend/src/components/VirtualInfiniteScroll.css` - Styling and CSS display properties
+- `frontend/src/components/ExpenseTableVirtual.jsx` - Expense-specific virtual table
+- `frontend/src/utils/formatters.js` - Currency and date formatting utilities
+
+**Files Modified**:
+- `frontend/src/components/SpreadsheetView.jsx` - Added "Expenses 2" tab and component rebuild
+- `frontend/src/components/ExpenseRow.jsx` - Extracted as shared component
+- `frontend/src/contexts/SpreadsheetContext.jsx` - Project change scroll reset
+- `frontend/src/App.jsx` - Component key prop for rebuild strategy
+
+**Performance Results**:
+- **Before**: 2000+ DOM elements for large datasets
+- **After**: Maximum 60 DOM elements regardless of dataset size
+- **Scrollbar**: Maintains proper proportions for entire dataset
+- **Responsiveness**: Aggressive pre-loading eliminates loading delays
+- **Memory**: Fixed components reuse instead of create/destroy cycles
+
+**Current Status**: Virtual infinite scroll fully functional with React components, proper HTML structure, and performance optimization. Both "Expenses" and "Expenses 2" tabs use identical ExpenseRow component ensuring perfect consistency.
+
+**Next Steps**: Production readiness testing, performance validation with large datasets, and potential standalone npm package publication.
