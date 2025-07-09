@@ -31,6 +31,7 @@ const VirtualInfiniteScroll = ({
   const [currentPageC, setCurrentPageC] = useState(1);
 
   const containerRef = useRef(null);
+  const virtualScrollRef = useRef(null);
   const listNodeA = useRef(null);
   const listNodeB = useRef(null);
   const listNodeC = useRef(null);
@@ -75,7 +76,7 @@ const VirtualInfiniteScroll = ({
       const nextPage = page + 1;
       if (nextPage <= maxPages) {
         const nextPos = getPositionFromPage(nextPage);
-        const viewportHeight = containerRef.current?.parentElement?.clientHeight || 400;
+        const viewportHeight = containerRef.current?.clientHeight || 400;
 
         if (nextPos > pos && nextPos < pos + viewportHeight) {
           pages.push(nextPage);
@@ -86,7 +87,7 @@ const VirtualInfiniteScroll = ({
       const prevPage = page - 1;
       if (prevPage >= 1) {
         const prevPos = getPositionFromPage(prevPage);
-        const viewportHeight = containerRef.current?.parentElement?.clientHeight || 400;
+        const viewportHeight = containerRef.current?.clientHeight || 400;
 
         if (prevPos < pos + viewportHeight && prevPos > pos - pageHeight) {
           pages.unshift(prevPage);
@@ -307,7 +308,7 @@ const VirtualInfiniteScroll = ({
   const handleScroll = useCallback(() => {
     if (scrollLock) return;
 
-    const pos = containerRef.current?.parentElement?.scrollTop || 0;
+    const pos = containerRef.current?.scrollTop || 0;
     const direction = getScrollDirection(pos);
     const page = getPageFromPosition(pos);
 
@@ -344,7 +345,7 @@ const VirtualInfiniteScroll = ({
   const pageWatchdog = useCallback(() => {
     if (scrollLock) return;
 
-    const pos = containerRef.current?.parentElement?.scrollTop || 0;
+    const pos = containerRef.current?.scrollTop || 0;
     const pages = getPagesFromPosition(pos);
 
     // Request all visible pages
@@ -385,16 +386,21 @@ const VirtualInfiniteScroll = ({
     getScrollDirection,
   ]);
 
+  // Set up container ref to point to parent scrolling container
+  useEffect(() => {
+    const virtualScrollDiv = virtualScrollRef.current;
+    if (!virtualScrollDiv) return;
+
+    // Point containerRef to the parent scrolling container
+    containerRef.current = virtualScrollDiv.parentElement;
+  }, []);
+
   // Set up scroll listener and page watchdog
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Listen to scroll events on the parent container (the one with overflow-auto)
-    const scrollContainer = container.parentElement;
-    if (!scrollContainer) return;
-
-    scrollContainer.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll);
 
     // Start page watchdog (more aggressive like original - 500ms)
     pageWatchdogRef.current = setInterval(pageWatchdog, 500);
@@ -405,7 +411,7 @@ const VirtualInfiniteScroll = ({
     }
 
     return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
+      container.removeEventListener('scroll', handleScroll);
       if (pageWatchdogRef.current) {
         clearInterval(pageWatchdogRef.current);
       }
@@ -429,7 +435,7 @@ const VirtualInfiniteScroll = ({
         </div>
       )}
 
-      <div ref={containerRef} className="virtual-infinite-scroll">
+      <div ref={virtualScrollRef} className="virtual-infinite-scroll">
         {/* Container with full height to maintain scrollbar proportions */}
 
         <div
