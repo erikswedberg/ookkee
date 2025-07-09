@@ -53,6 +53,7 @@ const ProjectsSidebar = ({
               className={`cursor-pointer transition-colors group hover:bg-accent ${
                 selectedProject?.id === project.id ? "bg-accent" : ""
               }`}
+              data-testid={`project-${project.id}`}
             >
               <CardContent className="p-3">
                 <div
