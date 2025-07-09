@@ -207,6 +207,9 @@ const VirtualInfiniteScroll = ({
       const { node, index } = getListNode(page);
       if (!node) return;
 
+      // Get the old page that was in this container (if any)
+      const oldPage = parseInt(node.dataset.page || '0', 10);
+
       // Set page data attribute for debugging
       node.dataset.page = page;
 
@@ -237,6 +240,18 @@ const VirtualInfiniteScroll = ({
         setPageCData(paddedItems);
         setCurrentPageC(page);
       }
+
+      // Update renderedPages state to reflect the page recycling
+      setRenderedPages(prev => {
+        const newRenderedPages = { ...prev };
+        // Remove the old page from renderedPages if it was recycled
+        if (oldPage && oldPage !== page) {
+          delete newRenderedPages[oldPage];
+        }
+        // Add the new page to renderedPages
+        newRenderedPages[page] = true;
+        return newRenderedPages;
+      });
     },
     [getListNode, getPositionFromPage, pageHeight, maxPages, pageSize]
   );
