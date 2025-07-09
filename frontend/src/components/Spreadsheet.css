@@ -232,13 +232,15 @@
 }
 
 .spreadsheet th,
-.spreadsheet td {
+.spreadsheet td, 
+.spreadsheet .virtual-table-header .virtual-table-cell {
   padding: 8px 12px;
   text-align: left;
   border-bottom: 1px solid #e5e7eb;
 }
 
-.spreadsheet th {
+.spreadsheet th, 
+.spreadsheet .virtual-table-header .virtual-table-cell {
   background-color: #f8fafc;
   font-weight: 600;
   position: sticky;
