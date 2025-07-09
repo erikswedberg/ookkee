@@ -20,7 +20,7 @@ const VirtualInfiniteScroll = ({
   const lastScrollPosRef = useRef(0);
   const [loadingPages, setLoadingPages] = useState(new Set()); // Track pages being loaded
 
-  // Fixed page data arrays - 20 items each, null for empty slots
+  // Fixed page data arrays - always 20 items each, null for empty slots
   const [pageAData, setPageAData] = useState(Array(pageSize).fill(null));
   const [pageBData, setPageBData] = useState(Array(pageSize).fill(null));
   const [pageCData, setPageCData] = useState(Array(pageSize).fill(null));
@@ -451,12 +451,12 @@ const VirtualInfiniteScroll = ({
             data-page=""
           >
             <div className="scroll-table">
-              {pageAData.map((item, index) => (
+              {Array(pageSize).fill(null).map((_, index) => (
                 <ItemComponent
                   key={`page-a-${index}`}
-                  expense={item}
+                  expense={pageAData[index]}
                   expenseIndex={(currentPageA - 1) * pageSize + index}
-                  isVisible={item !== null}
+                  isVisible={pageAData[index] !== null}
                   {...itemProps}
                 />
               ))}
@@ -468,12 +468,12 @@ const VirtualInfiniteScroll = ({
             data-page=""
           >
             <div className="scroll-table">
-              {pageBData.map((item, index) => (
+              {Array(pageSize).fill(null).map((_, index) => (
                 <ItemComponent
                   key={`page-b-${index}`}
-                  expense={item}
+                  expense={pageBData[index]}
                   expenseIndex={(currentPageB - 1) * pageSize + index}
-                  isVisible={item !== null}
+                  isVisible={pageBData[index] !== null}
                   {...itemProps}
                 />
               ))}
@@ -485,12 +485,12 @@ const VirtualInfiniteScroll = ({
             data-page=""
           >
             <div className="scroll-table">
-              {pageCData.map((item, index) => (
+              {Array(pageSize).fill(null).map((_, index) => (
                 <ItemComponent
                   key={`page-c-${index}`}
-                  expense={item}
+                  expense={pageCData[index]}
                   expenseIndex={(currentPageC - 1) * pageSize + index}
-                  isVisible={item !== null}
+                  isVisible={pageCData[index] !== null}
                   {...itemProps}
                 />
               ))}
