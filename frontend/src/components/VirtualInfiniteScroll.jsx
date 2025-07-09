@@ -17,6 +17,7 @@ const VirtualInfiniteScroll = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [scrollLock, setScrollLock] = useState(false);
   const [lastScrollPos, setLastScrollPos] = useState(0);
+  const lastScrollPosRef = useRef(0);
   const [loadingPages, setLoadingPages] = useState(new Set()); // Track pages being loaded
 
   // Fixed page data arrays - 20 items each, null for empty slots
@@ -30,6 +31,7 @@ const VirtualInfiniteScroll = ({
   const [currentPageC, setCurrentPageC] = useState(1);
 
   const containerRef = useRef(null);
+  const virtualScrollRef = useRef(null);
   const listNodeA = useRef(null);
   const listNodeB = useRef(null);
   const listNodeC = useRef(null);
@@ -98,14 +100,12 @@ const VirtualInfiniteScroll = ({
   );
 
   // Get scroll direction
-  const getScrollDirection = useCallback(
-    pos => {
-      const direction = pos > lastScrollPos ? 'down' : 'up';
-      setLastScrollPos(pos);
-      return direction;
-    },
-    [lastScrollPos]
-  );
+  const getScrollDirection = useCallback(pos => {
+    const direction = pos > lastScrollPosRef.current ? 'down' : 'up';
+    lastScrollPosRef.current = pos;
+    setLastScrollPos(pos);
+    return direction;
+  }, []);
 
   // Find available list node for rendering a page ("Follow the Yellow Brick Road")
   const getListNode = useCallback(
@@ -383,6 +383,15 @@ const VirtualInfiniteScroll = ({
     getScrollDirection,
   ]);
 
+  // Set up container ref to point to parent scrolling container
+  useEffect(() => {
+    const virtualScrollDiv = virtualScrollRef.current;
+    if (!virtualScrollDiv) return;
+
+    // Point containerRef to the parent scrolling container
+    containerRef.current = virtualScrollDiv.parentElement;
+  }, []);
+
   // Set up scroll listener and page watchdog
   useEffect(() => {
     const container = containerRef.current;
@@ -423,7 +432,7 @@ const VirtualInfiniteScroll = ({
         </div>
       )}
 
-      <div ref={containerRef} className="virtual-infinite-scroll">
+      <div ref={virtualScrollRef} className="virtual-infinite-scroll">
         {/* Container with full height to maintain scrollbar proportions */}
 
         <div
@@ -517,7 +526,7 @@ const VirtualInfiniteScroll = ({
             <div>Rendered Pages: {Object.keys(renderedPages).join(', ')}</div>
             <div>Cached Pages: {Object.keys(pageData).join(', ')}</div>
             <div>Loading Pages: {Array.from(loadingPages).join(', ')}</div>
-            <div>Scroll Direction: {lastScrollPos}</div>
+            <div>Scroll Position: {lastScrollPos}</div>
           </div>
         )}
       </div>

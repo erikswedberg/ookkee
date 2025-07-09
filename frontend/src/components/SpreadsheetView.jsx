@@ -391,9 +391,9 @@ const SpreadsheetViewContent = ({
                 className="w-auto"
               >
                 <TabsList>
-                  <TabsTrigger value="expenses">Expenses</TabsTrigger>
-                  <TabsTrigger value="expenses2">Expenses 2</TabsTrigger>
-                  <TabsTrigger value="totals">Totals</TabsTrigger>
+                  <TabsTrigger value="expenses" data-testid="expenses-tab">Expenses</TabsTrigger>
+                  <TabsTrigger value="expenses2" data-testid="expenses2-tab">Expenses 2</TabsTrigger>
+                  <TabsTrigger value="totals" data-testid="totals-tab">Totals</TabsTrigger>
                 </TabsList>
               </Tabs>
               {activeTab === "expenses" && (
