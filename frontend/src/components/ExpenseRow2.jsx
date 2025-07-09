@@ -4,7 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { formatCurrency, formatDate } from '../utils/formatters';
 import dayjs from 'dayjs';
 
-// ExpenseRow2 component for virtual scroll with div elements and CSS table display
+// ExpenseRow2 component for virtual scroll with flex layout and percentage-based column widths
 const ExpenseRow2 = ({ 
   expense, 
   expenseIndex, 
@@ -251,12 +251,12 @@ const ExpenseRow2 = ({
 
   const columns = getColumns();
 
-  // Virtual scroll div structure with CSS table display
+  // Virtual scroll div structure with flex layout and percentage-based column widths
   return (
     <div
       data-row-index={expenseIndex}
       tabIndex={isActive ? 0 : -1}
-      className={`virtual-table-row spreadsheet row group cursor-pointer ${
+      className={`flex border-b spreadsheet row group cursor-pointer ${
         isActive
           ? "active"
           : isPersonal
@@ -268,7 +268,7 @@ const ExpenseRow2 = ({
         setActiveRowWithTabIndex(expenseIndex);
       }}
     >
-      <div className="virtual-table-cell text-center w-12">
+      <div className="expense-col-personal px-3 py-2 text-center flex items-center justify-center">
         <Checkbox
           checked={expense.is_personal || false}
           onCheckedChange={() => {
@@ -277,7 +277,7 @@ const ExpenseRow2 = ({
           onClick={e => e.stopPropagation()}
         />
       </div>
-      <div className="virtual-table-cell font-mono text-xs text-muted-foreground w-16">
+      <div className="expense-col-number px-3 py-2 font-mono text-xs text-muted-foreground flex items-center">
         {expense.row_index + 1}
       </div>
       {columns.map(column => {
@@ -289,25 +289,31 @@ const ExpenseRow2 = ({
         const isAction = column === "Action";
         const isStatus = column === "Status";
 
+        // Map column names to CSS classes
+        const columnClass = {
+          "Source": "expense-col-source",
+          "Date": "expense-col-date",
+          "Description": "expense-col-description",
+          "Amount": "expense-col-amount",
+          "Category": "expense-col-category",
+          "Action": "expense-col-action",
+          "Status": "expense-col-status"
+        }[column];
+
         return (
           <div
             key={column}
-            className={
-              `virtual-table-cell ${
-                isAmount
-                  ? `font-mono amount ${
-                      isPersonal && !isActive
-                        ? "text-gray-500"
-                        : getAmountClass(value)
-                    }`
-                  : isStatus
-                    ? "text-sm text-right"
-                    : ""
-              }`
-            }
-            style={{
-              minWidth: column === "Category" ? "175px" : undefined
-            }}
+            className={`${columnClass} px-3 py-2 flex items-center ${
+              isAmount
+                ? `font-mono amount ${
+                    isPersonal && !isActive
+                      ? "text-gray-500"
+                      : getAmountClass(value)
+                  }`
+                : isStatus
+                  ? "text-sm justify-end"
+                  : ""
+            }`}
           >
             {isCategory
               ? renderCategory(expense)
