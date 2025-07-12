@@ -83,8 +83,16 @@ function App() {
   };
 
   const handleNewProject = () => {
+    // If a project is open, close it first before opening modal
+    if (selectedProject) {
+      setSelectedProject(null);
+    }
     setEditingProject(null);
     setIsModalOpen(true);
+  };
+  
+  const handleCloseProject = () => {
+    setSelectedProject(null);
   };
 
   const handleEditProject = project => {
@@ -273,6 +281,7 @@ function App() {
               project={selectedProject} 
               isSidebarCollapsed={isSidebarCollapsed}
               onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onClose={handleCloseProject}
             />
           ) : (
             <div className="flex items-center justify-center h-full">

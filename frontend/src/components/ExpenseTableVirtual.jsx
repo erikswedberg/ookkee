@@ -1,212 +1,156 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useContext } from 'react';
 import VirtualInfiniteScroll from './VirtualInfiniteScroll';
 import ExpenseRow2 from './ExpenseRow2';
 import { formatCurrency, formatDate } from '../utils/formatters';
+// Zustand store now accessed via SpreadsheetContext
+import { SpreadsheetContext } from '../contexts/SpreadsheetContext';
 
 // Constants for expense table configuration
 const LIST_ITEM_HEIGHT = 60; // Height of each row in pixels
 const ROWS_PER_PAGE = 20; // Number of rows per virtual page
 
 const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
-  const [categories, setCategories] = useState([]);
-  const apiCache = useRef({});
   const inflightRequests = useRef(new Set()); // Track API requests currently in flight
+  
+  // Get all context values from SpreadsheetContext (includes Zustand store functions)
+  const {
+    categories,
+    processingRows,
+    isTableActive,
+    activeRowIndex,
+    setIsTableActive,
+    setActiveRowWithTabIndex,
+    handleTogglePersonal,
+    updateExpenseCategory,
+    handleAcceptSuggestion,
+    handleClearCategory,
+    // Zustand store functions
+    getExpensesForPage,
+    hasCompletePageData,
+    getExpenseByIndex,
+    isPageRequested,
+    setPageLoading,
+    isPageLoading,
+    markPageRequested,
+    setStoreExpenses,
+  } = useContext(SpreadsheetContext);
+  
+  // Reset inflight requests when project changes
+  useEffect(() => {
+    inflightRequests.current.clear();
+  }, [projectId]);
+  
+  // Data fetching and keyboard handling now unified in SpreadsheetContext
+  
+  // Get current active expense for keyboard shortcuts
+  const getCurrentActiveExpense = useCallback(() => {
+    if (activeRowIndex !== null) {
+      return getExpenseByIndex(activeRowIndex);
+    }
+    return null;
+  }, [activeRowIndex, getExpenseByIndex]);
 
-  // Fetch categories on component mount
-  React.useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  // Clear cache when project changes (component will be rebuilt anyway due to key prop)
-  React.useEffect(() => {
-    apiCache.current = {};
+  // Reset inflight requests when project changes (project setting handled in SpreadsheetContext)
+  useEffect(() => {
     inflightRequests.current.clear();
   }, [projectId]);
 
-  const fetchCategories = async () => {
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_URL}/api/categories`);
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
+  // Categories fetching removed - now using SpreadsheetContext
 
   // Request a page of expenses from the API
   const requestExpensePage = useCallback(
     async (page, pageSize) => {
-      const cacheKey = `${projectId}-${page}-${pageSize}`;
-
-      // Return cached data if available
-      if (apiCache.current[cacheKey]) {
-        return apiCache.current[cacheKey];
+      const requestKey = `${projectId}-${page}-${pageSize}`;
+      
+      // Check if we already have complete data for this page
+      if (hasCompletePageData(page, pageSize)) {
+        return getExpensesForPage(page, pageSize);
       }
-
+      
+      // Check if page is already requested
+      if (isPageRequested(page)) {
+        // Page was requested but may not be complete yet, return what we have
+        return getExpensesForPage(page, pageSize);
+      }
+      
       // If request is already in flight, wait for it to complete
-      if (inflightRequests.current.has(cacheKey)) {
-        // Wait for the inflight request to complete by polling the cache
+      if (inflightRequests.current.has(requestKey)) {
+        // Wait for the inflight request to complete by polling the store
         return new Promise((resolve) => {
-          const pollCache = () => {
-            if (apiCache.current[cacheKey]) {
-              resolve(apiCache.current[cacheKey]);
-            } else if (inflightRequests.current.has(cacheKey)) {
+          const pollStore = () => {
+            if (hasCompletePageData(page, pageSize)) {
+              resolve(getExpensesForPage(page, pageSize));
+            } else if (inflightRequests.current.has(requestKey)) {
               // Still in flight, check again in 50ms
-              setTimeout(pollCache, 50);
+              setTimeout(pollStore, 50);
             } else {
-              // Request completed but no cache (error case), return empty
-              resolve([]);
+              // Request completed but no complete data (error case), return what we have
+              resolve(getExpensesForPage(page, pageSize));
             }
           };
-          setTimeout(pollCache, 50);
+          setTimeout(pollStore, 50);
         });
       }
-
-      // Mark request as in flight
-      inflightRequests.current.add(cacheKey);
-
+      
+      // Mark request as in flight and page as loading
+      inflightRequests.current.add(requestKey);
+      setPageLoading(page, true);
+      
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const offset = (page - 1) * pageSize;
+        const queryString = `expenses?limit=${pageSize}&offset=${offset}`;
+        
+        // Mark page as requested
+        markPageRequested(page, queryString);
+        
         const response = await fetch(
-          `${API_URL}/api/projects/${projectId}/expenses?limit=${pageSize}&offset=${offset}`
+          `${API_URL}/api/projects/${projectId}/${queryString}`
         );
-
+        
         if (response.ok) {
           const data = await response.json();
-          // Cache the data
-          apiCache.current[cacheKey] = data;
+          // Store expenses in Zustand store for virtual scroll
+          setStoreExpenses(data, page, pageSize);
           return data;
         } else {
           throw new Error('Failed to fetch expenses');
         }
       } catch (error) {
         console.error('Error fetching expenses:', error);
-        return [];
+        return getExpensesForPage(page, pageSize); // Return what we have, even if empty
       } finally {
-        // Always remove from inflight requests when done
-        inflightRequests.current.delete(cacheKey);
+        // Always remove from inflight requests and clear loading when done
+        inflightRequests.current.delete(requestKey);
+        setPageLoading(page, false);
       }
     },
-    [projectId]
+    [projectId, hasCompletePageData, getExpensesForPage, isPageRequested, setPageLoading, markPageRequested, setStoreExpenses]
   );
 
-  // Prepare props for ExpenseRow2 components
+  // Function to get current expense data from store (reactive to updates)
+  const getCurrentExpense = useCallback((expenseIndex) => {
+    return getExpenseByIndex(expenseIndex);
+  }, [getExpenseByIndex]);
+  
+  // Prepare props for ExpenseRow2 components using SpreadsheetContext
   const expenseRowProps = useCallback(() => {
     return {
       categories,
-      isActive: false, // Virtual scroll doesn't use active row highlighting
-      processingRows: new Set(), // Could be passed in if needed
-      activeRowIndex: null,
-      expenses: [], // Not needed for individual row rendering
-      handleTogglePersonal: expense => {
-        window.togglePersonal?.(expense.id, !expense.is_personal);
-      },
-      updateExpenseCategory: (expenseId, categoryId) => {
-        window.updateCategory?.(expenseId, categoryId);
-      },
-      handleAcceptSuggestion: expense => {
-        window.acceptSuggestion?.(expense.id);
-      },
-      handleClearCategory: expense => {
-        window.clearCategory?.(expense.id);
-      },
-      setIsTableActive: () => {}, // Not applicable in virtual scroll
-      setActiveRowWithTabIndex: () => {}, // Not applicable in virtual scroll
+      processingRows,
+      activeRowIndex,
+      expenses: [], // Virtual scroll doesn't need full expenses array per row
+      handleTogglePersonal,
+      updateExpenseCategory,
+      handleAcceptSuggestion,
+      handleClearCategory,
+      setIsTableActive,
+      setActiveRowWithTabIndex,
+      getCurrentExpense, // Pass function to get current expense data
     };
-  }, [categories]);
+  }, [categories, processingRows, activeRowIndex, handleTogglePersonal, updateExpenseCategory, handleAcceptSuggestion, handleClearCategory, setIsTableActive, setActiveRowWithTabIndex, getCurrentExpense]);
 
-  // Global functions for row interactions (attached to window)
-  React.useEffect(() => {
-    window.togglePersonal = async (expenseId, isPersonal) => {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ is_personal: isPersonal }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update expense');
-        }
-
-        // Clear cache to force refresh
-        apiCache.current = {};
-      } catch (error) {
-        console.error('Error updating personal status:', error);
-      }
-    };
-
-    window.updateCategory = async (expenseId, categoryId) => {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            accepted_category_id: categoryId ? parseInt(categoryId) : null,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update category');
-        }
-
-        // Clear cache to force refresh
-        apiCache.current = {};
-      } catch (error) {
-        console.error('Error updating category:', error);
-      }
-    };
-
-    window.acceptSuggestion = async expenseId => {
-      // Find the expense to get its suggested category
-      // This is a simplified implementation - in a real app you'd track this better
-      console.log('Accept suggestion for expense:', expenseId);
-      // Would need to implement proper suggestion acceptance
-    };
-
-    window.clearCategory = async expenseId => {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            accepted_category_id: -1,
-            suggested_category_id: -1,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to clear category');
-        }
-
-        // Clear cache to force refresh
-        apiCache.current = {};
-      } catch (error) {
-        console.error('Error clearing category:', error);
-      }
-    };
-
-    // Cleanup
-    return () => {
-      delete window.togglePersonal;
-      delete window.updateCategory;
-      delete window.acceptSuggestion;
-      delete window.clearCategory;
-    };
-  }, [projectId]);
+  // Row interactions now handled by SpreadsheetContext
 
   // Fixed columns for expense table
   const columns = [

@@ -32,6 +32,7 @@
 }
 .scroll-column, .scroll-th {
   display: table-cell;
+  vertical-align: middle;
 }
 
 .scroll-column > div.content, .scroll-column > span.content {
@@ -50,19 +51,21 @@
   max-height: 2.6em; /* 2 lines of text */
 }
 
-/* Page debugging colors */
+/* Page debugging colors - disabled */
 .scroll-page-a {
-  /* background-color: rgba(135, 206, 235, 0.3); skyblue with 30% opacity */
+  top: 0;
+  background-color: rgba(135, 206, 235, 0.3); /* skyblue with 30% opacity */
 }
 
 .scroll-page-b {
-  /* background-color: rgba(255, 215, 0, 0.3); gold with 30% opacity */
+  top: 1200px;
+  background-color: rgba(255, 215, 0, 0.3); /* gold with 30% opacity */
 }
 
 .scroll-page-c {
-  /* background-color: rgba(205, 92, 92, 0.3); indianred with 30% opacity */
+  top: 2400px;
+  background-color: rgba(205, 92, 92, 0.3); /* indianred with 30% opacity */
 }
-
 .scroll-row > .scroll-column {
   height: 60px;
 }
@@ -89,17 +92,17 @@
 .scroll-header > .scroll-th:nth-child(4),
 .scroll-row > .scroll-column:nth-child(4) { width: 9%; }
 
-/* Description column */
+/* Description column - reduced from 31% to 26% (taking 5% away for Category) */
 .scroll-header > .scroll-th:nth-child(5),
-.scroll-row > .scroll-column:nth-child(5) { width: 31%; }
+.scroll-row > .scroll-column:nth-child(5) { width: 26%; }
 
 /* Amount column */
 .scroll-header > .scroll-th:nth-child(6),
 .scroll-row > .scroll-column:nth-child(6) { width: 11%; }
 
-/* Category column */
+/* Category column - increased from 13% to 18% (taking 5% from Description) */
 .scroll-header > .scroll-th:nth-child(7),
-.scroll-row > .scroll-column:nth-child(7) { width: 13%; }
+.scroll-row > .scroll-column:nth-child(7) { width: 18%; }
 
 /* Action column */
 .scroll-header > .scroll-th:nth-child(8),
@@ -154,6 +157,7 @@
   font-family: monospace;
   font-size: 12px;
   z-index: 1000;
+  display: none;
 }
 
 .virtual-scroll-debug > div {

@@ -9,7 +9,7 @@ const ExpenseRow2 = ({
   expense,
   expenseIndex,
   categories = [],
-  isActive = false,
+  isActive = false, // This will be overridden by calculation below
   processingRows = new Set(),
   activeRowIndex,
   expenses = [],
@@ -21,13 +21,20 @@ const ExpenseRow2 = ({
   setActiveRowWithTabIndex,
   isVisible = true,
   isLoading = false,
+  getCurrentExpense,
 }) => {
+  // Get current expense data from store (reactive to updates)
+  const currentExpense = getCurrentExpense ? getCurrentExpense(expenseIndex) : expense;
+  
   // Hide row if not visible (for virtual scroll empty slots)
-  if (!isVisible || !expense) {
+  if (!isVisible || !currentExpense) {
     return <div className="expense-row-hidden" />;
   }
 
-  const isPersonal = expense.is_personal;
+  const isPersonal = currentExpense.is_personal;
+  
+  // Calculate if this row is active based on expenseIndex and activeRowIndex
+  const isRowActive = activeRowIndex === expenseIndex;
 
   // EXACT copy of utility functions from original SpreadsheetView
   const formatAmount = amount => {
@@ -48,27 +55,27 @@ const ExpenseRow2 = ({
   const getColumnValue = (expense, column) => {
     switch (column) {
       case 'Source':
-        return expense.source || '';
+        return currentExpense.source || '';
       case 'Date':
-        return expense.date_text || '';
+        return currentExpense.date_text || '';
       case 'Description':
-        return expense.description || '';
+        return currentExpense.description || '';
       case 'Amount':
-        return expense.amount;
+        return currentExpense.amount;
       case 'Category':
         return (
-          expense.accepted_category_id || expense.suggested_category_id || ''
+          currentExpense.accepted_category_id || currentExpense.suggested_category_id || ''
         );
       case 'Action':
         return null;
       case 'Status':
-        if (expense.is_personal) return 'Personal';
-        if (expense.accepted_category_id) {
-          if (!expense.suggested_category_id) return 'Manual';
-          if (expense.accepted_category_id !== expense.suggested_category_id)
+        if (currentExpense.is_personal) return 'Personal';
+        if (currentExpense.accepted_category_id) {
+          if (!currentExpense.suggested_category_id) return 'Manual';
+          if (currentExpense.accepted_category_id !== currentExpense.suggested_category_id)
             return 'Manual';
           return 'Accepted';
-        } else if (expense.suggested_category_id) {
+        } else if (currentExpense.suggested_category_id) {
           return 'Suggested';
         } else {
           return 'Uncategorized';
@@ -81,25 +88,25 @@ const ExpenseRow2 = ({
   // EXACT copy of renderCategory from original
   const renderCategory = expense => {
     const getCategoryValue = expense => {
-      return expense.accepted_category_id
-        ? expense.accepted_category_id.toString()
-        : expense.suggested_category_id
-          ? expense.suggested_category_id.toString()
+      return currentExpense.accepted_category_id
+        ? currentExpense.accepted_category_id.toString()
+        : currentExpense.suggested_category_id
+          ? currentExpense.suggested_category_id.toString()
           : '';
     };
 
     const getCategoryClassName = expense => {
-      const expenseIndex = expenses.indexOf(expense);
+      const expenseIndex = expenses.indexOf(currentExpense);
 
-      if (expense.is_personal && activeRowIndex !== expenseIndex) {
+      if (currentExpense.is_personal && activeRowIndex !== expenseIndex) {
         return 'personal';
       }
 
-      if (expense.accepted_category_id) {
+      if (currentExpense.accepted_category_id) {
         return 'accepted';
       }
 
-      if (expense.suggested_category_id) {
+      if (currentExpense.suggested_category_id) {
         return 'suggested';
       }
 
@@ -110,23 +117,24 @@ const ExpenseRow2 = ({
       const newCategoryId = e.target.value ? parseInt(e.target.value) : -1;
 
       if (newCategoryId === -1) {
-        handleClearCategory(expense);
+        handleClearCategory(currentExpense);
       } else {
-        updateExpenseCategory(expense.id, newCategoryId);
+        updateExpenseCategory(currentExpense.id, newCategoryId);
       }
     };
 
     return (
-      <div className={`category-column ${getCategoryClassName(expense)}`}>
+      <div className={`category-column ${getCategoryClassName(currentExpense)}`}>
         <select
-          value={getCategoryValue(expense)}
+          value={getCategoryValue(currentExpense)}
           onChange={handleCategoryChange}
+          style={{ maxWidth: '220px' }}
         >
           <option value=""></option>
           {categories.map(category => {
             const isAiSuggested =
-              expense.suggested_category_id === category.id &&
-              !expense.accepted_category_id;
+              currentExpense.suggested_category_id === category.id &&
+              !currentExpense.accepted_category_id;
             return (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -142,14 +150,14 @@ const ExpenseRow2 = ({
   // EXACT copy of renderStatus from original
   const renderStatus = expense => {
     const getStatusValue = expense => {
-      if (expense.is_personal) return 'Personal';
+      if (currentExpense.is_personal) return 'Personal';
 
-      if (expense.accepted_category_id) {
-        if (!expense.suggested_category_id) return 'Manual';
-        if (expense.accepted_category_id !== expense.suggested_category_id)
+      if (currentExpense.accepted_category_id) {
+        if (!currentExpense.suggested_category_id) return 'Manual';
+        if (currentExpense.accepted_category_id !== currentExpense.suggested_category_id)
           return 'Manual';
         return 'Accepted';
-      } else if (expense.suggested_category_id) {
+      } else if (currentExpense.suggested_category_id) {
         return 'Suggested';
       } else {
         return 'Uncategorized';
@@ -157,12 +165,12 @@ const ExpenseRow2 = ({
     };
 
     const getStatusClassName = expense => {
-      const status = getStatusValue(expense).toLowerCase();
+      const status = getStatusValue(currentExpense).toLowerCase();
       return status;
     };
 
     // Show processing spinner if this row is being processed
-    if (processingRows.has(expense.id)) {
+    if (processingRows.has(currentExpense.id)) {
       return (
         <div className="status-column processing">
           <RefreshCw className="spinner" size={12} />
@@ -170,8 +178,8 @@ const ExpenseRow2 = ({
       );
     }
 
-    const status = getStatusValue(expense);
-    const className = getStatusClassName(expense);
+    const status = getStatusValue(currentExpense);
+    const className = getStatusClassName(currentExpense);
 
     return (
       <div className={`status-column ${className}`}>
@@ -192,7 +200,7 @@ const ExpenseRow2 = ({
       >
         <button
           className={`link ${
-            expense.accepted_category_id
+            currentExpense.accepted_category_id
               ? 'text-gray-400 cursor-not-allowed pointer-events-none'
               : 'text-blue-600 hover:text-blue-800'
           }`}
@@ -200,15 +208,15 @@ const ExpenseRow2 = ({
             e.preventDefault();
             e.stopPropagation();
             if (
-              expense.suggested_category_id &&
-              !expense.accepted_category_id
+              currentExpense.suggested_category_id &&
+              !currentExpense.accepted_category_id
             ) {
-              handleAcceptSuggestion(expense);
+              handleAcceptSuggestion(currentExpense);
             }
           }}
-          disabled={!!expense.accepted_category_id}
+          disabled={!!currentExpense.accepted_category_id}
           style={{
-            visibility: expense.suggested_category_id ? 'visible' : 'hidden',
+            visibility: currentExpense.suggested_category_id ? 'visible' : 'hidden',
           }}
         >
           Accept
@@ -217,8 +225,8 @@ const ExpenseRow2 = ({
           className="separator"
           style={{
             visibility:
-              expense.suggested_category_id &&
-              (expense.accepted_category_id || expense.suggested_category_id)
+              currentExpense.suggested_category_id &&
+              (currentExpense.accepted_category_id || currentExpense.suggested_category_id)
                 ? 'visible'
                 : 'hidden',
           }}
@@ -230,11 +238,11 @@ const ExpenseRow2 = ({
           onClick={e => {
             e.preventDefault();
             e.stopPropagation();
-            handleClearCategory(expense);
+            handleClearCategory(currentExpense);
           }}
           style={{
             visibility:
-              expense.accepted_category_id || expense.suggested_category_id
+              currentExpense.accepted_category_id || currentExpense.suggested_category_id
                 ? 'visible'
                 : 'hidden',
           }}
@@ -264,9 +272,9 @@ const ExpenseRow2 = ({
   return (
     <div
       data-row-index={expenseIndex}
-      tabIndex={isActive ? 0 : -1}
+      tabIndex={isRowActive ? 0 : -1}
       className={`scroll-row border-b spreadsheet row group cursor-pointer ${
-        isActive ? 'active' : isPersonal ? 'personal' : 'hover:bg-sky-50'
+        isRowActive ? 'active' : isPersonal ? 'personal' : 'hover:bg-sky-50'
       }`}
       onClick={() => {
         setIsTableActive(true);
@@ -275,20 +283,20 @@ const ExpenseRow2 = ({
     >
       <div className="scroll-column text-center">
         <Checkbox
-          checked={expense.is_personal || false}
+          checked={currentExpense.is_personal || false}
           onCheckedChange={() => {
-            handleTogglePersonal(expense);
+            handleTogglePersonal(currentExpense);
           }}
           onClick={e => e.stopPropagation()}
         />
       </div>
       <div className="scroll-column font-mono text-xs text-muted-foreground">
         <span className="content">
-          {isLoading ? null : expense.row_index + 1}
+          {isLoading ? null : currentExpense.row_index + 1}
         </span>
       </div>
       {columns.map(column => {
-        const value = getColumnValue(expense, column);
+        const value = getColumnValue(currentExpense, column);
         const isAmount = column === 'Amount';
         const isDate = column === 'Date';
         const isDescription = column === 'Description';
@@ -302,7 +310,7 @@ const ExpenseRow2 = ({
             className={`scroll-column ${
               isAmount
                 ? `font-mono amount text-sm ${
-                    isPersonal && !isActive
+                    isPersonal && !isRowActive
                       ? 'text-gray-500'
                       : getAmountClass(value)
                   }`
@@ -312,13 +320,13 @@ const ExpenseRow2 = ({
             }`}
           >
             {isLoading ? null : isCategory ? (
-              <div className="content">{renderCategory(expense)}</div>
+              <div className="content">{renderCategory(currentExpense)}</div>
             ) : isAction ? (
               <div className="actions">
-                {renderAction(expense, expenseIndex)}
+                {renderAction(currentExpense, expenseIndex)}
               </div>
             ) : isStatus ? (
-              renderStatus(expense)
+              <div className="content">{renderStatus(currentExpense)}</div>
             ) : isDescription ? (
               <div className="truncated content">{value || ''}</div>
             ) : isAmount && typeof value === 'number' ? (

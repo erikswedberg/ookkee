@@ -7,6 +7,7 @@ import {
   useRef,
 } from 'react';
 import { toast } from 'sonner';
+import useExpenseStore from '../stores/expenseStore';
 // Removed useAiCategorizer import - now using simplified backend-driven approach
 
 const spreadsheetInitialValues = {
@@ -47,9 +48,29 @@ const spreadsheetInitialValues = {
 export const SpreadsheetContext = createContext(spreadsheetInitialValues);
 
 export const SpreadsheetContextProvider = ({ children, project }) => {
-  const [expenses, setExpenses] = useState([]);
+  // Zustand store integration
+  const {
+    expenses: expenseStore,
+    setProject: setStoreProject,
+    setExpenses: setStoreExpenses,
+    updateExpense: updateStoreExpense,
+    markPageRequested,
+    isPageRequested,
+    setPageLoading,
+    isPageLoading,
+    getExpensesForPage,
+    hasCompletePageData,
+    getExpenseByIndex,
+    clearAll: clearStore,
+  } = useExpenseStore();
+  
+  // Store functions already available above
+  
   const [categories, setCategories] = useState([]);
   const [progress, setProgress] = useState({ percentage: 0, isComplete: false, total_count: 0, categorized_count: 0, uncategorized_count: 0 });
+  
+  // Convert Zustand store to array format for compatibility
+  const expenses = Object.values(expenseStore).sort((a, b) => (a._rowIndex || 0) - (b._rowIndex || 0));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -95,6 +116,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Update expense function (handles both category and personal)
   const updateExpense = useCallback(async (expenseId, updates) => {
+    // Optimistic update using Zustand store
+    updateStoreExpense(expenseId, updates);
+    
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
       const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
@@ -112,29 +136,24 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       // Get the actual values from API response
       const responseData = await response.json();
       
-      // Update local state with API response values (not request values)
-      setExpenses(currentExpenses => 
-        currentExpenses.map(expense => {
-          // Update the main expense
-          if (expense.id === expenseId) {
-            return {
-              ...expense, 
-              ...(responseData.accepted_category_id !== undefined && { accepted_category_id: responseData.accepted_category_id }),
-              ...(responseData.suggested_category_id !== undefined && { suggested_category_id: responseData.suggested_category_id }),
-              ...(responseData.is_personal !== undefined && { is_personal: responseData.is_personal })
-            };
-          }
-          // Update propagated expenses if they exist
-          else if (responseData.propagated_ids && responseData.propagated_ids.includes(expense.id)) {
-            return {
-              ...expense,
-              accepted_category_id: responseData.accepted_category_id,
-              accepted_at: new Date().toISOString() // Approximate timestamp
-            };
-          }
-          return expense;
-        })
-      );
+      // Update Zustand store with API response values (not request values)
+      // Update the main expense
+      const mainUpdates = {};
+      if (responseData.accepted_category_id !== undefined) mainUpdates.accepted_category_id = responseData.accepted_category_id;
+      if (responseData.suggested_category_id !== undefined) mainUpdates.suggested_category_id = responseData.suggested_category_id;
+      if (responseData.is_personal !== undefined) mainUpdates.is_personal = responseData.is_personal;
+      
+      updateStoreExpense(expenseId, mainUpdates);
+      
+      // Update propagated expenses if they exist
+      if (responseData.propagated_ids) {
+        responseData.propagated_ids.forEach(propagatedId => {
+          updateStoreExpense(propagatedId, {
+            accepted_category_id: responseData.accepted_category_id,
+            accepted_at: new Date().toISOString() // Approximate timestamp
+          });
+        });
+      }
       
       // Show toast notification for auto-propagation
       if (responseData.propagated_count > 0 && responseData.accepted_category_id) {
@@ -166,21 +185,33 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     } catch (error) {
       console.error('Failed to update expense:', error);
     }
-  }, [fetchProgress]);
+  }, [fetchProgress, updateStoreExpense, categories]);
 
-  // Scroll active row into view helper
+  // Scroll active row into view helper (works for both regular and virtual scroll)
   const scrollActiveRowIntoView = useCallback((rowIndex) => {
     const row = document.querySelector(`[data-row-index="${rowIndex}"]`);
-    if (row && containerRef.current) {
-      const container = containerRef.current;
-      const containerRect = container.getBoundingClientRect();
+    if (!row) return;
+    
+    // Find the scrollable container for this row
+    let scrollContainer = row.closest('.overflow-auto');
+    if (!scrollContainer) {
+      scrollContainer = containerRef.current; // Fallback to regular table container
+    }
+    
+    if (scrollContainer) {
+      const containerRect = scrollContainer.getBoundingClientRect();
       const rowRect = row.getBoundingClientRect();
       
-      // Only scroll if row goes below the bottom of the visible area
-      if (rowRect.bottom > containerRect.bottom) {
-        // Scroll so the row is at the top of the visible area
-        const scrollTop = row.offsetTop - container.offsetTop;
-        container.scrollTop = scrollTop;
+      // Scroll if row is out of view (above or below)
+      if (rowRect.bottom > containerRect.bottom || rowRect.top < containerRect.top) {
+        // Calculate scroll position to center the row in view
+        const rowOffsetTop = row.offsetTop;
+        const containerHeight = scrollContainer.clientHeight;
+        const rowHeight = row.clientHeight;
+        
+        // Center the row in the viewport
+        const scrollTop = rowOffsetTop - (containerHeight / 2) + (rowHeight / 2);
+        scrollContainer.scrollTop = Math.max(0, scrollTop);
       }
     }
   }, [containerRef]);
@@ -378,22 +409,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         return; // Don't clear processing state yet
       }
     } else {
-      // Update expenses with AI suggestions
-      setExpenses(currentExpenses => {
-        const updatedExpenses = currentExpenses.map(expense => {
-          // Find suggestion for this expense in the returned suggestions
-          const suggestion = suggestions.find(s => s.rowId === expense.id);
-          if (suggestion) {
-            return {
-              ...expense,
-              suggested_category_id: suggestion.categoryId,
-              ai_confidence: suggestion.confidence,
-              ai_reasoning: suggestion.reasoning
-            };
-          }
-          return expense;
+      // Update expenses with AI suggestions using Zustand store
+      suggestions.forEach(suggestion => {
+        updateStoreExpense(suggestion.rowId, {
+          suggested_category_id: suggestion.categoryId,
+          ai_confidence: suggestion.confidence,
+          ai_reasoning: suggestion.reasoning
         });
-        return [...updatedExpenses]; // Create new array to force re-render
       });
       
       toast.success(jobStatus.message || `AI categorized ${suggestions.length} expenses`);
@@ -441,9 +463,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         setHasMore(false);
       }
 
-      setExpenses(prev => 
-        isInitial ? newExpenses : [...prev, ...newExpenses]
-      );
+      // Store expenses in Zustand store
+      const actualPage = pageNum + 1; // Convert to 1-based page
+      setStoreExpenses(newExpenses, actualPage, LIMIT);
+      markPageRequested(actualPage, `expenses?offset=${offset}&limit=${LIMIT}`);
       
       // Always update page to reflect what we just loaded
       setPage(pageNum);
@@ -462,8 +485,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     
     const abortController = new AbortController();
     
-    // Reset state
-    setExpenses([]);
+    // Reset state - both local and Zustand store
+    setStoreProject(project.id);
     setPage(0);
     setHasMore(true);
     setError(null);
@@ -487,13 +510,15 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         
         if (abortController.signal.aborted) return;
         
-        // Handle expenses
+        // Handle expenses - store in Zustand
         if (expensesResponse.ok) {
           const expensesData = await expensesResponse.json();
           if (expensesData.length < LIMIT) {
             setHasMore(false);
           }
-          setExpenses(expensesData);
+          // Store expenses in Zustand store with page info
+          setStoreExpenses(expensesData, 1, LIMIT);
+          markPageRequested(1, `expenses?offset=0&limit=${LIMIT}`);
         }
         
         // Handle categories
@@ -558,14 +583,20 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         case 'A':
           if (activeRowIndex !== null) {
             e.preventDefault();
-            handleAcceptSuggestion(expenses[activeRowIndex]);
+            const currentExpense = getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
+            if (currentExpense) {
+              handleAcceptSuggestion(currentExpense);
+            }
           }
           break;
         case 'p':
         case 'P':
           if (activeRowIndex !== null) {
             e.preventDefault();
-            handleTogglePersonal(expenses[activeRowIndex]);
+            const currentExpense = getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
+            if (currentExpense) {
+              handleTogglePersonal(currentExpense);
+            }
           }
           break;
         default:
@@ -575,7 +606,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
             const category = categories.find(cat => cat.hotkey === hotkey);
             if (category) {
               e.preventDefault();
-              updateExpenseCategory(expenses[activeRowIndex].id, category.id);
+              const currentExpense = getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
+              if (currentExpense) {
+                updateExpenseCategory(currentExpense.id, category.id);
+              }
             }
           }
           break;
@@ -585,7 +619,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isTableActive, activeRowIndex, expenses, handleAcceptSuggestion, handleTogglePersonal, scrollActiveRowIntoView, setActiveRowWithTabIndex]);
+  }, [isTableActive, activeRowIndex, expenses, handleAcceptSuggestion, handleTogglePersonal, scrollActiveRowIntoView, setActiveRowWithTabIndex, getExpenseByIndex, updateExpenseCategory, categories]);
 
   const value = {
     // Data state
@@ -628,6 +662,16 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     
     // Constants
     LIMIT,
+    
+    // Zustand store functions for virtual scroll
+    getExpensesForPage,
+    hasCompletePageData,
+    getExpenseByIndex,
+    isPageRequested,
+    setPageLoading,
+    isPageLoading,
+    markPageRequested,
+    setStoreExpenses,
   };
 
   return (
