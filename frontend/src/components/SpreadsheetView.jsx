@@ -272,7 +272,12 @@ const SpreadsheetTable = () => {
 };
 
 // Main SpreadsheetView component with contexts
-const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar, onClose }) => {
+const SpreadsheetView = ({
+  project,
+  isSidebarCollapsed,
+  onToggleSidebar,
+  onClose,
+}) => {
   const [activeTab, setActiveTab] = useState('expenses');
 
   if (!project) {
@@ -352,7 +357,7 @@ const SpreadsheetViewContent = ({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="absolute top-5 right-5 text-muted-foreground hover:text-foreground z-10"
+              className="absolute top-2 right-6 text-muted-foreground hover:text-foreground z-10"
               title="Close project"
             >
               <X className="h-4 w-4" />
