@@ -387,17 +387,6 @@ const SpreadsheetViewContent = ({
               )}
             </div>
             <div className="flex items-center gap-4">
-              {onClose && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  className="text-muted-foreground hover:text-foreground"
-                  title="Close project"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
               <Tabs
                 value={activeTab}
                 onValueChange={setActiveTab}
@@ -446,6 +435,17 @@ const SpreadsheetViewContent = ({
               )}
               {activeTab === 'totals' && (
                 <DownloadTotalsButton project={project} />
+              )}
+              {onClose && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Close project"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               )}
             </div>
           </div>

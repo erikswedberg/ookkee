@@ -13,7 +13,7 @@ const ProjectsSidebar = ({
   onManageCategories,
 }) => {
   return (
-    <div className="w-64 bg-card border-r p-4 space-y-4">
+    <div className="w-64 bg-card border-r p-4 space-y-4 flex flex-col h-full">
       {/* Categories link */}
       <div className="pb-2 border-b">
         <Button
@@ -39,7 +39,7 @@ const ProjectsSidebar = ({
         </Button>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 overflow-y-auto flex-1">
         {projects.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
             No projects yet.
