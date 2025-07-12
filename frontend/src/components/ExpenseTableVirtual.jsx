@@ -128,6 +128,11 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     [projectId, hasCompletePageData, getExpensesForPage, isPageRequested, setPageLoading, markPageRequested, setStoreExpenses]
   );
 
+  // Function to get current expense data from store (reactive to updates)
+  const getCurrentExpense = useCallback((expenseIndex) => {
+    return getExpenseByIndex(expenseIndex);
+  }, [getExpenseByIndex]);
+  
   // Prepare props for ExpenseRow2 components using SpreadsheetContext
   const expenseRowProps = useCallback(() => {
     return {
@@ -141,8 +146,9 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       handleClearCategory,
       setIsTableActive,
       setActiveRowWithTabIndex,
+      getCurrentExpense, // Pass function to get current expense data
     };
-  }, [categories, processingRows, activeRowIndex, handleTogglePersonal, updateExpenseCategory, handleAcceptSuggestion, handleClearCategory, setIsTableActive, setActiveRowWithTabIndex]);
+  }, [categories, processingRows, activeRowIndex, handleTogglePersonal, updateExpenseCategory, handleAcceptSuggestion, handleClearCategory, setIsTableActive, setActiveRowWithTabIndex, getCurrentExpense]);
 
   // Row interactions now handled by SpreadsheetContext
 
