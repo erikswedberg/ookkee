@@ -489,3 +489,52 @@ cd frontend && npm test
 **Current Status**: Virtual infinite scroll fully functional with React components, proper HTML structure, and performance optimization. Both "Expenses" and "Expenses 2" tabs use identical ExpenseRow component ensuring perfect consistency.
 
 **Next Steps**: Production readiness testing, performance validation with large datasets, and potential standalone npm package publication.
+
+## Phase 9: Virtual Scroll Feature Parity and Architecture Refactoring
+
+**Goal**: Achieve complete feature parity between virtual scroll (Expenses 2) and regular table (Expenses) with unified state management
+
+**Major Architecture Refactor**:
+- **Zustand Store Integration**: Moved Zustand store from ExpenseTableVirtual into SpreadsheetContext for unified state management
+- **Normalized State Architecture**: Both tables now share same normalized expense data keyed by row index
+- **Optimistic Updates**: Real-time UI updates for all interactions (category changes, personal toggles) across both tables
+- **Unified Keyboard Handling**: Single keyboard handler supports both regular and virtual scroll contexts
+
+**Virtual Scroll Interactions Fixed**:
+- **Row Activation**: Click to select with proper blue highlighting and tabindex management
+- **Keyboard Shortcuts**: A (accept suggestion), P (toggle personal) working on virtual scroll
+- **Category Hotkeys**: 1-9, Q-Z for quick category assignment
+- **Checkbox Toggles**: Personal expense marking with immediate visual feedback
+- **Action Links**: Accept/Clear links with proper state updates
+- **Category Dropdowns**: Manual status handling and look-ahead propagation for matching descriptions
+- **AI Categorization**: Job tracking system with real-time suggestion updates
+- **Scroll Navigation**: Arrow key navigation properly follows active row in virtual scroll
+
+**Real-time State Management**:
+- **getCurrentExpense**: Virtual scroll rows get live data from Zustand store instead of cached page data
+- **Immediate Updates**: Status changes from "Suggested" to "Accepted" appear instantly without refresh
+- **Store Integration**: AI categorization job completion updates normalized store for both table types
+- **Cross-tab Consistency**: Changes in one tab immediately reflect in the other
+
+**UX Improvements**:
+- **Project Close Button**: Absolute positioned X button at top-right corner (top: 20px, right: 20px)
+- **Create Project Fix**: Auto-closes current project to prevent hotkey conflicts in modal dialogs
+- **Sidebar Scroll**: Added overflow-y: auto for unlimited project lists
+- **Column Width Optimization**: Category column 18%, Description 26% with 220px max-width dropdown
+
+**Technical Achievements**:
+- **Complete Feature Parity**: Virtual scroll now matches regular table functionality exactly
+- **Performance Maintained**: Fixed 60 DOM elements with real-time reactivity
+- **Clean Architecture**: Single source of truth with Zustand store in SpreadsheetContext
+- **Error Resolution**: Fixed all setExpenses reference errors and job polling issues
+
+**Files Modified**:
+- `frontend/src/contexts/SpreadsheetContext.jsx` - Zustand integration and unified keyboard handling
+- `frontend/src/components/ExpenseTableVirtual.jsx` - Connected to SpreadsheetContext
+- `frontend/src/components/ExpenseRow2.jsx` - Real-time store integration with getCurrentExpense
+- `frontend/src/components/SpreadsheetView.jsx` - Close button and tab management
+- `frontend/src/components/VirtualInfiniteScroll.css` - Column width adjustments
+- `frontend/src/components/ProjectsSidebar.jsx` - Sidebar scroll support
+- `frontend/src/App.jsx` - Project close handling
+
+**Current Status**: Virtual scroll has complete feature parity with regular table. All interactions work identically across both implementations with unified state management and real-time updates.
