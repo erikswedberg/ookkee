@@ -32,6 +32,7 @@
 }
 .scroll-column, .scroll-th {
   display: table-cell;
+  vertical-align: middle;
 }
 
 .scroll-column > div.content, .scroll-column > span.content {
