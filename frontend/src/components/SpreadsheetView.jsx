@@ -402,7 +402,7 @@ const SpreadsheetViewContent = ({
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              {activeTab === 'expenses' && (
+              {(activeTab === 'expenses' || activeTab === 'expenses2') && (
                 <SplitButton
                   variant="outline"
                   size="sm"
