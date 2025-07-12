@@ -346,7 +346,18 @@ const SpreadsheetViewContent = ({
   return (
     <div>
       <Card className="h-[calc(100vh-50px)] overflow-hidden rounded-none border-0 shadow-none">
-        <CardHeader>
+        <CardHeader className="relative">
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="absolute top-5 right-5 text-muted-foreground hover:text-foreground z-10"
+              title="Close project"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
           <div className="flex items-center justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -435,17 +446,6 @@ const SpreadsheetViewContent = ({
               )}
               {activeTab === 'totals' && (
                 <DownloadTotalsButton project={project} />
-              )}
-              {onClose && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  className="text-muted-foreground hover:text-foreground"
-                  title="Close project"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               )}
             </div>
           </div>
