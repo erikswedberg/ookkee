@@ -128,6 +128,7 @@ const ExpenseRow2 = ({
         <select
           value={getCategoryValue(currentExpense)}
           onChange={handleCategoryChange}
+          style={{ maxWidth: '220px' }}
         >
           <option value=""></option>
           {categories.map(category => {
