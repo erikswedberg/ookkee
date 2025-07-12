@@ -19,6 +19,7 @@ const VirtualInfiniteScroll = ({
   const [lastScrollPos, setLastScrollPos] = useState(0);
   const lastScrollPosRef = useRef(0);
   const [loadingPages, setLoadingPages] = useState(new Set()); // Track pages being loaded
+  const inflightRequests = useRef(new Set()); // Track pages currently being requested (synchronous)
 
   // Fixed page data arrays - always 20 items each, null for empty slots
   const [pageAData, setPageAData] = useState(Array(pageSize).fill(null));
@@ -294,14 +295,22 @@ const VirtualInfiniteScroll = ({
         return;
       }
 
-      // If page is already being loaded, don't load again
+      // If page is already being loaded, don't load again (synchronous check)
+      if (inflightRequests.current.has(page)) {
+        return;
+      }
+
+      // Also check async state as backup
       if (loadingPages.has(page)) {
         return;
       }
 
       if (!onRequestPage) return;
 
-      // Mark page as loading
+      // Mark page as inflight immediately (synchronous)
+      inflightRequests.current.add(page);
+      
+      // Mark page as loading (async state)
       setLoadingPages(prev => new Set([...prev, page]));
       showLoadingPage(page);
 
@@ -330,6 +339,9 @@ const VirtualInfiniteScroll = ({
           newSet.delete(page);
           return newSet;
         });
+      } finally {
+        // Always remove from inflight requests when done
+        inflightRequests.current.delete(page);
       }
     },
     [
