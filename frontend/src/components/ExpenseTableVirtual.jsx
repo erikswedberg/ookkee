@@ -50,13 +50,10 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     return null;
   }, [activeRowIndex, getExpenseByIndex]);
 
-  // Set project in store when project changes
+  // Reset inflight requests when project changes (project setting handled in SpreadsheetContext)
   useEffect(() => {
-    if (projectId) {
-      setProject(projectId);
-    }
     inflightRequests.current.clear();
-  }, [projectId, setProject]);
+  }, [projectId]);
 
   // Categories fetching removed - now using SpreadsheetContext
 
