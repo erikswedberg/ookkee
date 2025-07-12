@@ -10,6 +10,7 @@ const ROWS_PER_PAGE = 20; // Number of rows per virtual page
 const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   const [categories, setCategories] = useState([]);
   const apiCache = useRef({});
+  const inflightRequests = useRef(new Set()); // Track API requests currently in flight
 
   // Fetch categories on component mount
   React.useEffect(() => {
@@ -19,6 +20,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   // Clear cache when project changes (component will be rebuilt anyway due to key prop)
   React.useEffect(() => {
     apiCache.current = {};
+    inflightRequests.current.clear();
   }, [projectId]);
 
   const fetchCategories = async () => {
@@ -44,6 +46,28 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         return apiCache.current[cacheKey];
       }
 
+      // If request is already in flight, wait for it to complete
+      if (inflightRequests.current.has(cacheKey)) {
+        // Wait for the inflight request to complete by polling the cache
+        return new Promise((resolve) => {
+          const pollCache = () => {
+            if (apiCache.current[cacheKey]) {
+              resolve(apiCache.current[cacheKey]);
+            } else if (inflightRequests.current.has(cacheKey)) {
+              // Still in flight, check again in 50ms
+              setTimeout(pollCache, 50);
+            } else {
+              // Request completed but no cache (error case), return empty
+              resolve([]);
+            }
+          };
+          setTimeout(pollCache, 50);
+        });
+      }
+
+      // Mark request as in flight
+      inflightRequests.current.add(cacheKey);
+
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const offset = (page - 1) * pageSize;
@@ -62,6 +86,9 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       } catch (error) {
         console.error('Error fetching expenses:', error);
         return [];
+      } finally {
+        // Always remove from inflight requests when done
+        inflightRequests.current.delete(cacheKey);
       }
     },
     [projectId]
