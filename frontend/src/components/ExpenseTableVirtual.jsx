@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useContext } from 'rea
 import VirtualInfiniteScroll from './VirtualInfiniteScroll';
 import ExpenseRow2 from './ExpenseRow2';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import useExpenseStore from '../stores/expenseStore';
+// Zustand store now accessed via SpreadsheetContext
 import { SpreadsheetContext } from '../contexts/SpreadsheetContext';
 
 // Constants for expense table configuration
@@ -12,7 +12,7 @@ const ROWS_PER_PAGE = 20; // Number of rows per virtual page
 const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   const inflightRequests = useRef(new Set()); // Track API requests currently in flight
   
-  // Get all context values from SpreadsheetContext
+  // Get all context values from SpreadsheetContext (includes Zustand store functions)
   const {
     categories,
     processingRows,
@@ -24,31 +24,31 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     updateExpenseCategory,
     handleAcceptSuggestion,
     handleClearCategory,
-  } = useContext(SpreadsheetContext);
-  
-  // Zustand store hooks
-  const {
-    expenses,
-    setProject,
-    setExpenses,
-    updateExpense,
-    markPageRequested,
+    // Zustand store functions
+    getExpensesForPage,
+    hasCompletePageData,
+    getExpenseByIndex,
     isPageRequested,
     setPageLoading,
     isPageLoading,
-    getExpensesForPage,
-    hasCompletePageData,
-    getDebugInfo,
-  } = useExpenseStore();
+    markPageRequested,
+    setStoreExpenses,
+  } = useContext(SpreadsheetContext);
   
-  // Debug info (can be removed in production)
+  // Reset inflight requests when project changes
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Expense Store Debug:', getDebugInfo());
+    inflightRequests.current.clear();
+  }, [projectId]);
+  
+  // Data fetching and keyboard handling now unified in SpreadsheetContext
+  
+  // Get current active expense for keyboard shortcuts
+  const getCurrentActiveExpense = useCallback(() => {
+    if (activeRowIndex !== null) {
+      return getExpenseByIndex(activeRowIndex);
     }
-  }, [expenses, getDebugInfo]);
-
-  // Categories now come from SpreadsheetContext
+    return null;
+  }, [activeRowIndex, getExpenseByIndex]);
 
   // Set project in store when project changes
   useEffect(() => {
@@ -113,9 +113,9 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         
         if (response.ok) {
           const data = await response.json();
-          // Store expenses in normalized state
-          setExpenses(data, page, pageSize);
-          return getExpensesForPage(page, pageSize);
+          // Store expenses in Zustand store for virtual scroll
+          setStoreExpenses(data, page, pageSize);
+          return data;
         } else {
           throw new Error('Failed to fetch expenses');
         }
@@ -128,7 +128,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         setPageLoading(page, false);
       }
     },
-    [projectId, hasCompletePageData, getExpensesForPage, isPageRequested, markPageRequested, setExpenses, setPageLoading]
+    [projectId, hasCompletePageData, getExpensesForPage, isPageRequested, setPageLoading, markPageRequested, setStoreExpenses]
   );
 
   // Prepare props for ExpenseRow2 components using SpreadsheetContext
