@@ -82,6 +82,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
+  const [isVirtualScrollActive, setIsVirtualScrollActive] = useState(false);
   
   const loadMoreRef = useRef(null);
   const containerRef = useRef(null);
@@ -218,6 +219,14 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Set active row with proper tab index management
   const setActiveRowWithTabIndex = useCallback((newIndex) => {
+    // For virtual scroll, skip DOM manipulation - use pure React state
+    if (isVirtualScrollActive) {
+      setPreviousActiveRowIndex(activeRowIndex);
+      setActiveRowIndex(newIndex);
+      return;
+    }
+    
+    // For regular table, use DOM queries (original behavior)
     // Clear tabIndex from previous active row
     if (previousActiveRowIndex !== null) {
       const prevRow = document.querySelector(`[data-row-index="${previousActiveRowIndex}"]`);
@@ -236,7 +245,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     
     setPreviousActiveRowIndex(activeRowIndex);
     setActiveRowIndex(newIndex);
-  }, [activeRowIndex, previousActiveRowIndex]);
+  }, [activeRowIndex, previousActiveRowIndex, isVirtualScrollActive]);
 
   // Auto-advance to next row helper
   const advanceToNextRow = useCallback((expense) => {
@@ -639,8 +648,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     // UI state
     isTableActive,
     activeRowIndex,
+    isVirtualScrollActive,
     setIsTableActive,
     setActiveRowIndex,
+    setIsVirtualScrollActive,
     
     // Actions
     updateExpense,

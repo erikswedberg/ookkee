@@ -20,6 +20,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     activeRowIndex,
     setIsTableActive,
     setActiveRowWithTabIndex,
+    setIsVirtualScrollActive,
     handleTogglePersonal,
     updateExpenseCategory,
     handleAcceptSuggestion,
@@ -35,10 +36,15 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     setStoreExpenses,
   } = useContext(SpreadsheetContext);
   
-  // Reset inflight requests when project changes
+  // Set virtual scroll active flag and reset inflight requests when component mounts/unmounts
   useEffect(() => {
+    setIsVirtualScrollActive(true);
     inflightRequests.current.clear();
-  }, [projectId]);
+    
+    return () => {
+      setIsVirtualScrollActive(false);
+    };
+  }, [projectId, setIsVirtualScrollActive]);
   
   // Data fetching and keyboard handling now unified in SpreadsheetContext
   
@@ -50,10 +56,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     return null;
   }, [activeRowIndex, getExpenseByIndex]);
 
-  // Reset inflight requests when project changes (project setting handled in SpreadsheetContext)
-  useEffect(() => {
-    inflightRequests.current.clear();
-  }, [projectId]);
+  // Categories fetching removed - now using SpreadsheetContext
 
   // Categories fetching removed - now using SpreadsheetContext
 
