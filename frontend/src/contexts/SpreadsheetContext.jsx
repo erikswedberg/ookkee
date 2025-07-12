@@ -187,19 +187,31 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [fetchProgress, updateStoreExpense, categories]);
 
-  // Scroll active row into view helper
+  // Scroll active row into view helper (works for both regular and virtual scroll)
   const scrollActiveRowIntoView = useCallback((rowIndex) => {
     const row = document.querySelector(`[data-row-index="${rowIndex}"]`);
-    if (row && containerRef.current) {
-      const container = containerRef.current;
-      const containerRect = container.getBoundingClientRect();
+    if (!row) return;
+    
+    // Find the scrollable container for this row
+    let scrollContainer = row.closest('.overflow-auto');
+    if (!scrollContainer) {
+      scrollContainer = containerRef.current; // Fallback to regular table container
+    }
+    
+    if (scrollContainer) {
+      const containerRect = scrollContainer.getBoundingClientRect();
       const rowRect = row.getBoundingClientRect();
       
-      // Only scroll if row goes below the bottom of the visible area
-      if (rowRect.bottom > containerRect.bottom) {
-        // Scroll so the row is at the top of the visible area
-        const scrollTop = row.offsetTop - container.offsetTop;
-        container.scrollTop = scrollTop;
+      // Scroll if row is out of view (above or below)
+      if (rowRect.bottom > containerRect.bottom || rowRect.top < containerRect.top) {
+        // Calculate scroll position to center the row in view
+        const rowOffsetTop = row.offsetTop;
+        const containerHeight = scrollContainer.clientHeight;
+        const rowHeight = row.clientHeight;
+        
+        // Center the row in the viewport
+        const scrollTop = rowOffsetTop - (containerHeight / 2) + (rowHeight / 2);
+        scrollContainer.scrollTop = Math.max(0, scrollTop);
       }
     }
   }, [containerRef]);
