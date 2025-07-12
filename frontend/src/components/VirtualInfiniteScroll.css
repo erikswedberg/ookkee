@@ -91,17 +91,17 @@
 .scroll-header > .scroll-th:nth-child(4),
 .scroll-row > .scroll-column:nth-child(4) { width: 9%; }
 
-/* Description column - reduced from 31% to 24% (taking 7% away for Category) */
+/* Description column - reduced from 31% to 26% (taking 5% away for Category) */
 .scroll-header > .scroll-th:nth-child(5),
-.scroll-row > .scroll-column:nth-child(5) { width: 24%; }
+.scroll-row > .scroll-column:nth-child(5) { width: 26%; }
 
 /* Amount column */
 .scroll-header > .scroll-th:nth-child(6),
 .scroll-row > .scroll-column:nth-child(6) { width: 11%; }
 
-/* Category column - increased from 13% to 20% (taking 7% from Description) */
+/* Category column - increased from 13% to 18% (taking 5% from Description) */
 .scroll-header > .scroll-th:nth-child(7),
-.scroll-row > .scroll-column:nth-child(7) { width: 20%; }
+.scroll-row > .scroll-column:nth-child(7) { width: 18%; }
 
 /* Action column */
 .scroll-header > .scroll-th:nth-child(8),
