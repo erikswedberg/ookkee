@@ -397,22 +397,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         return; // Don't clear processing state yet
       }
     } else {
-      // Update expenses with AI suggestions
-      setExpenses(currentExpenses => {
-        const updatedExpenses = currentExpenses.map(expense => {
-          // Find suggestion for this expense in the returned suggestions
-          const suggestion = suggestions.find(s => s.rowId === expense.id);
-          if (suggestion) {
-            return {
-              ...expense,
-              suggested_category_id: suggestion.categoryId,
-              ai_confidence: suggestion.confidence,
-              ai_reasoning: suggestion.reasoning
-            };
-          }
-          return expense;
+      // Update expenses with AI suggestions using Zustand store
+      suggestions.forEach(suggestion => {
+        updateStoreExpense(suggestion.rowId, {
+          suggested_category_id: suggestion.categoryId,
+          ai_confidence: suggestion.confidence,
+          ai_reasoning: suggestion.reasoning
         });
-        return [...updatedExpenses]; // Create new array to force re-render
       });
       
       toast.success(jobStatus.message || `AI categorized ${suggestions.length} expenses`);
