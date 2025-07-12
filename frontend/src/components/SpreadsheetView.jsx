@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DualProgress } from '@/components/ui/dual-progress';
 import { SplitButton } from '@/components/ui/split-button';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, X } from 'lucide-react';
 import dayjs from 'dayjs';
 import {
   SpreadsheetContextProvider,
@@ -272,7 +272,7 @@ const SpreadsheetTable = () => {
 };
 
 // Main SpreadsheetView component with contexts
-const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar }) => {
+const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar, onClose }) => {
   const [activeTab, setActiveTab] = useState('expenses');
 
   if (!project) {
@@ -296,6 +296,7 @@ const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar }) => {
           setActiveTab={setActiveTab}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebar={onToggleSidebar}
+          onClose={onClose}
         />
       </TotalsContextProvider>
     </SpreadsheetContextProvider>
@@ -309,6 +310,7 @@ const SpreadsheetViewContent = ({
   setActiveTab,
   isSidebarCollapsed,
   onToggleSidebar,
+  onClose,
 }) => {
   const {
     expenses,
@@ -385,6 +387,17 @@ const SpreadsheetViewContent = ({
               )}
             </div>
             <div className="flex items-center gap-4">
+              {onClose && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Close project"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
               <Tabs
                 value={activeTab}
                 onValueChange={setActiveTab}
