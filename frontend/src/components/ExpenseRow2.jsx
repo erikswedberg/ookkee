@@ -318,7 +318,7 @@ const ExpenseRow2 = ({
                 {renderAction(expense, expenseIndex)}
               </div>
             ) : isStatus ? (
-              renderStatus(expense)
+              <div className="content">{renderStatus(expense)}</div>
             ) : isDescription ? (
               <div className="truncated content">{value || ''}</div>
             ) : isAmount && typeof value === 'number' ? (

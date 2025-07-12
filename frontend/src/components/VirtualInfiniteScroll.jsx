@@ -561,8 +561,8 @@ const VirtualInfiniteScroll = ({
           </div>
         </div>
         {/* </div> */}
-        {/* Debug info - disabled - `process.env.NODE_ENV === 'development' &&` */}
-        {false && (
+
+        {process.env.NODE_ENV === 'development' && (
           <div className="virtual-scroll-debug">
             <div>Current Page: {currentPage}</div>
             <div>Total Pages: {maxPages}</div>

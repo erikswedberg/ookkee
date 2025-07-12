@@ -52,15 +52,18 @@
 
 /* Page debugging colors - disabled */
 .scroll-page-a {
-  /* background-color: rgba(135, 206, 235, 0.3); skyblue with 30% opacity */
+  top: 0;
+  background-color: rgba(135, 206, 235, 0.3); /* skyblue with 30% opacity */
 }
 
 .scroll-page-b {
-  /* background-color: rgba(255, 215, 0, 0.3); gold with 30% opacity */
+  top: 1200px;
+  background-color: rgba(255, 215, 0, 0.3); /* gold with 30% opacity */
 }
 
 .scroll-page-c {
-  /* background-color: rgba(205, 92, 92, 0.3); indianred with 30% opacity */
+  top: 2400px;
+  background-color: rgba(205, 92, 92, 0.3); /* indianred with 30% opacity */
 }
 .scroll-row > .scroll-column {
   height: 60px;
@@ -153,6 +156,7 @@
   font-family: monospace;
   font-size: 12px;
   z-index: 1000;
+  display: none;
 }
 
 .virtual-scroll-debug > div {
