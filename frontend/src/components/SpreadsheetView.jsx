@@ -1,28 +1,28 @@
-import { useState, useEffect, useCallback, useContext } from "react";
-import { TableCell, TableHead, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DualProgress } from "@/components/ui/dual-progress";
-import { SplitButton } from "@/components/ui/split-button";
-import { RefreshCw, Download } from "lucide-react";
-import dayjs from "dayjs";
+import { useState, useEffect, useCallback, useContext } from 'react';
+import { TableCell, TableHead, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DualProgress } from '@/components/ui/dual-progress';
+import { SplitButton } from '@/components/ui/split-button';
+import { RefreshCw, Download } from 'lucide-react';
+import dayjs from 'dayjs';
 import {
   SpreadsheetContextProvider,
   SpreadsheetContext,
-} from "../contexts/SpreadsheetContext";
-import { TotalsContextProvider } from "../contexts/TotalsContext";
-import TotalsView from "./TotalsView";
-import ExpenseTableVirtual from "./ExpenseTableVirtual";
-import ExpenseRow from "./ExpenseRow";
-import "./Spreadsheet.css";
+} from '../contexts/SpreadsheetContext';
+import { TotalsContextProvider } from '../contexts/TotalsContext';
+import TotalsView from './TotalsView';
+import ExpenseTableVirtual from './ExpenseTableVirtual';
+import ExpenseRow from './ExpenseRow';
+import './Spreadsheet.css';
 
 // Download Totals Button Component
 const DownloadTotalsButton = ({ project }) => {
   const downloadCSV = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const response = await fetch(
         `${API_URL}/api/projects/${project.id}/totals/csv`
       );
@@ -33,16 +33,16 @@ const DownloadTotalsButton = ({ project }) => {
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `${project.name}-totals.csv`);
-      link.style.visibility = "hidden";
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${project.name}-totals.csv`);
+      link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Failed to download CSV:", error);
+      console.error('Failed to download CSV:', error);
     }
   };
 
@@ -90,13 +90,13 @@ const SpreadsheetTable = () => {
   // Get fixed columns as specified: Source, Date, Description, Amount, Category, Action, Status
   const getColumns = () => {
     return [
-      "Source",
-      "Date",
-      "Description",
-      "Amount",
-      "Category",
-      "Action",
-      "Status",
+      'Source',
+      'Date',
+      'Description',
+      'Amount',
+      'Category',
+      'Action',
+      'Status',
     ];
   };
 
@@ -133,7 +133,7 @@ const SpreadsheetTable = () => {
       {
         root: currentContainerRef, // Use the scrollable container as root
         threshold: 0.1,
-        rootMargin: "100px", // Trigger when 100px from bottom
+        rootMargin: '100px', // Trigger when 100px from bottom
       }
     );
 
@@ -165,8 +165,8 @@ const SpreadsheetTable = () => {
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [setIsTableActive, setActiveRowWithTabIndex, tableRef]);
 
   const columns = getColumns();
@@ -181,7 +181,7 @@ const SpreadsheetTable = () => {
 
   return (
     <div
-      className="spreadsheet overflow-auto relative h-[calc(100vh-172px)]"
+      className="spreadsheet overflow-auto relative h-[calc(100vh-162px)]"
       ref={containerRef}
     >
       <table className="w-full caption-bottom text-sm" ref={tableRef}>
@@ -193,10 +193,10 @@ const SpreadsheetTable = () => {
               <TableHead
                 key={column}
                 className={`bg-background ${
-                  column === "Status" ? "text-right" : ""
+                  column === 'Status' ? 'text-right' : ''
                 }`}
                 style={{
-                  minWidth: column === "Category" ? "175px" : undefined,
+                  minWidth: column === 'Category' ? '175px' : undefined,
                 }}
               >
                 {column}
@@ -273,7 +273,7 @@ const SpreadsheetTable = () => {
 
 // Main SpreadsheetView component with contexts
 const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar }) => {
-  const [activeTab, setActiveTab] = useState("expenses");
+  const [activeTab, setActiveTab] = useState('expenses');
 
   if (!project) {
     return (
@@ -351,15 +351,15 @@ const SpreadsheetViewContent = ({
                 <button
                   onClick={onToggleSidebar}
                   className="text-muted-foreground hover:text-foreground transition-colors text-sm"
-                  title={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+                  title={isSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
                 >
-                  {isSidebarCollapsed ? "→" : "←"}
+                  {isSidebarCollapsed ? '→' : '←'}
                 </button>
                 <CardTitle>{project.name}</CardTitle>
               </div>
               <p className="text-sm text-muted-foreground">
                 {project.row_count} rows • {project.original_name}
-                {activeTab === "expenses" &&
+                {activeTab === 'expenses' &&
                   ` • Showing ${expenses.length} of ${project.row_count}`}
               </p>
               {project?.row_count > 0 && (
@@ -391,12 +391,18 @@ const SpreadsheetViewContent = ({
                 className="w-auto"
               >
                 <TabsList>
-                  <TabsTrigger value="expenses">Expenses</TabsTrigger>
-                  <TabsTrigger value="expenses2">Expenses 2</TabsTrigger>
-                  <TabsTrigger value="totals">Totals</TabsTrigger>
+                  <TabsTrigger value="expenses" data-testid="expenses-tab">
+                    Expenses
+                  </TabsTrigger>
+                  <TabsTrigger value="expenses2" data-testid="expenses2-tab">
+                    Expenses 2
+                  </TabsTrigger>
+                  <TabsTrigger value="totals" data-testid="totals-tab">
+                    Totals
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
-              {activeTab === "expenses" && (
+              {activeTab === 'expenses' && (
                 <SplitButton
                   variant="outline"
                   size="sm"
@@ -412,20 +418,20 @@ const SpreadsheetViewContent = ({
                   className="flex items-center"
                 >
                   <RefreshCw
-                    className={`h-4 w-4 ${aiCategorizing ? "animate-spin" : ""}`}
+                    className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`}
                   />
                   {aiCategorizing
-                    ? "AI Categorizing..."
+                    ? 'AI Categorizing...'
                     : (() => {
                         const uncategorizedCount =
                           progress.uncategorized_count || 0;
                         return uncategorizedCount > 0
                           ? `AI Categorize (${Math.min(uncategorizedCount, 20)})`
-                          : "AI Categorize";
+                          : 'AI Categorize';
                       })()}
                 </SplitButton>
               )}
-              {activeTab === "totals" && (
+              {activeTab === 'totals' && (
                 <DownloadTotalsButton project={project} />
               )}
             </div>

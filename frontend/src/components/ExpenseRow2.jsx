@@ -20,6 +20,7 @@ const ExpenseRow2 = ({
   setIsTableActive,
   setActiveRowWithTabIndex,
   isVisible = true,
+  isLoading = false,
 }) => {
   // Hide row if not visible (for virtual scroll empty slots)
   if (!isVisible || !expense) {
@@ -272,7 +273,7 @@ const ExpenseRow2 = ({
         setActiveRowWithTabIndex(expenseIndex);
       }}
     >
-      <div className="scroll-column px-3 py-2 text-center">
+      <div className="scroll-column text-center">
         <Checkbox
           checked={expense.is_personal || false}
           onCheckedChange={() => {
@@ -281,8 +282,10 @@ const ExpenseRow2 = ({
           onClick={e => e.stopPropagation()}
         />
       </div>
-      <div className="scroll-column px-3 py-2 font-mono text-xs text-muted-foreground">
-        {expense.row_index + 1}
+      <div className="scroll-column font-mono text-xs text-muted-foreground">
+        <span className="content">
+          {isLoading ? null : expense.row_index + 1}
+        </span>
       </div>
       {columns.map(column => {
         const value = getColumnValue(expense, column);
@@ -292,11 +295,11 @@ const ExpenseRow2 = ({
         const isCategory = column === 'Category';
         const isAction = column === 'Action';
         const isStatus = column === 'Status';
-
+        const isSource = column === 'Source';
         return (
           <div
             key={column}
-            className={`scroll-column px-3 py-2 ${
+            className={`scroll-column ${
               isAmount
                 ? `font-mono amount text-sm ${
                     isPersonal && !isActive
@@ -308,32 +311,24 @@ const ExpenseRow2 = ({
                   : ''
             }`}
           >
-            {isCategory ? (
-              renderCategory(expense)
+            {isLoading ? null : isCategory ? (
+              <div className="content">{renderCategory(expense)}</div>
             ) : isAction ? (
-              renderAction(expense, expenseIndex)
+              <div className="actions">
+                {renderAction(expense, expenseIndex)}
+              </div>
             ) : isStatus ? (
               renderStatus(expense)
             ) : isDescription ? (
-              <div
-                style={{
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  lineHeight: '1.3',
-                  maxHeight: '2.6em',
-                }}
-              >
-                {value || ''}
-              </div>
+              <div className="truncated content">{value || ''}</div>
             ) : isAmount && typeof value === 'number' ? (
-              formatAmount(value)
+              <div className="content">{formatAmount(value)}</div>
             ) : isDate ? (
-              formatDate(value)
+              <div className="content">{formatDate(value)}</div>
+            ) : isSource ? (
+              <div className="truncated content">{value || ''}</div>
             ) : (
-              value || ''
+              <div className="content">{value || ''}</div>
             )}
           </div>
         );

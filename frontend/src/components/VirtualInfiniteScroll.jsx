@@ -12,24 +12,30 @@ const VirtualInfiniteScroll = ({
   loadingComponent = null,
   headerComponent = null, // Optional header component
 }) => {
-  const [renderedPages, setRenderedPages] = useState({ 1: true });
+  const [renderedPages, setRenderedPages] = useState({}); //'1': true
   const [pageData, setPageData] = useState({}); // Cache for page data
   const [currentPage, setCurrentPage] = useState(1);
   const [scrollLock, setScrollLock] = useState(false);
   const [lastScrollPos, setLastScrollPos] = useState(0);
+  const lastScrollPosRef = useRef(0);
   const [loadingPages, setLoadingPages] = useState(new Set()); // Track pages being loaded
 
-  // Fixed page data arrays - 20 items each, null for empty slots
+  // Fixed page data arrays - always 20 items each, null for empty slots
   const [pageAData, setPageAData] = useState(Array(pageSize).fill(null));
   const [pageBData, setPageBData] = useState(Array(pageSize).fill(null));
   const [pageCData, setPageCData] = useState(Array(pageSize).fill(null));
 
+  const [pageALoading, setPageALoading] = useState(false);
+  const [pageBLoading, setPageBLoading] = useState(false);
+  const [pageCLoading, setPageCLoading] = useState(false);
+
   // Track which page number each container is currently showing
-  const [currentPageA, setCurrentPageA] = useState(1);
-  const [currentPageB, setCurrentPageB] = useState(1);
-  const [currentPageC, setCurrentPageC] = useState(1);
+  const [currentPageA, setCurrentPageA] = useState(-1);
+  const [currentPageB, setCurrentPageB] = useState(-1);
+  const [currentPageC, setCurrentPageC] = useState(-1);
 
   const containerRef = useRef(null);
+  const virtualScrollRef = useRef(null);
   const listNodeA = useRef(null);
   const listNodeB = useRef(null);
   const listNodeC = useRef(null);
@@ -98,14 +104,12 @@ const VirtualInfiniteScroll = ({
   );
 
   // Get scroll direction
-  const getScrollDirection = useCallback(
-    pos => {
-      const direction = pos > lastScrollPos ? 'down' : 'up';
-      setLastScrollPos(pos);
-      return direction;
-    },
-    [lastScrollPos]
-  );
+  const getScrollDirection = useCallback(pos => {
+    const direction = pos > lastScrollPosRef.current ? 'down' : 'up';
+    lastScrollPosRef.current = pos;
+    setLastScrollPos(pos);
+    return direction;
+  }, []);
 
   // Find available list node for rendering a page ("Follow the Yellow Brick Road")
   const getListNode = useCallback(
@@ -153,7 +157,6 @@ const VirtualInfiniteScroll = ({
 
         // Clear the node before reuse (like emptyNode in original)
         if (returnNode) {
-          returnNode.innerHTML = '';
           returnNode.dataset.page = '';
         }
       }
@@ -202,6 +205,20 @@ const VirtualInfiniteScroll = ({
     [loadingNodes]
   );
 
+  const setAndClearRenderedPage = useCallback((page, oldPage) => {
+    setRenderedPages(prev => {
+      const newRenderedPages = { ...prev };
+      // Remove the old page from renderedPages if it was recycled
+      if (oldPage && oldPage !== page) {
+        delete newRenderedPages[oldPage];
+      }
+      // Add the new page to renderedPages
+      newRenderedPages[page] = true;
+
+      return newRenderedPages;
+    });
+  }, []);
+
   // Display a page of data by updating React component props
   const displayPage = useCallback(
     (page, data) => {
@@ -211,16 +228,25 @@ const VirtualInfiniteScroll = ({
       // Set page data attribute for debugging
       node.dataset.page = page;
 
+      // clear the node's content
+      if (index === 0) {
+        setPageALoading(true);
+      } else if (index === 1) {
+        setPageBLoading(true);
+      } else if (index === 2) {
+        setPageCLoading(true);
+      }
+
       // Position the node
       const cssTop = getPositionFromPage(page);
       node.style.top = `${cssTop}px`;
 
       // Set height
-      if (page === maxPages) {
-        node.style.height = 'auto';
-      } else {
-        node.style.height = `${pageHeight}px`;
-      }
+      // if (page === maxPages) {
+      //   node.style.height = 'auto';
+      // } else {
+      //   node.style.height = `${pageHeight}px`;
+      // }
 
       // Update the appropriate page data state (triggers React re-render)
       const items = data || [];
@@ -231,15 +257,31 @@ const VirtualInfiniteScroll = ({
       if (index === 0) {
         setPageAData(paddedItems);
         setCurrentPageA(page);
+        setAndClearRenderedPage(page, currentPageA);
+        setPageALoading(false);
       } else if (index === 1) {
         setPageBData(paddedItems);
         setCurrentPageB(page);
+        setAndClearRenderedPage(page, currentPageB);
+        setPageBLoading(false);
       } else if (index === 2) {
         setPageCData(paddedItems);
         setCurrentPageC(page);
+        setAndClearRenderedPage(page, currentPageC);
+        setPageCLoading(false);
       }
     },
-    [getListNode, getPositionFromPage, pageHeight, maxPages, pageSize]
+    [
+      getListNode,
+      getPositionFromPage,
+      maxPages,
+      pageSize,
+      pageHeight,
+      setAndClearRenderedPage,
+      currentPageA,
+      currentPageB,
+      currentPageC,
+    ]
   );
 
   // Request a page of data
@@ -248,7 +290,7 @@ const VirtualInfiniteScroll = ({
       // If we have cached data, display it immediately
       if (pageData[page]) {
         displayPage(page, pageData[page]);
-        setRenderedPages(prev => ({ ...prev, [page]: true }));
+        //setRenderedPages(prev => ({ ...prev, [page]: true }));
         return;
       }
 
@@ -268,7 +310,7 @@ const VirtualInfiniteScroll = ({
         setPageData(prev => ({ ...prev, [page]: data }));
 
         // Mark page as rendered
-        setRenderedPages(prev => ({ ...prev, [page]: true }));
+        //setRenderedPages(prev => ({ ...prev, [page]: true }));
 
         // Clear loading indicator and remove from loading set
         clearLoadingPage(page);
@@ -353,35 +395,36 @@ const VirtualInfiniteScroll = ({
     });
 
     // Aggressive pre-loading: load pages ahead in scroll direction
-    const currentPage = getPageFromPosition(pos);
-    const direction = getScrollDirection(pos);
+    // const currentPage = getPageFromPosition(pos);
+    // const direction = getScrollDirection(pos);
 
-    if (direction === 'down') {
-      // Pre-load 2 pages ahead when scrolling down
-      for (let i = 1; i <= 2; i++) {
-        const nextPage = currentPage + i;
-        if (nextPage <= maxPages && !renderedPages[nextPage]) {
-          requestPage(nextPage);
-        }
-      }
-    } else if (direction === 'up') {
-      // Pre-load 2 pages behind when scrolling up
-      for (let i = 1; i <= 2; i++) {
-        const prevPage = currentPage - i;
-        if (prevPage >= 1 && !renderedPages[prevPage]) {
-          requestPage(prevPage);
-        }
-      }
-    }
-  }, [
-    scrollLock,
-    getPagesFromPosition,
-    renderedPages,
-    maxPages,
-    requestPage,
-    getPageFromPosition,
-    getScrollDirection,
-  ]);
+    // if (direction === 'down') {
+    //   // Pre-load 2 pages ahead when scrolling down
+    //   for (let i = 1; i <= 2; i++) {
+    //     const nextPage = currentPage + i;
+    //     if (nextPage <= maxPages && !renderedPages[nextPage]) {
+    //       requestPage(nextPage);
+    //     }
+    //   }
+    // } else if (direction === 'up') {
+    //   // Pre-load 2 pages behind when scrolling up
+    //   for (let i = 1; i <= 2; i++) {
+    //     const prevPage = currentPage - i;
+    //     if (prevPage >= 1 && !renderedPages[prevPage]) {
+    //       requestPage(prevPage);
+    //     }
+    //   }
+    // }
+  }, [scrollLock, getPagesFromPosition, renderedPages, maxPages, requestPage]);
+
+  // Set up container ref to point to parent scrolling container
+  useEffect(() => {
+    const virtualScrollDiv = virtualScrollRef.current;
+    if (!virtualScrollDiv) return;
+
+    // Point containerRef to the parent scrolling container
+    containerRef.current = virtualScrollDiv.parentElement;
+  }, []);
 
   // Set up scroll listener and page watchdog
   useEffect(() => {
@@ -423,7 +466,7 @@ const VirtualInfiniteScroll = ({
         </div>
       )}
 
-      <div ref={containerRef} className="virtual-infinite-scroll">
+      <div ref={virtualScrollRef} className="virtual-infinite-scroll">
         {/* Container with full height to maintain scrollbar proportions */}
 
         <div
@@ -439,15 +482,18 @@ const VirtualInfiniteScroll = ({
             data-page=""
           >
             <div className="scroll-table">
-              {pageAData.map((item, index) => (
-                <ItemComponent
-                  key={`page-a-${index}`}
-                  expense={item}
-                  expenseIndex={(currentPageA - 1) * pageSize + index}
-                  isVisible={item !== null}
-                  {...itemProps}
-                />
-              ))}
+              {Array(pageSize)
+                .fill(null)
+                .map((_, index) => (
+                  <ItemComponent
+                    key={`page-a-${index}`}
+                    expense={pageAData[index]}
+                    expenseIndex={(currentPageA - 1) * pageSize + index}
+                    isVisible={pageAData[index] !== null}
+                    isLoading={pageALoading}
+                    {...itemProps}
+                  />
+                ))}
             </div>
           </div>
           <div
@@ -456,15 +502,18 @@ const VirtualInfiniteScroll = ({
             data-page=""
           >
             <div className="scroll-table">
-              {pageBData.map((item, index) => (
-                <ItemComponent
-                  key={`page-b-${index}`}
-                  expense={item}
-                  expenseIndex={(currentPageB - 1) * pageSize + index}
-                  isVisible={item !== null}
-                  {...itemProps}
-                />
-              ))}
+              {Array(pageSize)
+                .fill(null)
+                .map((_, index) => (
+                  <ItemComponent
+                    key={`page-b-${index}`}
+                    expense={pageBData[index]}
+                    expenseIndex={(currentPageB - 1) * pageSize + index}
+                    isVisible={pageBData[index] !== null}
+                    isLoading={pageBLoading}
+                    {...itemProps}
+                  />
+                ))}
             </div>
           </div>
           <div
@@ -473,15 +522,18 @@ const VirtualInfiniteScroll = ({
             data-page=""
           >
             <div className="scroll-table">
-              {pageCData.map((item, index) => (
-                <ItemComponent
-                  key={`page-c-${index}`}
-                  expense={item}
-                  expenseIndex={(currentPageC - 1) * pageSize + index}
-                  isVisible={item !== null}
-                  {...itemProps}
-                />
-              ))}
+              {Array(pageSize)
+                .fill(null)
+                .map((_, index) => (
+                  <ItemComponent
+                    key={`page-c-${index}`}
+                    expense={pageCData[index]}
+                    expenseIndex={(currentPageC - 1) * pageSize + index}
+                    isVisible={pageCData[index] !== null}
+                    isLoading={pageCLoading}
+                    {...itemProps}
+                  />
+                ))}
             </div>
           </div>
 
@@ -517,7 +569,7 @@ const VirtualInfiniteScroll = ({
             <div>Rendered Pages: {Object.keys(renderedPages).join(', ')}</div>
             <div>Cached Pages: {Object.keys(pageData).join(', ')}</div>
             <div>Loading Pages: {Array.from(loadingPages).join(', ')}</div>
-            <div>Scroll Direction: {lastScrollPos}</div>
+            <div>Scroll Position: {lastScrollPos}</div>
           </div>
         )}
       </div>

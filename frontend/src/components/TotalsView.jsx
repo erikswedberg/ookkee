@@ -1,8 +1,8 @@
-import { useEffect, useContext } from "react";
-import { TableCell, TableHead, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
-import { TotalsContext } from "../contexts/TotalsContext";
+import { useEffect, useContext } from 'react';
+import { TableCell, TableHead, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { TotalsContext } from '../contexts/TotalsContext';
 
 const TotalsView = () => {
   const { totals, loadingTotals, fetchTotals } = useContext(TotalsContext);
@@ -12,29 +12,29 @@ const TotalsView = () => {
   }, [fetchTotals]);
 
   const formatAmount = amount => {
-    if (amount === null || amount === undefined) return "";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    if (amount === null || amount === undefined) return '';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
       minimumFractionDigits: 2,
     }).format(amount);
   };
 
   const downloadCSV = () => {
     const csvContent = [
-      ["Category", "Total"],
+      ['Category', 'Total'],
       ...totals.map(total => [total.category_name, total.total_amount]),
-      ["Total", totals.reduce((sum, total) => sum + total.total_amount, 0)],
+      ['Total', totals.reduce((sum, total) => sum + total.total_amount, 0)],
     ]
-      .map(row => row.map(cell => `"${cell}"`).join(","))
-      .join("\n");
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "totals.csv");
-    link.style.visibility = "hidden";
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'totals.csv');
+    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -59,7 +59,7 @@ const TotalsView = () => {
   }
 
   return (
-    <div className="overflow-auto h-[calc(100vh-172px)]">
+    <div className="overflow-auto h-[calc(100vh-162px)]">
       <table className="w-full caption-bottom text-sm">
         <thead className="[&_tr]:border-b sticky top-0 z-10">
           <TableRow className="bg-background border-b">
@@ -75,7 +75,7 @@ const TotalsView = () => {
               </TableCell>
               <TableCell
                 className={`text-right font-mono ${
-                  total.total_amount >= 0 ? "text-green-600" : "text-red-600"
+                  total.total_amount >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}
               >
                 {formatAmount(total.total_amount)}
