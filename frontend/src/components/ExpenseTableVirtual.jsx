@@ -1,16 +1,30 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useContext } from 'react';
 import VirtualInfiniteScroll from './VirtualInfiniteScroll';
 import ExpenseRow2 from './ExpenseRow2';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import useExpenseStore from '../stores/expenseStore';
+import { SpreadsheetContext } from '../contexts/SpreadsheetContext';
 
 // Constants for expense table configuration
 const LIST_ITEM_HEIGHT = 60; // Height of each row in pixels
 const ROWS_PER_PAGE = 20; // Number of rows per virtual page
 
 const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
-  const [categories, setCategories] = useState([]);
   const inflightRequests = useRef(new Set()); // Track API requests currently in flight
+  
+  // Get all context values from SpreadsheetContext
+  const {
+    categories,
+    processingRows,
+    isTableActive,
+    activeRowIndex,
+    setIsTableActive,
+    setActiveRowWithTabIndex,
+    handleTogglePersonal,
+    updateExpenseCategory,
+    handleAcceptSuggestion,
+    handleClearCategory,
+  } = useContext(SpreadsheetContext);
   
   // Zustand store hooks
   const {
@@ -34,10 +48,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     }
   }, [expenses, getDebugInfo]);
 
-  // Fetch categories on component mount
-  React.useEffect(() => {
-    fetchCategories();
-  }, []);
+  // Categories now come from SpreadsheetContext
 
   // Set project in store when project changes
   useEffect(() => {
@@ -47,18 +58,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     inflightRequests.current.clear();
   }, [projectId, setProject]);
 
-  const fetchCategories = async () => {
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_URL}/api/categories`);
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
+  // Categories fetching removed - now using SpreadsheetContext
 
   // Request a page of expenses from the API
   const requestExpensePage = useCallback(
@@ -131,139 +131,23 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     [projectId, hasCompletePageData, getExpensesForPage, isPageRequested, markPageRequested, setExpenses, setPageLoading]
   );
 
-  // Prepare props for ExpenseRow2 components
+  // Prepare props for ExpenseRow2 components using SpreadsheetContext
   const expenseRowProps = useCallback(() => {
     return {
       categories,
-      isActive: false, // Virtual scroll doesn't use active row highlighting
-      processingRows: new Set(), // Could be passed in if needed
-      activeRowIndex: null,
-      expenses: [], // Not needed for individual row rendering
-      handleTogglePersonal: expense => {
-        // Optimistic update
-        updateExpense(expense.id, { is_personal: !expense.is_personal });
-        window.togglePersonal?.(expense.id, !expense.is_personal);
-      },
-      updateExpenseCategory: (expenseId, categoryId) => {
-        // Optimistic update
-        updateExpense(expenseId, { 
-          accepted_category_id: categoryId ? parseInt(categoryId) : null 
-        });
-        window.updateCategory?.(expenseId, categoryId);
-      },
-      handleAcceptSuggestion: expense => {
-        // Optimistic update - accept suggested category
-        if (expense.suggested_category_id) {
-          updateExpense(expense.id, { 
-            accepted_category_id: expense.suggested_category_id 
-          });
-        }
-        window.acceptSuggestion?.(expense.id);
-      },
-      handleClearCategory: expense => {
-        // Optimistic update - clear both suggested and accepted
-        updateExpense(expense.id, { 
-          accepted_category_id: null,
-          suggested_category_id: null 
-        });
-        window.clearCategory?.(expense.id);
-      },
-      setIsTableActive: () => {}, // Not applicable in virtual scroll
-      setActiveRowWithTabIndex: () => {}, // Not applicable in virtual scroll
+      processingRows,
+      activeRowIndex,
+      expenses: [], // Virtual scroll doesn't need full expenses array per row
+      handleTogglePersonal,
+      updateExpenseCategory,
+      handleAcceptSuggestion,
+      handleClearCategory,
+      setIsTableActive,
+      setActiveRowWithTabIndex,
     };
-  }, [categories, updateExpense]);
+  }, [categories, processingRows, activeRowIndex, handleTogglePersonal, updateExpenseCategory, handleAcceptSuggestion, handleClearCategory, setIsTableActive, setActiveRowWithTabIndex]);
 
-  // Global functions for row interactions (attached to window)
-  React.useEffect(() => {
-    window.togglePersonal = async (expenseId, isPersonal) => {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ is_personal: isPersonal }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update expense');
-          // Revert optimistic update on error
-          // Note: Could implement error rollback here if needed
-        }
-        
-        // Update succeeded - optimistic update already applied
-      } catch (error) {
-        console.error('Error updating personal status:', error);
-      }
-    };
-
-    window.updateCategory = async (expenseId, categoryId) => {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            accepted_category_id: categoryId ? parseInt(categoryId) : null,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update category');
-          // Revert optimistic update on error
-          // Note: Could implement error rollback here if needed
-        }
-        
-        // Update succeeded - optimistic update already applied
-      } catch (error) {
-        console.error('Error updating category:', error);
-      }
-    };
-
-    window.acceptSuggestion = async expenseId => {
-      // Find the expense to get its suggested category
-      // This is a simplified implementation - in a real app you'd track this better
-      console.log('Accept suggestion for expense:', expenseId);
-      // Would need to implement proper suggestion acceptance
-    };
-
-    window.clearCategory = async expenseId => {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            accepted_category_id: -1,
-            suggested_category_id: -1,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to clear category');
-          // Revert optimistic update on error
-          // Note: Could implement error rollback here if needed
-        }
-        
-        // Update succeeded - optimistic update already applied
-      } catch (error) {
-        console.error('Error clearing category:', error);
-      }
-    };
-
-    // Cleanup
-    return () => {
-      delete window.togglePersonal;
-      delete window.updateCategory;
-      delete window.acceptSuggestion;
-      delete window.clearCategory;
-    };
-  }, [projectId]);
+  // Row interactions now handled by SpreadsheetContext
 
   // Fixed columns for expense table
   const columns = [

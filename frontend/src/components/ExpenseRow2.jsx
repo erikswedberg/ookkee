@@ -9,7 +9,7 @@ const ExpenseRow2 = ({
   expense,
   expenseIndex,
   categories = [],
-  isActive = false,
+  isActive = false, // This will be overridden by calculation below
   processingRows = new Set(),
   activeRowIndex,
   expenses = [],
@@ -28,6 +28,9 @@ const ExpenseRow2 = ({
   }
 
   const isPersonal = expense.is_personal;
+  
+  // Calculate if this row is active based on expenseIndex and activeRowIndex
+  const isRowActive = activeRowIndex === expenseIndex;
 
   // EXACT copy of utility functions from original SpreadsheetView
   const formatAmount = amount => {
@@ -264,9 +267,9 @@ const ExpenseRow2 = ({
   return (
     <div
       data-row-index={expenseIndex}
-      tabIndex={isActive ? 0 : -1}
+      tabIndex={isRowActive ? 0 : -1}
       className={`scroll-row border-b spreadsheet row group cursor-pointer ${
-        isActive ? 'active' : isPersonal ? 'personal' : 'hover:bg-sky-50'
+        isRowActive ? 'active' : isPersonal ? 'personal' : 'hover:bg-sky-50'
       }`}
       onClick={() => {
         setIsTableActive(true);
@@ -302,7 +305,7 @@ const ExpenseRow2 = ({
             className={`scroll-column ${
               isAmount
                 ? `font-mono amount text-sm ${
-                    isPersonal && !isActive
+                    isPersonal && !isRowActive
                       ? 'text-gray-500'
                       : getAmountClass(value)
                   }`
