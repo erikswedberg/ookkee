@@ -82,6 +82,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
+  const [isVirtualScrollActive, setIsVirtualScrollActive] = useState(false);
   
   const loadMoreRef = useRef(null);
   const containerRef = useRef(null);
@@ -218,6 +219,25 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Set active row with proper tab index management
   const setActiveRowWithTabIndex = useCallback((newIndex) => {
+    // For virtual scroll, use pure React state and programmatic focus
+    if (isVirtualScrollActive) {
+      setPreviousActiveRowIndex(activeRowIndex);
+      setActiveRowIndex(newIndex);
+      
+      // Move browser focus to the new active row
+      if (newIndex !== null) {
+        // Use setTimeout to ensure DOM has updated with new active state
+        setTimeout(() => {
+          const newRow = document.querySelector(`[data-row-index="${newIndex}"]`);
+          if (newRow) {
+            newRow.focus();
+          }
+        }, 0);
+      }
+      return;
+    }
+    
+    // For regular table, use DOM queries (original behavior)
     // Clear tabIndex from previous active row
     if (previousActiveRowIndex !== null) {
       const prevRow = document.querySelector(`[data-row-index="${previousActiveRowIndex}"]`);
@@ -226,17 +246,18 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       }
     }
     
-    // Set tabIndex on new active row
+    // Set tabIndex on new active row and focus it
     if (newIndex !== null) {
       const newRow = document.querySelector(`[data-row-index="${newIndex}"]`);
       if (newRow) {
         newRow.setAttribute('tabindex', '0');
+        newRow.focus();
       }
     }
     
     setPreviousActiveRowIndex(activeRowIndex);
     setActiveRowIndex(newIndex);
-  }, [activeRowIndex, previousActiveRowIndex]);
+  }, [activeRowIndex, previousActiveRowIndex, isVirtualScrollActive]);
 
   // Auto-advance to next row helper
   const advanceToNextRow = useCallback((expense) => {
@@ -566,14 +587,29 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
-          const upIndex = activeRowIndex === null || activeRowIndex === 0 ? expenses.length - 1 : activeRowIndex - 1;
-          setActiveRowWithTabIndex(upIndex);
+          if (activeRowIndex === null) {
+            // No active row, select first row
+            setActiveRowWithTabIndex(0);
+          } else if (activeRowIndex > 0) {
+            // Move up one row
+            const upIndex = activeRowIndex - 1;
+            setActiveRowWithTabIndex(upIndex);
+            setTimeout(() => scrollActiveRowIntoView(upIndex), 0);
+          }
+          // If activeRowIndex === 0, do nothing (stay on first row)
           break;
         case 'ArrowDown':
           e.preventDefault();
-          const downIndex = activeRowIndex === null || activeRowIndex >= expenses.length - 1 ? 0 : activeRowIndex + 1;
-          setActiveRowWithTabIndex(downIndex);
-          setTimeout(() => scrollActiveRowIntoView(downIndex), 0);
+          if (activeRowIndex === null) {
+            // No active row, select first row
+            setActiveRowWithTabIndex(0);
+          } else if (activeRowIndex < expenses.length - 1) {
+            // Move down one row
+            const downIndex = activeRowIndex + 1;
+            setActiveRowWithTabIndex(downIndex);
+            setTimeout(() => scrollActiveRowIntoView(downIndex), 0);
+          }
+          // If activeRowIndex === expenses.length - 1, do nothing (stay on last row)
           break;
         case 'Escape':
           setIsTableActive(false);
@@ -639,8 +675,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     // UI state
     isTableActive,
     activeRowIndex,
+    isVirtualScrollActive,
     setIsTableActive,
     setActiveRowIndex,
+    setIsVirtualScrollActive,
     
     // Actions
     updateExpense,
