@@ -3,7 +3,7 @@ import './VirtualInfiniteScroll.css';
 
 const VirtualInfiniteScroll = ({
   totalItems,
-  itemHeight = 60,
+  itemHeight = 50,
   pageSize = 20,
   onRequestPage,
   ItemComponent, // React component instead of renderItem function

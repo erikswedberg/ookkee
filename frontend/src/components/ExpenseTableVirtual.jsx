@@ -1,4 +1,10 @@
-import React, { useState, useCallback, useRef, useEffect, useContext } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useContext,
+} from 'react';
 import VirtualInfiniteScroll from './VirtualInfiniteScroll';
 import ExpenseRow2 from './ExpenseRow2';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -6,12 +12,12 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import { SpreadsheetContext } from '../contexts/SpreadsheetContext';
 
 // Constants for expense table configuration
-const LIST_ITEM_HEIGHT = 60; // Height of each row in pixels
+const LIST_ITEM_HEIGHT = 50; // Height of each row in pixels
 const ROWS_PER_PAGE = 20; // Number of rows per virtual page
 
 const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   const inflightRequests = useRef(new Set()); // Track API requests currently in flight
-  
+
   // Get all context values from SpreadsheetContext (includes Zustand store functions)
   const {
     categories,
@@ -35,19 +41,19 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     markPageRequested,
     setStoreExpenses,
   } = useContext(SpreadsheetContext);
-  
+
   // Set virtual scroll active flag and reset inflight requests when component mounts/unmounts
   useEffect(() => {
     setIsVirtualScrollActive(true);
     inflightRequests.current.clear();
-    
+
     return () => {
       setIsVirtualScrollActive(false);
     };
   }, [projectId, setIsVirtualScrollActive]);
-  
+
   // Data fetching and keyboard handling now unified in SpreadsheetContext
-  
+
   // Get current active expense for keyboard shortcuts
   const getCurrentActiveExpense = useCallback(() => {
     if (activeRowIndex !== null) {
@@ -64,22 +70,22 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
   const requestExpensePage = useCallback(
     async (page, pageSize) => {
       const requestKey = `${projectId}-${page}-${pageSize}`;
-      
+
       // Check if we already have complete data for this page
       if (hasCompletePageData(page, pageSize)) {
         return getExpensesForPage(page, pageSize);
       }
-      
+
       // Check if page is already requested
       if (isPageRequested(page)) {
         // Page was requested but may not be complete yet, return what we have
         return getExpensesForPage(page, pageSize);
       }
-      
+
       // If request is already in flight, wait for it to complete
       if (inflightRequests.current.has(requestKey)) {
         // Wait for the inflight request to complete by polling the store
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
           const pollStore = () => {
             if (hasCompletePageData(page, pageSize)) {
               resolve(getExpensesForPage(page, pageSize));
@@ -94,23 +100,23 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
           setTimeout(pollStore, 50);
         });
       }
-      
+
       // Mark request as in flight and page as loading
       inflightRequests.current.add(requestKey);
       setPageLoading(page, true);
-      
+
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const offset = (page - 1) * pageSize;
         const queryString = `expenses?limit=${pageSize}&offset=${offset}`;
-        
+
         // Mark page as requested
         markPageRequested(page, queryString);
-        
+
         const response = await fetch(
           `${API_URL}/api/projects/${projectId}/${queryString}`
         );
-        
+
         if (response.ok) {
           const data = await response.json();
           // Store expenses in Zustand store for virtual scroll
@@ -128,14 +134,25 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
         setPageLoading(page, false);
       }
     },
-    [projectId, hasCompletePageData, getExpensesForPage, isPageRequested, setPageLoading, markPageRequested, setStoreExpenses]
+    [
+      projectId,
+      hasCompletePageData,
+      getExpensesForPage,
+      isPageRequested,
+      setPageLoading,
+      markPageRequested,
+      setStoreExpenses,
+    ]
   );
 
   // Function to get current expense data from store (reactive to updates)
-  const getCurrentExpense = useCallback((expenseIndex) => {
-    return getExpenseByIndex(expenseIndex);
-  }, [getExpenseByIndex]);
-  
+  const getCurrentExpense = useCallback(
+    expenseIndex => {
+      return getExpenseByIndex(expenseIndex);
+    },
+    [getExpenseByIndex]
+  );
+
   // Prepare props for ExpenseRow2 components using SpreadsheetContext
   const expenseRowProps = useCallback(() => {
     return {
@@ -151,7 +168,18 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       setActiveRowWithTabIndex,
       getCurrentExpense, // Pass function to get current expense data
     };
-  }, [categories, processingRows, activeRowIndex, handleTogglePersonal, updateExpenseCategory, handleAcceptSuggestion, handleClearCategory, setIsTableActive, setActiveRowWithTabIndex, getCurrentExpense]);
+  }, [
+    categories,
+    processingRows,
+    activeRowIndex,
+    handleTogglePersonal,
+    updateExpenseCategory,
+    handleAcceptSuggestion,
+    handleClearCategory,
+    setIsTableActive,
+    setActiveRowWithTabIndex,
+    getCurrentExpense,
+  ]);
 
   // Row interactions now handled by SpreadsheetContext
 
