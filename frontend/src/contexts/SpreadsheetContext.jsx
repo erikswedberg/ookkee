@@ -587,14 +587,29 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
-          const upIndex = activeRowIndex === null || activeRowIndex === 0 ? expenses.length - 1 : activeRowIndex - 1;
-          setActiveRowWithTabIndex(upIndex);
+          if (activeRowIndex === null) {
+            // No active row, select first row
+            setActiveRowWithTabIndex(0);
+          } else if (activeRowIndex > 0) {
+            // Move up one row
+            const upIndex = activeRowIndex - 1;
+            setActiveRowWithTabIndex(upIndex);
+            setTimeout(() => scrollActiveRowIntoView(upIndex), 0);
+          }
+          // If activeRowIndex === 0, do nothing (stay on first row)
           break;
         case 'ArrowDown':
           e.preventDefault();
-          const downIndex = activeRowIndex === null || activeRowIndex >= expenses.length - 1 ? 0 : activeRowIndex + 1;
-          setActiveRowWithTabIndex(downIndex);
-          setTimeout(() => scrollActiveRowIntoView(downIndex), 0);
+          if (activeRowIndex === null) {
+            // No active row, select first row
+            setActiveRowWithTabIndex(0);
+          } else if (activeRowIndex < expenses.length - 1) {
+            // Move down one row
+            const downIndex = activeRowIndex + 1;
+            setActiveRowWithTabIndex(downIndex);
+            setTimeout(() => scrollActiveRowIntoView(downIndex), 0);
+          }
+          // If activeRowIndex === expenses.length - 1, do nothing (stay on last row)
           break;
         case 'Escape':
           setIsTableActive(false);
