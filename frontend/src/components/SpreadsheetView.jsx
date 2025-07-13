@@ -272,8 +272,13 @@ const SpreadsheetTable = () => {
 };
 
 // Main SpreadsheetView component with contexts
-const SpreadsheetView = ({ project, isSidebarCollapsed, onToggleSidebar, onClose }) => {
-  const [activeTab, setActiveTab] = useState('expenses');
+const SpreadsheetView = ({
+  project,
+  isSidebarCollapsed,
+  onToggleSidebar,
+  onClose,
+}) => {
+  const [activeTab, setActiveTab] = useState('expenses2');
 
   if (!project) {
     return (
@@ -404,11 +409,11 @@ const SpreadsheetViewContent = ({
                 className="w-auto"
               >
                 <TabsList>
-                  <TabsTrigger value="expenses" data-testid="expenses-tab">
+                  {/* <TabsTrigger value="expenses" data-testid="expenses-tab">
                     Expenses
-                  </TabsTrigger>
+                  </TabsTrigger> */}
                   <TabsTrigger value="expenses2" data-testid="expenses2-tab">
-                    Expenses 2
+                    Expenses
                   </TabsTrigger>
                   <TabsTrigger value="totals" data-testid="totals-tab">
                     Totals
