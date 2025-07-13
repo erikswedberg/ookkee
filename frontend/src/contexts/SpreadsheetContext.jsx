@@ -219,10 +219,21 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Set active row with proper tab index management
   const setActiveRowWithTabIndex = useCallback((newIndex) => {
-    // For virtual scroll, skip DOM manipulation - use pure React state
+    // For virtual scroll, use pure React state and programmatic focus
     if (isVirtualScrollActive) {
       setPreviousActiveRowIndex(activeRowIndex);
       setActiveRowIndex(newIndex);
+      
+      // Move browser focus to the new active row
+      if (newIndex !== null) {
+        // Use setTimeout to ensure DOM has updated with new active state
+        setTimeout(() => {
+          const newRow = document.querySelector(`[data-row-index="${newIndex}"]`);
+          if (newRow) {
+            newRow.focus();
+          }
+        }, 0);
+      }
       return;
     }
     
@@ -235,11 +246,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       }
     }
     
-    // Set tabIndex on new active row
+    // Set tabIndex on new active row and focus it
     if (newIndex !== null) {
       const newRow = document.querySelector(`[data-row-index="${newIndex}"]`);
       if (newRow) {
         newRow.setAttribute('tabindex', '0');
+        newRow.focus();
       }
     }
     
