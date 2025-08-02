@@ -137,6 +137,7 @@ const ExpenseRow2 = ({
         <select
           value={getCategoryValue(currentExpense)}
           onChange={handleCategoryChange}
+          onClick={e => e.stopPropagation()}
           style={{ maxWidth: '220px' }}
         >
           <option value=""></option>
