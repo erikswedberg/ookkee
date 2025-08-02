@@ -121,6 +121,7 @@ const ExpenseRow = ({
         <select
           value={getCategoryValue(expense)}
           onChange={handleCategoryChange}
+          onClick={e => e.stopPropagation()}
         >
           <option value=""></option>
           {categories.map(category => {
