@@ -8,6 +8,8 @@
 .virtual-scroll-container {
   position: relative;
   width: 100%;
+  /* Clear the sticky header height so the last row isn't cut off */
+  padding-bottom: 50px;
 }
 
 .virtual-scroll-page {
