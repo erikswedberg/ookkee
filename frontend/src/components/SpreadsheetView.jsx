@@ -471,7 +471,7 @@ const SpreadsheetViewContent = ({
 
             <TabsContent value="expenses2">
               {/* Toolbar: All/Business/Personal sub-tabs + description filter */}
-              <div className="flex items-center justify-between gap-4 pb-3">
+              <div className="flex items-center justify-between gap-4 px-[25px] py-[10px]">
                 <Tabs value={view} onValueChange={setView} className="w-auto">
                   <TabsList>
                     <TabsTrigger value="all">All</TabsTrigger>
