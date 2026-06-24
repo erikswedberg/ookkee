@@ -16,6 +16,8 @@ import { TotalsContextProvider } from '../contexts/TotalsContext';
 import TotalsView from './TotalsView';
 import ExpenseTableVirtual from './ExpenseTableVirtual';
 import ExpenseRow from './ExpenseRow';
+import PropagationModal from './PropagationModal';
+import { Input } from '@/components/ui/input';
 import './Spreadsheet.css';
 
 // Download Totals Button Component
@@ -328,6 +330,10 @@ const SpreadsheetViewContent = ({
     categories,
     handleAiCategorization,
     toggleAutoplay,
+    view,
+    setView,
+    search,
+    setSearch,
   } = useContext(SpreadsheetContext);
 
   if (error) {
@@ -409,6 +415,7 @@ const SpreadsheetViewContent = ({
                 className="w-auto"
               >
                 <TabsList>
+                  {/* Non-virtual expenses tab hidden; virtual scroll is the default */}
                   {/* <TabsTrigger value="expenses" data-testid="expenses-tab">
                     Expenses
                   </TabsTrigger> */}
@@ -463,9 +470,27 @@ const SpreadsheetViewContent = ({
             </TabsContent>
 
             <TabsContent value="expenses2">
+              {/* Toolbar: All/Business/Personal sub-tabs + description filter */}
+              <div className="flex items-center justify-between gap-4 pb-3">
+                <Tabs value={view} onValueChange={setView} className="w-auto">
+                  <TabsList>
+                    <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="business">Business</TabsTrigger>
+                    <TabsTrigger value="personal">Personal</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Input
+                  type="text"
+                  placeholder="Filter by description..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="max-w-xs"
+                />
+              </div>
               <ExpenseTableVirtual
                 projectId={project?.id}
                 totalExpenses={progress?.total_count || 0}
+                viewMode={view}
               />
             </TabsContent>
 
@@ -475,6 +500,9 @@ const SpreadsheetViewContent = ({
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Confirmation modal for opt-in propagation of manual edits */}
+      <PropagationModal />
     </div>
   );
 };

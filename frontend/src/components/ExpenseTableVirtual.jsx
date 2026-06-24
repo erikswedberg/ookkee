@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useRef,
   useEffect,
+  useLayoutEffect,
   useContext,
 } from 'react';
 import VirtualInfiniteScroll from './VirtualInfiniteScroll';
@@ -15,7 +16,7 @@ import { SpreadsheetContext } from '../contexts/SpreadsheetContext';
 const LIST_ITEM_HEIGHT = 50; // Height of each row in pixels
 const ROWS_PER_PAGE = 20; // Number of rows per virtual page
 
-const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
+const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' }) => {
   const inflightRequests = useRef(new Set()); // Track API requests currently in flight
 
   // Get all context values from SpreadsheetContext (includes Zustand store functions)
@@ -40,7 +41,23 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     isPageLoading,
     markPageRequested,
     setStoreExpenses,
+    filteredCount,
+    filterParams,
+    view,
+    search,
+    clearStore,
+    setStoreProject,
   } = useContext(SpreadsheetContext);
+
+  // Clear the normalized store before the virtual scroll (re)requests pages for
+  // a new filter. useLayoutEffect runs before child effects/data fetches, so
+  // freshly-fetched filtered rows are never clobbered. The VirtualInfiniteScroll
+  // is remounted via key={projectId-view-search}, resetting its own page cache.
+  useLayoutEffect(() => {
+    clearStore();
+    if (projectId) setStoreProject(projectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, view, search]);
 
   // Set virtual scroll active flag and reset inflight requests when component mounts/unmounts
   useEffect(() => {
@@ -108,7 +125,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const offset = (page - 1) * pageSize;
-        const queryString = `expenses?limit=${pageSize}&offset=${offset}`;
+        const extra = filterParams ? filterParams() : '';
+        const queryString = `expenses?limit=${pageSize}&offset=${offset}${extra ? `&${extra}` : ''}`;
 
         // Mark page as requested
         markPageRequested(page, queryString);
@@ -142,6 +160,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       setPageLoading,
       markPageRequested,
       setStoreExpenses,
+      filterParams,
     ]
   );
 
@@ -167,6 +186,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       setIsTableActive,
       setActiveRowWithTabIndex,
       getCurrentExpense, // Pass function to get current expense data
+      viewMode, // 'personal' view shows personal rows un-greyed
     };
   }, [
     categories,
@@ -179,6 +199,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
     setIsTableActive,
     setActiveRowWithTabIndex,
     getCurrentExpense,
+    viewMode,
   ]);
 
   // Row interactions now handled by SpreadsheetContext
@@ -223,7 +244,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0 }) => {
       {/* Virtual Scrolling Table */}
       <div className="overflow-auto" style={{ height: 'calc(100% - 5px)' }}>
         <VirtualInfiniteScroll
-          totalItems={totalExpenses}
+          key={`${projectId}-${view}-${search}`}
+          totalItems={filteredCount || totalExpenses}
           itemHeight={LIST_ITEM_HEIGHT}
           pageSize={ROWS_PER_PAGE}
           onRequestPage={requestExpensePage}

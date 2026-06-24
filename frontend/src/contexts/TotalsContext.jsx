@@ -4,10 +4,11 @@ import {
   useContext,
   useEffect,
   useState,
-} from "react";
+} from 'react';
 
 const totalsInitialValues = {
-  totals: [],
+  business: [],
+  personal: [],
   loadingTotals: false,
   error: null,
   fetchTotals: () => undefined,
@@ -16,7 +17,8 @@ const totalsInitialValues = {
 export const TotalsContext = createContext(totalsInitialValues);
 
 export const TotalsContextProvider = ({ children, project }) => {
-  const [totals, setTotals] = useState([]);
+  const [business, setBusiness] = useState([]);
+  const [personal, setPersonal] = useState([]);
   const [loadingTotals, setLoadingTotals] = useState(false);
   const [error, setError] = useState(null);
 
@@ -27,18 +29,19 @@ export const TotalsContextProvider = ({ children, project }) => {
     setLoadingTotals(true);
     setError(null);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const response = await fetch(
         `${API_URL}/api/projects/${project.id}/totals`
       );
       if (response.ok) {
         const data = await response.json();
-        setTotals(data || []);
+        setBusiness(data.business || []);
+        setPersonal(data.personal || []);
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (error) {
-      console.error("Failed to fetch totals:", error);
+      console.error('Failed to fetch totals:', error);
       setError(`Failed to load totals: ${error.message}`);
     } finally {
       setLoadingTotals(false);
@@ -46,7 +49,8 @@ export const TotalsContextProvider = ({ children, project }) => {
   }, [project?.id]);
 
   const value = {
-    totals,
+    business,
+    personal,
     loadingTotals,
     error,
     fetchTotals,

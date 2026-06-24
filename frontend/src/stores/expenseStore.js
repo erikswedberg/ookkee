@@ -162,4 +162,9 @@ const useExpenseStore = create(
   )
 );
 
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  // Exposed in dev for debugging/inspection only.
+  window.__expenseStore = useExpenseStore;
+}
+
 export default useExpenseStore;

@@ -1,44 +1,60 @@
 import { useEffect, useContext } from 'react';
 import { TableCell, TableHead, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
 import { TotalsContext } from '../contexts/TotalsContext';
 
+const formatAmount = amount => {
+  if (amount === null || amount === undefined) return '';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+  }).format(amount);
+};
+
+const sectionTotal = rows =>
+  rows.reduce((sum, r) => sum + (r.total_amount || 0), 0);
+
+const TotalsSection = ({ title, rows }) => {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <>
+      <TableRow className="bg-muted/50">
+        <TableCell className="font-semibold uppercase text-xs tracking-wide text-muted-foreground">
+          {title}
+        </TableCell>
+        <TableCell />
+      </TableRow>
+      {rows.map((total, index) => (
+        <TableRow key={`${title}-${index}`}>
+          <TableCell className="font-medium pl-6">
+            {total.category_name}
+          </TableCell>
+          <TableCell
+            className={`text-right font-mono ${
+              total.total_amount >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}
+          >
+            {formatAmount(total.total_amount)}
+          </TableCell>
+        </TableRow>
+      ))}
+      <TableRow className="border-t">
+        <TableCell className="font-semibold pl-6">{title} Total</TableCell>
+        <TableCell className="text-right font-mono font-semibold">
+          {formatAmount(sectionTotal(rows))}
+        </TableCell>
+      </TableRow>
+    </>
+  );
+};
+
 const TotalsView = () => {
-  const { totals, loadingTotals, fetchTotals } = useContext(TotalsContext);
+  const { business, personal, loadingTotals, fetchTotals } =
+    useContext(TotalsContext);
 
   useEffect(() => {
     fetchTotals();
   }, [fetchTotals]);
-
-  const formatAmount = amount => {
-    if (amount === null || amount === undefined) return '';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  const downloadCSV = () => {
-    const csvContent = [
-      ['Category', 'Total'],
-      ...totals.map(total => [total.category_name, total.total_amount]),
-      ['Total', totals.reduce((sum, total) => sum + total.total_amount, 0)],
-    ]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'totals.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   if (loadingTotals) {
     return (
@@ -48,7 +64,10 @@ const TotalsView = () => {
     );
   }
 
-  if (totals.length === 0) {
+  if (
+    (!business || business.length === 0) &&
+    (!personal || personal.length === 0)
+  ) {
     return (
       <div className="flex items-center justify-center p-8">
         <span className="text-muted-foreground">
@@ -57,6 +76,8 @@ const TotalsView = () => {
       </div>
     );
   }
+
+  const grandTotal = sectionTotal(business) + sectionTotal(personal);
 
   return (
     <div className="overflow-auto h-[calc(100vh-162px)]">
@@ -68,26 +89,12 @@ const TotalsView = () => {
           </TableRow>
         </thead>
         <tbody>
-          {totals.map((total, index) => (
-            <TableRow key={index}>
-              <TableCell className="font-medium">
-                {total.category_name}
-              </TableCell>
-              <TableCell
-                className={`text-right font-mono ${
-                  total.total_amount >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                {formatAmount(total.total_amount)}
-              </TableCell>
-            </TableRow>
-          ))}
+          <TotalsSection title="Business" rows={business} />
+          <TotalsSection title="Personal" rows={personal} />
           <TableRow className="border-t-2 border-black">
-            <TableCell className="font-bold text-black">Total</TableCell>
-            <TableCell className={`text-right font-mono font-bold text-black`}>
-              {formatAmount(
-                totals.reduce((sum, total) => sum + total.total_amount, 0)
-              )}
+            <TableCell className="font-bold text-black">Grand Total</TableCell>
+            <TableCell className="text-right font-mono font-bold text-black">
+              {formatAmount(grandTotal)}
             </TableCell>
           </TableRow>
         </tbody>

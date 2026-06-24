@@ -81,6 +81,15 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const autoplayModeRef = useRef(false);
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
+
+  // View/search filtering (backend-driven for virtual scroll)
+  const [view, setView] = useState('all'); // 'all' | 'business' | 'personal'
+  const [search, setSearch] = useState('');
+  const [filteredCount, setFilteredCount] = useState(0);
+
+  // Pending propagation confirmation (manual category / personal toggle)
+  // Shape: { field: 'category'|'personal', categoryId?, isPersonal?, sourceId, similar: [expense] }
+  const [pendingPropagation, setPendingPropagation] = useState(null);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
   const [isVirtualScrollActive, setIsVirtualScrollActive] = useState(false);
   
@@ -115,6 +124,32 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [project?.id]);
 
+  // Build view/search query params shared by expenses + count fetches
+  const filterParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (view && view !== 'all') params.set('view', view);
+    if (search) params.set('search', search);
+    return params.toString();
+  }, [view, search]);
+
+  // Fetch the filtered expense count (sizes the virtual scrollbar)
+  const fetchFilteredCount = useCallback(async () => {
+    if (!project?.id) return;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const qs = filterParams();
+      const response = await fetch(
+        `${API_URL}/api/projects/${project.id}/expenses/count${qs ? `?${qs}` : ''}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setFilteredCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch count:', error);
+    }
+  }, [project?.id, filterParams]);
+
   // Update expense function (handles both category and personal)
   const updateExpense = useCallback(async (expenseId, updates) => {
     // Optimistic update using Zustand store
@@ -136,57 +171,81 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
       // Get the actual values from API response
       const responseData = await response.json();
-      
+
       // Update Zustand store with API response values (not request values)
-      // Update the main expense
       const mainUpdates = {};
       if (responseData.accepted_category_id !== undefined) mainUpdates.accepted_category_id = responseData.accepted_category_id;
       if (responseData.suggested_category_id !== undefined) mainUpdates.suggested_category_id = responseData.suggested_category_id;
       if (responseData.is_personal !== undefined) mainUpdates.is_personal = responseData.is_personal;
-      
+
       updateStoreExpense(expenseId, mainUpdates);
-      
-      // Update propagated expenses if they exist
-      if (responseData.propagated_ids) {
-        responseData.propagated_ids.forEach(propagatedId => {
-          updateStoreExpense(propagatedId, {
-            accepted_category_id: responseData.accepted_category_id,
-            accepted_at: new Date().toISOString() // Approximate timestamp
-          });
-        });
-      }
-      
-      // Show toast notification for auto-propagation
-      if (responseData.propagated_count > 0 && responseData.accepted_category_id) {
-        // Ensure type-safe comparison - convert both to numbers
-        const categoryId = parseInt(responseData.accepted_category_id);
-        
-        // Debug logging
-        console.log('Toast debug:', {
-          categoryId,
-          accepted_category_id: responseData.accepted_category_id,
-          categories: categories.map(cat => ({ id: cat.id, name: cat.name, parsed_id: parseInt(cat.id) })),
-          categoriesLength: categories.length
-        });
-        
-        const category = categories.find(cat => {
-          const catId = parseInt(cat.id);
-          return catId === categoryId;
-        });
-        
-        const categoryName = category?.name || `Category ID ${categoryId}`;
-        
-        toast.success(`${responseData.propagated_count} other item${responseData.propagated_count === 1 ? '' : 's'} with same description set to "${categoryName}"`);
-      }
 
       // Refresh progress after categorization changes
       fetchProgress();
-
-      console.log(`Updated expense ${expenseId}:`, updates);
     } catch (error) {
       console.error('Failed to update expense:', error);
     }
-  }, [fetchProgress, updateStoreExpense, categories]);
+  }, [fetchProgress, updateStoreExpense]);
+
+  // After a manual edit, look up other same-description rows and, if any exist,
+  // open the confirmation modal so the user can opt in to propagation.
+  const checkAndOfferPropagation = useCallback(async (sourceExpense, field, payload) => {
+    if (!project?.id || !sourceExpense?.id) return;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const response = await fetch(
+        `${API_URL}/api/projects/${project.id}/similar?expenseId=${sourceExpense.id}&field=${field}`
+      );
+      if (!response.ok) return;
+      const similar = await response.json();
+      if (Array.isArray(similar) && similar.length > 0) {
+        setPendingPropagation({ field, ...payload, sourceId: sourceExpense.id, similar });
+      }
+    } catch (error) {
+      console.error('Failed to check similar expenses:', error);
+    }
+  }, [project?.id]);
+
+  // User confirmed propagation -> bulk apply to the similar rows.
+  const confirmPropagation = useCallback(async () => {
+    const pending = pendingPropagation;
+    if (!pending) return;
+    setPendingPropagation(null);
+    const ids = pending.similar.map(e => e.id);
+    if (ids.length === 0) return;
+
+    // Optimistic store update
+    const optimistic = {};
+    if (pending.field === 'category') optimistic.accepted_category_id = pending.categoryId;
+    if (pending.field === 'personal') optimistic.is_personal = pending.isPersonal;
+    ids.forEach(id => updateStoreExpense(id, optimistic));
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const body = { ids };
+      if (pending.field === 'category') body.accepted_category_id = pending.categoryId;
+      if (pending.field === 'personal') body.is_personal = pending.isPersonal;
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/bulk-update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(`${data.updated} similar item${data.updated === 1 ? '' : 's'} updated`);
+      }
+      fetchProgress();
+      fetchFilteredCount();
+    } catch (error) {
+      console.error('Bulk update failed:', error);
+      toast.error('Failed to update similar items');
+    }
+  }, [pendingPropagation, project?.id, updateStoreExpense, fetchProgress, fetchFilteredCount]);
+
+  // User declined propagation -> keep only the single explicit edit.
+  const cancelPropagation = useCallback(() => {
+    setPendingPropagation(null);
+  }, []);
 
   // Scroll active row into view helper (works for both regular and virtual scroll)
   const scrollActiveRowIntoView = useCallback((rowIndex) => {
@@ -269,15 +328,26 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [expenses, activeRowIndex, setActiveRowWithTabIndex, scrollActiveRowIntoView]);
 
-  const handleTogglePersonal = useCallback((expense) => {
-    updateExpense(expense.id, { is_personal: !expense.is_personal });
+  const handleTogglePersonal = useCallback(async (expense) => {
+    const turningOn = !expense.is_personal;
+    await updateExpense(expense.id, { is_personal: turningOn });
     advanceToNextRow(expense);
-  }, [updateExpense, advanceToNextRow]);
+    // Offer to propagate only when marking personal ON (off is a single edit).
+    if (turningOn) {
+      checkAndOfferPropagation(expense, 'personal', { isPersonal: true });
+    }
+  }, [updateExpense, advanceToNextRow, checkAndOfferPropagation]);
 
-  // Convenience functions for specific actions
-  const updateExpenseCategory = useCallback((expenseId, categoryId) => {
-    return updateExpense(expenseId, { accepted_category_id: categoryId || null });
-  }, [updateExpense]);
+  // Convenience functions for specific actions.
+  // offerPropagation: when true (manual dropdown / hotkey), after the single
+  // edit we check for same-description rows and prompt the user to propagate.
+  const updateExpenseCategory = useCallback(async (expenseId, categoryId, offerPropagation = false) => {
+    await updateExpense(expenseId, { accepted_category_id: categoryId || null });
+    if (offerPropagation && categoryId) {
+      const sourceExpense = expenses.find(e => e.id === expenseId) || { id: expenseId };
+      checkAndOfferPropagation(sourceExpense, 'category', { categoryId });
+    }
+  }, [updateExpense, expenses, checkAndOfferPropagation]);
 
   const handleAcceptSuggestion = useCallback((expense) => {
     if (expense.suggested_category_id && !expense.accepted_category_id) {
@@ -514,40 +584,20 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setProcessingRows(new Set());
     loadingRef.current = false;
     
-    // Load initial data with abort signal
+    // Load categories only. The virtual scroll table fetches its own expense
+    // pages (filter-aware) via requestExpensePage; prefetching expenses here
+    // would race with and clobber the filtered data in the store.
     const loadInitialData = async () => {
       try {
         const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
-        
-        // Load expenses and categories in parallel
-        const [expensesResponse, categoriesResponse] = await Promise.all([
-          fetch(`${API_URL}/api/projects/${project.id}/expenses?offset=0&limit=${LIMIT}`, {
-            signal: abortController.signal
-          }),
-          fetch(`${API_URL}/api/categories`, {
-            signal: abortController.signal
-          })
-        ]);
-        
+        const categoriesResponse = await fetch(`${API_URL}/api/categories`, {
+          signal: abortController.signal
+        });
         if (abortController.signal.aborted) return;
-        
-        // Handle expenses - store in Zustand
-        if (expensesResponse.ok) {
-          const expensesData = await expensesResponse.json();
-          if (expensesData.length < LIMIT) {
-            setHasMore(false);
-          }
-          // Store expenses in Zustand store with page info
-          setStoreExpenses(expensesData, 1, LIMIT);
-          markPageRequested(1, `expenses?offset=0&limit=${LIMIT}`);
-        }
-        
-        // Handle categories
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json();
           setCategories(categoriesData || []);
         }
-        
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.error('Failed to load initial data:', err);
@@ -570,6 +620,15 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       fetchProgress();
     }
   }, [fetchProgress, project?.id, expenses.length]);
+
+  // When the view/search filter changes, refetch the filtered count so the
+  // scrollbar resizes. The store is cleared by ExpenseTableVirtual in a
+  // layout effect (which runs before the virtual scroll re-requests pages),
+  // avoiding a race where clearing here would wipe freshly-fetched rows.
+  useEffect(() => {
+    if (!project?.id) return;
+    fetchFilteredCount();
+  }, [project?.id, view, search]);
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
@@ -644,7 +703,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
               e.preventDefault();
               const currentExpense = getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
               if (currentExpense) {
-                updateExpenseCategory(currentExpense.id, category.id);
+                updateExpenseCategory(currentExpense.id, category.id, true);
               }
             }
           }
@@ -679,6 +738,24 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setIsTableActive,
     setActiveRowIndex,
     setIsVirtualScrollActive,
+
+    // View/search filtering
+    view,
+    setView,
+    search,
+    setSearch,
+    filteredCount,
+    fetchFilteredCount,
+    filterParams,
+
+    // Propagation confirmation
+    pendingPropagation,
+    confirmPropagation,
+    cancelPropagation,
+
+    // Store reset (used by the table to clear cache on filter change)
+    clearStore,
+    setStoreProject,
     
     // Actions
     updateExpense,

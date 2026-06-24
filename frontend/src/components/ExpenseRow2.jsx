@@ -22,6 +22,7 @@ const ExpenseRow2 = ({
   isVisible = true,
   isLoading = false,
   getCurrentExpense,
+  viewMode = 'all',
 }) => {
   // Get current expense data from store (reactive to updates)
   const currentExpense = getCurrentExpense
@@ -34,6 +35,9 @@ const ExpenseRow2 = ({
   }
 
   const isPersonal = currentExpense.is_personal;
+  // In the Personal tab, personal rows are the subject of work and shouldn't be
+  // greyed out. Only grey personal rows in the All view.
+  const greyPersonal = isPersonal && viewMode !== 'personal';
 
   // Calculate if this row is active based on expenseIndex and activeRowIndex
   const isRowActive = activeRowIndex === expenseIndex;
@@ -107,7 +111,7 @@ const ExpenseRow2 = ({
     const getCategoryClassName = expense => {
       const expenseIndex = expenses.indexOf(currentExpense);
 
-      if (currentExpense.is_personal && activeRowIndex !== expenseIndex) {
+      if (greyPersonal && activeRowIndex !== expenseIndex) {
         return 'personal';
       }
 
@@ -128,7 +132,8 @@ const ExpenseRow2 = ({
       if (newCategoryId === -1) {
         handleClearCategory(currentExpense);
       } else {
-        updateExpenseCategory(currentExpense.id, newCategoryId);
+        // Manual dropdown selection offers propagation (true).
+        updateExpenseCategory(currentExpense.id, newCategoryId, true);
       }
     };
 
@@ -293,7 +298,7 @@ const ExpenseRow2 = ({
       data-row-index={expenseIndex}
       tabIndex={isRowActive ? 0 : -1}
       className={`scroll-row border-b spreadsheet row group cursor-pointer text-sm ${
-        isRowActive ? 'active' : isPersonal ? 'personal' : 'hover:bg-sky-50'
+        isRowActive ? 'active' : greyPersonal ? 'personal' : 'hover:bg-sky-50'
       }`}
       onClick={() => {
         setIsTableActive(true);
@@ -329,7 +334,7 @@ const ExpenseRow2 = ({
             className={`scroll-column ${
               isAmount
                 ? `font-mono amount text-sm ${
-                    isPersonal && !isRowActive
+                    greyPersonal && !isRowActive
                       ? 'text-gray-500'
                       : getAmountClass(value)
                   }`
