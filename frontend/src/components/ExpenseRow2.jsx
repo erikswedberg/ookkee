@@ -4,6 +4,26 @@ import { RefreshCw, Trash2, RotateCcw } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import dayjs from 'dayjs';
 
+// Order categories so the ones relevant to the current lane (tab) come first:
+// matching lean, then 'either' (no lean), then the opposite lean. Soft sort
+// only — every category remains selectable. Original order preserved within
+// each group.
+const orderCategoriesByLean = (categories, viewMode) => {
+  const lane =
+    viewMode === 'personal'
+      ? 'personal'
+      : viewMode === 'business'
+        ? 'business'
+        : null;
+  if (!lane) return categories;
+  const rank = cat => {
+    if (!cat.lean) return 1; // either
+    if (cat.lean === lane) return 0; // matches current lane
+    return 2; // opposite lane
+  };
+  return [...categories].sort((a, b) => rank(a) - rank(b));
+};
+
 // ExpenseRow2 component for virtual scroll with flex layout and percentage-based column widths
 const ExpenseRow2 = ({
   expense,
@@ -149,7 +169,7 @@ const ExpenseRow2 = ({
           style={{ maxWidth: '220px' }}
         >
           <option value=""></option>
-          {categories.map(category => {
+          {orderCategoriesByLean(categories, viewMode).map(category => {
             const isAiSuggested =
               currentExpense.suggested_category_id === category.id &&
               !currentExpense.accepted_category_id;
@@ -307,13 +327,28 @@ const ExpenseRow2 = ({
       }}
     >
       <div className="scroll-column text-center">
-        <Checkbox
-          checked={currentExpense.is_personal || false}
-          onCheckedChange={() => {
-            handleTogglePersonal(currentExpense);
-          }}
-          onClick={e => e.stopPropagation()}
-        />
+        <span
+          className={`inline-flex items-center justify-center rounded ${
+            !currentExpense.is_personal &&
+            currentExpense.suggested_is_personal === true
+              ? 'ring-2 ring-amber-400 ring-offset-1 p-0.5'
+              : ''
+          }`}
+          title={
+            !currentExpense.is_personal &&
+            currentExpense.suggested_is_personal === true
+              ? 'AI suggests Personal — click to confirm'
+              : undefined
+          }
+        >
+          <Checkbox
+            checked={currentExpense.is_personal || false}
+            onCheckedChange={() => {
+              handleTogglePersonal(currentExpense);
+            }}
+            onClick={e => e.stopPropagation()}
+          />
+        </span>
       </div>
       <div className="scroll-column font-mono text-xs text-muted-foreground">
         <span className="content">

@@ -492,6 +492,41 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   };
 
+  // AI Set Personal: classify the next batch of unsorted rows as business or
+  // personal, writing staged suggestions (synchronous endpoint).
+  const handleAiSetPersonal = async () => {
+    if (!project?.id) return;
+    setAiCategorizing(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/ai-set-personal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      const result = await response.json();
+      const classifications = result.classifications || [];
+      if (classifications.length === 0) {
+        toast.info(result.message || 'No unsorted expenses to classify');
+      } else {
+        // Apply staged suggestions to the store for immediate UI feedback.
+        classifications.forEach(c => {
+          updateStoreExpense(c.rowId, { suggested_is_personal: c.isPersonal });
+        });
+        const personalCount = classifications.filter(c => c.isPersonal).length;
+        toast.success(
+          `AI flagged ${personalCount} of ${classifications.length} as personal`
+        );
+      }
+    } catch (error) {
+      console.error('AI set personal failed:', error);
+      toast.error(`AI Set Personal failed: ${error.message}`);
+    } finally {
+      setAiCategorizing(false);
+    }
+  };
+
   // Poll job status until completion
   const pollJobStatus = async (jobId) => {
     const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
@@ -813,6 +848,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     updateExpenseCategory,
     handleAcceptSuggestion,
     handleAiCategorization,
+    handleAiSetPersonal,
     toggleAutoplay,
     handleClearCategory,
     handleToggleRemoved,

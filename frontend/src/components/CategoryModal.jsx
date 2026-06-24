@@ -15,9 +15,11 @@ const CategoryModal = ({ isOpen, onClose }) => {
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
   const [editingHotkey, setEditingHotkey] = useState("");
+  const [editingLean, setEditingLean] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryHotkey, setNewCategoryHotkey] = useState("");
+  const [newCategoryLean, setNewCategoryLean] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -53,7 +55,8 @@ const CategoryModal = ({ isOpen, onClose }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           name: editingName.trim(),
-          hotkey: editingHotkey.trim() || null 
+          hotkey: editingHotkey.trim() || null,
+          lean: editingLean || null 
         }),
       });
 
@@ -61,6 +64,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
         setEditingId(null);
         setEditingName("");
         setEditingHotkey("");
+        setEditingLean("");
         fetchCategories();
       }
     } catch (error) {
@@ -72,12 +76,14 @@ const CategoryModal = ({ isOpen, onClose }) => {
     setEditingId(category.id);
     setEditingName(category.name);
     setEditingHotkey(category.hotkey || "");
+    setEditingLean(category.lean || "");
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingName("");
     setEditingHotkey("");
+    setEditingLean("");
   };
 
   const handleDelete = async (categoryId) => {
@@ -124,13 +130,15 @@ const CategoryModal = ({ isOpen, onClose }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           name: newCategoryName.trim(),
-          hotkey: newCategoryHotkey.trim() || null 
+          hotkey: newCategoryHotkey.trim() || null,
+          lean: newCategoryLean || null 
         }),
       });
 
       if (response.ok) {
         setNewCategoryName("");
         setNewCategoryHotkey("");
+        setNewCategoryLean("");
         setShowCreateForm(false);
         fetchCategories();
       }
@@ -212,6 +220,16 @@ const CategoryModal = ({ isOpen, onClose }) => {
                             if (e.key === "Escape") handleCancelEdit();
                           }}
                         />
+                        <select
+                          value={editingLean}
+                          onChange={(e) => setEditingLean(e.target.value)}
+                          className="h-8 rounded border border-input bg-background px-2 text-sm"
+                          title="Business / Personal lean"
+                        >
+                          <option value="">— Either</option>
+                          <option value="business">Business</option>
+                          <option value="personal">Personal</option>
+                        </select>
                         <Button
                           size="sm"
                           onClick={() => handleSaveEdit(category.id)}
@@ -231,6 +249,17 @@ const CategoryModal = ({ isOpen, onClose }) => {
                     ) : (
                       <div className="flex items-center gap-2">
                         <span className="text-sm flex-1">{category.name}</span>
+                        {category.lean && (
+                          <span
+                            className={`text-xs px-2 py-1 rounded ${
+                              category.lean === 'business'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {category.lean === 'business' ? 'Business' : 'Personal'}
+                          </span>
+                        )}
                         {category.hotkey && (
                           <span className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
                             {category.hotkey}
@@ -289,6 +318,16 @@ const CategoryModal = ({ isOpen, onClose }) => {
                       if (e.key === "Escape") handleCancelCreate();
                     }}
                   />
+                  <select
+                    value={newCategoryLean}
+                    onChange={(e) => setNewCategoryLean(e.target.value)}
+                    className="h-8 rounded border border-input bg-background px-2 text-sm"
+                    title="Business / Personal lean"
+                  >
+                    <option value="">— Either</option>
+                    <option value="business">Business</option>
+                    <option value="personal">Personal</option>
+                  </select>
                   <Button
                     size="sm"
                     onClick={handleCreateCategory}

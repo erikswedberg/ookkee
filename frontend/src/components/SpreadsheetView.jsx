@@ -329,12 +329,17 @@ const SpreadsheetViewContent = ({
     autoplayMode,
     categories,
     handleAiCategorization,
+    handleAiSetPersonal,
     toggleAutoplay,
     view,
     setView,
     search,
     setSearch,
   } = useContext(SpreadsheetContext);
+
+  // On the All tab the AI button sorts business/personal; on Business/Personal
+  // it categorizes.
+  const isSortMode = view === 'all';
 
 
   if (error) {
@@ -429,35 +434,51 @@ const SpreadsheetViewContent = ({
                 </TabsList>
               </Tabs>
               {(activeTab === 'expenses' || activeTab === 'expenses2') &&
-                view !== 'removed' && (
-                <SplitButton
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAiCategorization}
-                  onTogglePlay={toggleAutoplay}
-                  isPlaying={autoplayMode}
-                  disabled={
-                    loading || expenses.length === 0 || categories.length === 0
-                  }
-                  playDisabled={
-                    loading || expenses.length === 0 || categories.length === 0
-                  }
-                  className="flex items-center"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`}
-                  />
-                  {aiCategorizing
-                    ? 'AI Categorizing...'
-                    : (() => {
-                        const uncategorizedCount =
-                          progress.uncategorized_count || 0;
-                        return uncategorizedCount > 0
-                          ? `AI Categorize (${Math.min(uncategorizedCount, 20)})`
-                          : 'AI Categorize';
-                      })()}
-                </SplitButton>
-              )}
+                view !== 'removed' &&
+                (isSortMode ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAiSetPersonal}
+                    disabled={
+                      loading || expenses.length === 0 || categories.length === 0
+                    }
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`}
+                    />
+                    {aiCategorizing ? 'AI Sorting...' : 'AI Set Personal'}
+                  </Button>
+                ) : (
+                  <SplitButton
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAiCategorization}
+                    onTogglePlay={toggleAutoplay}
+                    isPlaying={autoplayMode}
+                    disabled={
+                      loading || expenses.length === 0 || categories.length === 0
+                    }
+                    playDisabled={
+                      loading || expenses.length === 0 || categories.length === 0
+                    }
+                    className="flex items-center"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${aiCategorizing ? 'animate-spin' : ''}`}
+                    />
+                    {aiCategorizing
+                      ? 'AI Categorizing...'
+                      : (() => {
+                          const uncategorizedCount =
+                            progress.uncategorized_count || 0;
+                          return uncategorizedCount > 0
+                            ? `AI Categorize (${Math.min(uncategorizedCount, 20)})`
+                            : 'AI Categorize';
+                        })()}
+                  </SplitButton>
+                ))}
               {activeTab === 'totals' && (
                 <DownloadTotalsButton project={project} />
               )}
