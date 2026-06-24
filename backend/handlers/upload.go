@@ -126,6 +126,25 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
+	// Pre-pass: collect each row's raw Date string so we can infer a default
+	// year for yearless dates before inserting.
+	dateTexts := make([]string, len(dataRows))
+	dateColIdx := -1
+	for j, h := range headers {
+		if h == "Date" {
+			dateColIdx = j
+			break
+		}
+	}
+	if dateColIdx >= 0 {
+		for i, row := range dataRows {
+			if dateColIdx < len(row) {
+				dateTexts[i] = row[dateColIdx]
+			}
+		}
+	}
+	parsedDates := resolveDates(dateTexts)
+
 	// Insert expense records
 	for i, row := range dataRows {
 		rawData := make(map[string]interface{})
@@ -173,10 +192,12 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 			}
 		}
 
+		parsedDate := parsedDates[i]
+
 		_, err = tx.Exec(ctx, `
-			INSERT INTO expense (project_id, row_index, raw_data, source, date_text, description, amount) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-		`, project.ID, i, rawDataJSON, source, dateText, description, amount)
+			INSERT INTO expense (project_id, row_index, raw_data, source, date_text, date, description, amount) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`, project.ID, i, rawDataJSON, source, dateText, parsedDate, description, amount)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert expense row %d: %w", i, err)
 		}

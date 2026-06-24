@@ -26,6 +26,7 @@ type Expense struct {
 	RawData             json.RawMessage `json:"raw_data"`
 	Source              *string         `json:"source"`
 	DateText            *string         `json:"date_text"`
+	Date                *time.Time      `json:"date"`
 	Description         *string         `json:"description"`
 	Amount              *float64        `json:"amount"`
 	SuggestedCategoryID *int64          `json:"suggested_category_id"`
