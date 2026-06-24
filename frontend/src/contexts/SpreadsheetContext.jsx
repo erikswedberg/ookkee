@@ -239,12 +239,18 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         toast.success(`${data.updated} similar item${data.updated === 1 ? '' : 's'} updated`);
       }
       fetchProgress();
-      fetchFilteredCount();
+      await fetchFilteredCount();
+      // If propagating personal makes the rows fall out of the current view,
+      // refresh so they disappear instead of lingering greyed.
+      const fallsOut =
+        (pending.field === 'personal' && view === 'business' && pending.isPersonal) ||
+        (pending.field === 'personal' && view === 'personal' && !pending.isPersonal);
+      if (fallsOut) setRefreshNonce(n => n + 1);
     } catch (error) {
       console.error('Bulk update failed:', error);
       toast.error('Failed to update similar items');
     }
-  }, [pendingPropagation, project?.id, updateStoreExpense, fetchProgress, fetchFilteredCount]);
+  }, [pendingPropagation, project?.id, updateStoreExpense, fetchProgress, fetchFilteredCount, view]);
 
   // User declined propagation -> keep only the single explicit edit.
   const cancelPropagation = useCallback(() => {
@@ -335,12 +341,26 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const handleTogglePersonal = useCallback(async (expense) => {
     const turningOn = !expense.is_personal;
     await updateExpense(expense.id, { is_personal: turningOn });
-    advanceToNextRow(expense);
+
+    // If the toggle makes the row no longer belong to the current view, refresh
+    // the list so it disappears (rather than just being greyed). This happens on
+    // the Business tab when marking personal ON, and on the Personal tab when
+    // marking personal OFF.
+    const fallsOutOfView =
+      (view === 'business' && turningOn) ||
+      (view === 'personal' && !turningOn);
+    if (fallsOutOfView) {
+      await fetchFilteredCount();
+      setRefreshNonce(n => n + 1);
+    } else {
+      advanceToNextRow(expense);
+    }
+
     // Offer to propagate only when marking personal ON (off is a single edit).
     if (turningOn) {
       checkAndOfferPropagation(expense, 'personal', { isPersonal: true });
     }
-  }, [updateExpense, advanceToNextRow, checkAndOfferPropagation]);
+  }, [updateExpense, advanceToNextRow, checkAndOfferPropagation, view, fetchFilteredCount]);
 
   // Convenience functions for specific actions.
   // offerPropagation: when true (manual dropdown / hotkey), after the single
