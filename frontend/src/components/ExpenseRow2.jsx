@@ -59,7 +59,9 @@ const ExpenseRow2 = ({
       case 'Source':
         return currentExpense.source || '';
       case 'Date':
-        return currentExpense.date_text || '';
+        // Prefer the backend-parsed ISO date; fall back to the raw string
+        // for rows that couldn't be parsed.
+        return currentExpense.date || currentExpense.date_text || '';
       case 'Description':
         return currentExpense.description || '';
       case 'Amount':

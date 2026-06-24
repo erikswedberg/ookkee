@@ -11,7 +11,14 @@ export const formatCurrency = (amount) => {
 
 export const formatDate = (dateString) => {
   if (!dateString) return "";
-  
+
+  // Backend-parsed dates arrive as ISO (e.g. "2020-09-06T00:00:00Z").
+  // Slice the date part directly to avoid timezone-induced off-by-one days.
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateString);
+  if (isoMatch) {
+    return `${isoMatch[2]}/${isoMatch[3]}`;
+  }
+
   // Try parsing with DayJS for MM/DD/YY format
   const dateFormats = ['MM/DD/YY', 'MM/DD/YYYY', 'M/D/YY', 'M/D/YYYY'];
   
