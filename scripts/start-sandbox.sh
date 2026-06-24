@@ -45,9 +45,7 @@ stop_one() {
 }
 
 cmd_stop() {
-  stop_one "$FE_PID" frontend
-  stop_one "$BE_PID" backend
-  info "stopped."
+  exec "$ROOT/scripts/stop-sandbox.sh"
 }
 
 cmd_status() {
@@ -85,8 +83,13 @@ check_db() {
 
 start_backend() {
   if is_running "$BE_PID"; then warn "backend already running (pid $(cat "$BE_PID"))"; return; fi
+  # Build first, then exec the binary directly so the tracked PID IS the server.
+  # (`go run` forks a child binary that survives killing the wrapper.)
+  info "building backend ..."
+  ( cd "$ROOT/backend" && go build -o /tmp/ookkee-backend . ) >"$BE_LOG" 2>&1 || {
+    err "backend build failed; tail of $BE_LOG:"; tail -n 30 "$BE_LOG"; exit 1; }
   info "starting backend on :${SERVER_PORT} -> log $BE_LOG"
-  ( cd "$ROOT/backend" && exec go run . ) >"$BE_LOG" 2>&1 &
+  ( cd "$ROOT/backend" && exec /tmp/ookkee-backend ) >>"$BE_LOG" 2>&1 &
   echo $! > "$BE_PID"
   # wait for health
   for i in $(seq 1 30); do
