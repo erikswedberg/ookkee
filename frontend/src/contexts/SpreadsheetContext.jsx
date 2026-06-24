@@ -90,6 +90,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Pending propagation confirmation (manual category / personal toggle)
   // Shape: { field: 'category'|'personal', categoryId?, isPersonal?, sourceId, similar: [expense] }
   const [pendingPropagation, setPendingPropagation] = useState(null);
+
+  // Bumped to force the virtual-scroll table to remount + refetch (e.g. after a
+  // remove/restore changes which rows belong in the current view).
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
   const [isVirtualScrollActive, setIsVirtualScrollActive] = useState(false);
   
@@ -367,17 +371,19 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         body: JSON.stringify({ deleted: removed }),
       });
       if (!response.ok) throw new Error(`Failed: ${response.status}`);
-      // Refresh: clear cache, resize scrollbar, update progress.
-      clearStore();
-      if (project?.id) setStoreProject(project.id);
-      fetchFilteredCount();
+      // Refresh: resize scrollbar, update progress, and remount the virtual
+      // table so it refetches (the store clear happens in the table's layout
+      // effect, keyed on refreshNonce — clearing here would leave the table's
+      // internal page cache stale and render a blank list).
+      await fetchFilteredCount();
       fetchProgress();
+      setRefreshNonce(n => n + 1);
       toast.success(removed ? 'Item removed' : 'Item restored');
     } catch (error) {
       console.error('Failed to toggle removed:', error);
       toast.error('Failed to update item');
     }
-  }, [project?.id, clearStore, setStoreProject, fetchFilteredCount, fetchProgress]);
+  }, [fetchFilteredCount, fetchProgress]);
 
   const handleClearCategory = (expense) => {
     // Send API call with -1 values (backend converts to NULL and returns null)
@@ -770,6 +776,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     filteredCount,
     fetchFilteredCount,
     filterParams,
+    refreshNonce,
 
     // Propagation confirmation
     pendingPropagation,
