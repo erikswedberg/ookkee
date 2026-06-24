@@ -246,7 +246,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
   );
 
   return (
-    <div className="spreadsheet relative h-[calc(100vh-162px)]">
+    <div className="spreadsheet relative h-[calc(100vh-202px)]">
       {/* Virtual Scrolling Table */}
       <div className="overflow-auto" style={{ height: 'calc(100% - 5px)' }}>
         <VirtualInfiniteScroll
