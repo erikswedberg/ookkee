@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { useState, useEffect, useCallback, useContext } from 'react';
 import { TableCell, TableHead, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -336,19 +336,6 @@ const SpreadsheetViewContent = ({
     setSearch,
   } = useContext(SpreadsheetContext);
 
-  // Keep the context `view` in sync with the active main tab. The Removed tab
-  // forces view='removed'; leaving it restores the All/Business/Personal sub-tab
-  // selection (defaulting to 'all').
-  const prevSubViewRef = useRef('all');
-  useEffect(() => {
-    if (activeTab === 'removed') {
-      if (view !== 'removed') prevSubViewRef.current = view;
-      setView('removed');
-    } else if (activeTab === 'expenses2' && view === 'removed') {
-      setView(prevSubViewRef.current || 'all');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
 
   if (error) {
     return (
@@ -436,15 +423,13 @@ const SpreadsheetViewContent = ({
                   <TabsTrigger value="expenses2" data-testid="expenses2-tab">
                     Expenses
                   </TabsTrigger>
-                  <TabsTrigger value="removed" data-testid="removed-tab">
-                    Removed
-                  </TabsTrigger>
                   <TabsTrigger value="totals" data-testid="totals-tab">
                     Totals
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              {(activeTab === 'expenses' || activeTab === 'expenses2') && (
+              {(activeTab === 'expenses' || activeTab === 'expenses2') &&
+                view !== 'removed' && (
                 <SplitButton
                   variant="outline"
                   size="sm"
@@ -494,6 +479,7 @@ const SpreadsheetViewContent = ({
                     <TabsTrigger value="all">All</TabsTrigger>
                     <TabsTrigger value="business">Business</TabsTrigger>
                     <TabsTrigger value="personal">Personal</TabsTrigger>
+                    <TabsTrigger value="removed">Removed</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 <Input
@@ -508,14 +494,6 @@ const SpreadsheetViewContent = ({
                 projectId={project?.id}
                 totalExpenses={progress?.total_count || 0}
                 viewMode={view}
-              />
-            </TabsContent>
-
-            <TabsContent value="removed">
-              <ExpenseTableVirtual
-                projectId={project?.id}
-                totalExpenses={0}
-                viewMode="removed"
               />
             </TabsContent>
 
