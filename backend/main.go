@@ -85,6 +85,9 @@ func main() {
 		// Projects
 		r.Get("/projects", handlers.GetProjects)
 		r.Get("/projects/{projectID}/expenses", handlers.GetExpenses)
+		r.Get("/projects/{projectID}/expenses/count", handlers.GetExpenseCount)
+		r.Get("/projects/{projectID}/similar", handlers.GetSimilarExpenses)
+		r.Post("/projects/{projectID}/bulk-update", handlers.BulkUpdateExpenses)
 		r.Get("/projects/{projectID}/totals", handlers.GetProjectTotals)
 		r.Get("/projects/{projectID}/totals/csv", handlers.GetProjectTotalsCSV)
 		r.Get("/projects/{projectID}/progress", handlers.GetProjectProgress)

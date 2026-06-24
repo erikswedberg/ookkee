@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -63,15 +61,28 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 		fmt.Sscanf(limitStr, "%d", &limit)
 	}
 
-	// Fetch expenses with pagination
-	rows, err := database.Pool.Query(ctx, `
+	// Build view/search filter
+	filter := parseExpenseFilter(r)
+	filterSQL, filterArgs := filter.clause(2) // $1 is projectID; filter args start at $2
+
+	args := []interface{}{projectID}
+	args = append(args, filterArgs...)
+	// limit/offset placeholders come after project + filter args
+	limitIdx := len(args) + 1
+	offsetIdx := len(args) + 2
+	args = append(args, limit, offset)
+
+	query := fmt.Sprintf(`
 		SELECT id, project_id, row_index, raw_data, source, date_text, date, description, amount, 
 		       suggested_category_id, accepted_category_id, is_personal
 		FROM expense 
-		WHERE project_id = $1 AND deleted_at IS NULL
+		WHERE project_id = $1 AND deleted_at IS NULL%s
 		ORDER BY date ASC NULLS LAST, row_index ASC
-		LIMIT $2 OFFSET $3
-	`, projectID, limit, offset)
+		LIMIT $%d OFFSET $%d
+	`, filterSQL, limitIdx, offsetIdx)
+
+	// Fetch expenses with pagination
+	rows, err := database.Pool.Query(ctx, query, args...)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch expenses: %v", err), http.StatusInternalServerError)
 		return
@@ -92,6 +103,36 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(expenses)
+}
+
+// GetExpenseCount returns the number of expenses matching the current
+// view/search filter. The virtual scroll uses this to size its scrollbar.
+func GetExpenseCount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectID := chi.URLParam(r, "projectID")
+	if projectID == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	filter := parseExpenseFilter(r)
+	filterSQL, filterArgs := filter.clause(2)
+	args := []interface{}{projectID}
+	args = append(args, filterArgs...)
+
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) FROM expense
+		WHERE project_id = $1 AND deleted_at IS NULL%s
+	`, filterSQL)
+
+	var count int
+	if err := database.Pool.QueryRow(ctx, query, args...).Scan(&count); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to count expenses: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{"count": count})
 }
 
 func UpdateProject(w http.ResponseWriter, r *http.Request) {
@@ -251,24 +292,14 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-propagate accepted category to identical descriptions
-	var propagatedIDs []int
-	if req.AcceptedCategoryID != nil && *req.AcceptedCategoryID != -1 {
-		propagatedIDs, err = propagateAcceptedCategory(ctx, currentExpense.ProjectID,
-			currentExpense.Description, *req.AcceptedCategoryID)
-		if err != nil {
-			// Log error but don't fail the main request
-			log.Printf("Failed to propagate category: %v", err)
-			propagatedIDs = []int{} // Ensure we have an empty slice
-		}
-	}
+	// NOTE: auto-propagation has been removed. A single edit now only affects the
+	// one expense. Propagation to identical descriptions is opt-in via the
+	// /similar + /bulk-update endpoints, gated by a confirmation modal in the UI.
 
 	// Return success response with actual database values (not request values)
 	response := map[string]interface{}{
-		"message":          "Expense updated successfully",
-		"expense_id":       expenseID,
-		"propagated_count": len(propagatedIDs),
-		"propagated_ids":   propagatedIDs,
+		"message":    "Expense updated successfully",
+		"expense_id": expenseID,
 	}
 
 	if req.AcceptedCategoryID != nil {
@@ -306,51 +337,80 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query to get category totals (excluding Personal expenses)
-	rows, err := database.Pool.Query(ctx, `
-		SELECT 
-			ec.name as category_name,
-			SUM(e.amount) as total_amount
-		FROM expense e
-		JOIN expense_category ec ON e.accepted_category_id = ec.id
-		WHERE e.project_id = $1 
-			AND e.accepted_category_id IS NOT NULL
-			AND e.deleted_at IS NULL
-			AND e.is_personal = FALSE
-		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY ec.sort_order ASC
-	`, projectIDStr)
-
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to fetch totals: %v", err), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
 	type CategoryTotal struct {
 		CategoryName string  `json:"category_name"`
 		TotalAmount  float64 `json:"total_amount"`
 	}
 
-	var totals []CategoryTotal
-	for rows.Next() {
-		var total CategoryTotal
-		err := rows.Scan(&total.CategoryName, &total.TotalAmount)
+	// Business: categorized, non-personal expenses grouped by category.
+	businessQuery := `
+		SELECT ec.name AS category_name, SUM(e.amount) AS total_amount
+		FROM expense e
+		JOIN expense_category ec ON e.accepted_category_id = ec.id
+		WHERE e.project_id = $1
+			AND e.accepted_category_id IS NOT NULL
+			AND e.deleted_at IS NULL
+			AND (e.is_personal IS NULL OR e.is_personal = FALSE)
+		GROUP BY ec.id, ec.name, ec.sort_order
+		ORDER BY ec.sort_order ASC
+	`
+
+	// Personal: personal expenses grouped by their category, with an
+	// "Uncategorized" bucket for personal rows that have no category yet.
+	personalQuery := `
+		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name,
+		       SUM(e.amount) AS total_amount,
+		       COALESCE(ec.sort_order, 2147483647) AS sort_order
+		FROM expense e
+		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
+		WHERE e.project_id = $1
+			AND e.deleted_at IS NULL
+			AND e.is_personal = TRUE
+		GROUP BY ec.id, ec.name, ec.sort_order
+		ORDER BY sort_order ASC, category_name ASC
+	`
+
+	readTotals := func(query string, hasSort bool) ([]CategoryTotal, error) {
+		rows, err := database.Pool.Query(ctx, query, projectIDStr)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to scan total: %v", err), http.StatusInternalServerError)
-			return
+			return nil, err
 		}
-		totals = append(totals, total)
+		defer rows.Close()
+		out := []CategoryTotal{}
+		for rows.Next() {
+			var t CategoryTotal
+			if hasSort {
+				var sortOrder int
+				if err := rows.Scan(&t.CategoryName, &t.TotalAmount, &sortOrder); err != nil {
+					return nil, err
+				}
+			} else {
+				if err := rows.Scan(&t.CategoryName, &t.TotalAmount); err != nil {
+					return nil, err
+				}
+			}
+			out = append(out, t)
+		}
+		return out, rows.Err()
 	}
 
-	if err = rows.Err(); err != nil {
-		http.Error(w, fmt.Sprintf("Row iteration error: %v", err), http.StatusInternalServerError)
+	business, err := readTotals(businessQuery, false)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch business totals: %v", err), http.StatusInternalServerError)
+		return
+	}
+	personal, err := readTotals(personalQuery, true)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch personal totals: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(totals)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"business": business,
+		"personal": personal,
+	})
 }
 
 // GetProjectProgress gets the categorization progress for a specific project
@@ -495,50 +555,143 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// propagateAcceptedCategory auto-assigns accepted category to other uncategorized expenses
-// with identical descriptions in the same project
-func propagateAcceptedCategory(ctx context.Context, projectID int, description string, categoryID int) ([]int, error) {
-	// First, get the IDs of expenses that will be updated
-	selectQuery := `
-		SELECT id 
-		FROM expense 
-		WHERE project_id = $1 
-		  AND accepted_category_id IS NULL 
-		  AND lower(description) = lower($2)
-	`
+// GetSimilarExpenses returns OTHER expenses in the same project sharing the
+// given expense's description, that are candidates for a propagated change.
+// Used to populate the confirmation modal before bulk-applying a category or
+// personal flag. Query params:
+//
+//	expenseId  (required) the just-edited expense
+//	field      "category" | "personal" (default "category")
+//
+// For "category": candidates are same-description rows without an accepted
+// category (so we don't clobber prior manual work).
+// For "personal": candidates are same-description rows not already personal.
+func GetSimilarExpenses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectID := chi.URLParam(r, "projectID")
 
-	rows, err := database.Pool.Query(ctx, selectQuery, projectID, description)
+	expenseIDStr := r.URL.Query().Get("expenseId")
+	if expenseIDStr == "" {
+		http.Error(w, "expenseId is required", http.StatusBadRequest)
+		return
+	}
+	field := r.URL.Query().Get("field")
+	if field == "" {
+		field = "category"
+	}
+
+	// Fetch the source expense's description.
+	var description *string
+	err := database.Pool.QueryRow(ctx,
+		`SELECT description FROM expense WHERE id = $1`, expenseIDStr).Scan(&description)
 	if err != nil {
-		return nil, err
+		http.Error(w, fmt.Sprintf("Failed to get expense: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if description == nil || *description == "" {
+		// No description to match on; nothing similar.
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]models.Expense{})
+		return
+	}
+
+	var condition string
+	switch field {
+	case "personal":
+		condition = "AND (is_personal IS NULL OR is_personal = FALSE)"
+	default: // category
+		condition = "AND accepted_category_id IS NULL"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, project_id, row_index, raw_data, source, date_text, date, description, amount,
+		       suggested_category_id, accepted_category_id, is_personal
+		FROM expense
+		WHERE project_id = $1
+		  AND deleted_at IS NULL
+		  AND id <> $2
+		  AND lower(description) = lower($3)
+		  %s
+		ORDER BY date ASC NULLS LAST, row_index ASC
+	`, condition)
+
+	rows, err := database.Pool.Query(ctx, query, projectID, expenseIDStr, *description)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch similar expenses: %v", err), http.StatusInternalServerError)
+		return
 	}
 	defer rows.Close()
 
-	var expenseIDs []int
+	expenses := []models.Expense{}
 	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
+		var e models.Expense
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.RowIndex, &e.RawData,
+			&e.Source, &e.DateText, &e.Date, &e.Description, &e.Amount,
+			&e.SuggestedCategoryID, &e.AcceptedCategoryID, &e.IsPersonal); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to scan: %v", err), http.StatusInternalServerError)
+			return
 		}
-		expenseIDs = append(expenseIDs, id)
+		expenses = append(expenses, e)
 	}
 
-	if len(expenseIDs) == 0 {
-		return []int{}, nil
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(expenses)
+}
+
+// BulkUpdateExpenses applies a category or personal flag to an explicit list of
+// expense IDs. Used when the user confirms propagation in the modal.
+func BulkUpdateExpenses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req struct {
+		IDs                []int `json:"ids"`
+		AcceptedCategoryID *int  `json:"accepted_category_id"`
+		IsPersonal         *bool `json:"is_personal"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if len(req.IDs) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"updated": 0})
+		return
 	}
 
-	// Now update those expenses
-	propagateQuery := `
-		UPDATE expense 
-		SET accepted_category_id = $1, accepted_at = CURRENT_TIMESTAMP
-		WHERE project_id = $2 
-		  AND accepted_category_id IS NULL 
-		  AND lower(description) = lower($3)
-	`
+	setParts := []string{}
+	args := []interface{}{}
+	argIndex := 1
 
-	_, err = database.Pool.Exec(ctx, propagateQuery, categoryID, projectID, description)
+	if req.AcceptedCategoryID != nil {
+		if *req.AcceptedCategoryID == -1 {
+			setParts = append(setParts, "accepted_category_id = NULL", "accepted_at = NULL")
+		} else {
+			setParts = append(setParts, fmt.Sprintf("accepted_category_id = $%d", argIndex))
+			args = append(args, *req.AcceptedCategoryID)
+			argIndex++
+			setParts = append(setParts, "accepted_at = CURRENT_TIMESTAMP")
+		}
+	}
+	if req.IsPersonal != nil {
+		setParts = append(setParts, fmt.Sprintf("is_personal = $%d", argIndex))
+		args = append(args, *req.IsPersonal)
+		argIndex++
+	}
+	if len(setParts) == 0 {
+		http.Error(w, "No fields to update", http.StatusBadRequest)
+		return
+	}
+
+	args = append(args, req.IDs)
+	query := fmt.Sprintf(`UPDATE expense SET %s WHERE id = ANY($%d)`,
+		strings.Join(setParts, ", "), argIndex)
+
+	tag, err := database.Pool.Exec(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		http.Error(w, fmt.Sprintf("Failed to bulk update: %v", err), http.StatusInternalServerError)
+		return
 	}
 
-	return expenseIDs, nil
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"updated": tag.RowsAffected()})
 }
