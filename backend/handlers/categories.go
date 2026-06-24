@@ -10,11 +10,24 @@ import (
 	"ookkee/models"
 )
 
+// normalizeLean validates the lean value, returning nil for unset/invalid.
+func normalizeLean(lean *string) *string {
+	if lean == nil {
+		return nil
+	}
+	switch *lean {
+	case "business", "personal":
+		return lean
+	default:
+		return nil
+	}
+}
+
 func GetCategories(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	rows, err := database.Pool.Query(ctx, `
-		SELECT id, name, hotkey, sort_order, created_at 
+		SELECT id, name, hotkey, lean, sort_order, created_at 
 		FROM expense_category 
 		WHERE user_id = $1 AND deleted_at IS NULL 
 		ORDER BY sort_order ASC
@@ -28,7 +41,7 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 	var categories []models.Category
 	for rows.Next() {
 		var category models.Category
-		err := rows.Scan(&category.ID, &category.Name, &category.Hotkey, &category.SortOrder, &category.CreatedAt)
+		err := rows.Scan(&category.ID, &category.Name, &category.Hotkey, &category.Lean, &category.SortOrder, &category.CreatedAt)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to scan category: %v", err), http.StatusInternalServerError)
 			return
@@ -46,6 +59,7 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 	var requestData struct {
 		Name   string  `json:"name"`
 		Hotkey *string `json:"hotkey"`
+		Lean   *string `json:"lean"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -57,6 +71,8 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Category name is required", http.StatusBadRequest)
 		return
 	}
+
+	lean := normalizeLean(requestData.Lean)
 
 	// Get the highest sort_order to append new category at the end
 	var maxSortOrder int
@@ -73,11 +89,11 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 	// Insert new category
 	var newCategory models.Category
 	err = database.Pool.QueryRow(ctx, `
-		INSERT INTO expense_category (user_id, name, hotkey, sort_order) 
-		VALUES ($1, $2, $3, $4) 
-		RETURNING id, name, hotkey, sort_order, created_at
-	`, models.TEST_USER_ID, requestData.Name, requestData.Hotkey, maxSortOrder+1).Scan(
-		&newCategory.ID, &newCategory.Name, &newCategory.Hotkey, &newCategory.SortOrder, &newCategory.CreatedAt)
+		INSERT INTO expense_category (user_id, name, hotkey, lean, sort_order) 
+		VALUES ($1, $2, $3, $4, $5) 
+		RETURNING id, name, hotkey, lean, sort_order, created_at
+	`, models.TEST_USER_ID, requestData.Name, requestData.Hotkey, lean, maxSortOrder+1).Scan(
+		&newCategory.ID, &newCategory.Name, &newCategory.Hotkey, &newCategory.Lean, &newCategory.SortOrder, &newCategory.CreatedAt)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create category: %v", err), http.StatusInternalServerError)
 		return
@@ -99,6 +115,7 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	var requestData struct {
 		Name   string  `json:"name"`
 		Hotkey *string `json:"hotkey"`
+		Lean   *string `json:"lean"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -111,12 +128,14 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update category name and hotkey
+	lean := normalizeLean(requestData.Lean)
+
+	// Update category name, hotkey, and lean
 	_, err := database.Pool.Exec(ctx, `
 		UPDATE expense_category 
-		SET name = $1, hotkey = $2, updated_at = NOW() 
-		WHERE id = $3 AND user_id = $4 AND deleted_at IS NULL
-	`, requestData.Name, requestData.Hotkey, categoryID, models.TEST_USER_ID)
+		SET name = $1, hotkey = $2, lean = $3, updated_at = NOW() 
+		WHERE id = $4 AND user_id = $5 AND deleted_at IS NULL
+	`, requestData.Name, requestData.Hotkey, lean, categoryID, models.TEST_USER_ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update category: %v", err), http.StatusInternalServerError)
 		return

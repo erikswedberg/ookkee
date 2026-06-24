@@ -74,7 +74,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 
 	query := fmt.Sprintf(`
 		SELECT id, project_id, row_index, raw_data, source, date_text, date, description, amount, 
-		       suggested_category_id, accepted_category_id, is_personal
+		       suggested_category_id, accepted_category_id, is_personal, suggested_is_personal
 		FROM expense 
 		WHERE project_id = $1%s
 		ORDER BY date ASC NULLS LAST, row_index ASC
@@ -93,7 +93,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var expense models.Expense
 		err := rows.Scan(&expense.ID, &expense.ProjectID, &expense.RowIndex, &expense.RawData,
-			&expense.Source, &expense.DateText, &expense.Date, &expense.Description, &expense.Amount, &expense.SuggestedCategoryID, &expense.AcceptedCategoryID, &expense.IsPersonal)
+			&expense.Source, &expense.DateText, &expense.Date, &expense.Description, &expense.Amount, &expense.SuggestedCategoryID, &expense.AcceptedCategoryID, &expense.IsPersonal, &expense.SuggestedIsPersonal)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to scan expense: %v", err), http.StatusInternalServerError)
 			return
@@ -269,6 +269,8 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		updateFields = append(updateFields, fmt.Sprintf("is_personal = $%d", argIndex))
 		args = append(args, *req.IsPersonal)
 		argIndex++
+		// A confirmed decision clears any pending AI suggestion.
+		updateFields = append(updateFields, "suggested_is_personal = NULL")
 	}
 
 	if req.Deleted != nil {
@@ -689,6 +691,7 @@ func BulkUpdateExpenses(w http.ResponseWriter, r *http.Request) {
 		setParts = append(setParts, fmt.Sprintf("is_personal = $%d", argIndex))
 		args = append(args, *req.IsPersonal)
 		argIndex++
+		setParts = append(setParts, "suggested_is_personal = NULL")
 	}
 	if len(setParts) == 0 {
 		http.Error(w, "No fields to update", http.StatusBadRequest)

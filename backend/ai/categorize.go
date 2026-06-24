@@ -105,7 +105,7 @@ func GetExpensesByIDs(ctx context.Context, expenseIDs []int) ([]ExpenseForAI, er
 // GetAllCategories retrieves all available categories
 func GetAllCategories(ctx context.Context) ([]models.ExpenseCategory, error) {
 	query := `
-		SELECT id, name, sort_order, created_at 
+		SELECT id, name, lean, sort_order, created_at 
 		FROM expense_category 
 		WHERE deleted_at IS NULL 
 		ORDER BY sort_order ASC
@@ -120,7 +120,7 @@ func GetAllCategories(ctx context.Context) ([]models.ExpenseCategory, error) {
 	var categories []models.ExpenseCategory
 	for rows.Next() {
 		var cat models.ExpenseCategory
-		err := rows.Scan(&cat.ID, &cat.Name, &cat.SortOrder, &cat.CreatedAt)
+		err := rows.Scan(&cat.ID, &cat.Name, &cat.Lean, &cat.SortOrder, &cat.CreatedAt)
 		if err != nil {
 			return nil, err
 		}

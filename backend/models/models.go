@@ -32,12 +32,14 @@ type Expense struct {
 	SuggestedCategoryID *int64          `json:"suggested_category_id"`
 	AcceptedCategoryID  *int64          `json:"accepted_category_id"`
 	IsPersonal          bool            `json:"is_personal"`
+	SuggestedIsPersonal *bool           `json:"suggested_is_personal"`
 }
 
 type Category struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
 	Hotkey    *string   `json:"hotkey"`
+	Lean      *string   `json:"lean"` // "business" | "personal" | null (either/unset)
 	SortOrder int       `json:"sort_order"`
 	CreatedAt time.Time `json:"created_at"`
 }
