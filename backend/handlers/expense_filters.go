@@ -18,7 +18,7 @@ type expenseFilter struct {
 func parseExpenseFilter(r *http.Request) expenseFilter {
 	v := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("view")))
 	switch v {
-	case "business", "personal", "all":
+	case "business", "personal", "all", "removed":
 	default:
 		v = "all"
 	}
@@ -29,11 +29,19 @@ func parseExpenseFilter(r *http.Request) expenseFilter {
 }
 
 // clause returns extra "AND ..." SQL and the args to append, given the next
-// placeholder index to use.
+// placeholder index to use. It always includes the deleted_at condition so the
+// caller's base query should NOT hardcode `deleted_at IS NULL`.
 func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 	var parts []string
 	var args []interface{}
 	idx := argStart
+
+	// The "removed" view shows soft-deleted rows; all others hide them.
+	if f.view == "removed" {
+		parts = append(parts, "deleted_at IS NOT NULL")
+	} else {
+		parts = append(parts, "deleted_at IS NULL")
+	}
 
 	switch f.view {
 	case "business":
@@ -48,8 +56,5 @@ func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 		idx++
 	}
 
-	if len(parts) == 0 {
-		return "", args
-	}
 	return " AND " + strings.Join(parts, " AND "), args
 }

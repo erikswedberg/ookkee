@@ -356,6 +356,29 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   }, [updateExpenseCategory, advanceToNextRow]);
 
+  // Remove (soft-delete) or restore an expense. The row vanishes from the
+  // current view and the filtered count is refreshed so the scrollbar resizes.
+  const handleToggleRemoved = useCallback(async (expense, removed) => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_URL}/api/expenses/${expense.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleted: removed }),
+      });
+      if (!response.ok) throw new Error(`Failed: ${response.status}`);
+      // Refresh: clear cache, resize scrollbar, update progress.
+      clearStore();
+      if (project?.id) setStoreProject(project.id);
+      fetchFilteredCount();
+      fetchProgress();
+      toast.success(removed ? 'Item removed' : 'Item restored');
+    } catch (error) {
+      console.error('Failed to toggle removed:', error);
+      toast.error('Failed to update item');
+    }
+  }, [project?.id, clearStore, setStoreProject, fetchFilteredCount, fetchProgress]);
+
   const handleClearCategory = (expense) => {
     // Send API call with -1 values (backend converts to NULL and returns null)
     updateExpense(expense.id, { 
@@ -765,6 +788,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     handleAiCategorization,
     toggleAutoplay,
     handleClearCategory,
+    handleToggleRemoved,
     fetchProgress,
     loadExpenses,
     setActiveRowWithTabIndex,

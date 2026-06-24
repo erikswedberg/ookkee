@@ -13,8 +13,8 @@ func TestParseDateText(t *testing.T) {
 		{"10/22/2020", "10-22", true, true},
 		{"02/08/20", "02-08", true, true},
 		{"12/01", "12-01", false, true},
-		{"11/20 11/21", "11-20", false, true},   // double, take first
-		{"12/03\n12/02", "12-03", false, true},  // newline double
+		{"11/20 11/21", "11-20", false, true},  // double, take first
+		{"12/03\n12/02", "12-03", false, true}, // newline double
 		{"", "", false, false},
 		{"garbage", "", false, false},
 	}

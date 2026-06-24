@@ -32,6 +32,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
     updateExpenseCategory,
     handleAcceptSuggestion,
     handleClearCategory,
+    handleToggleRemoved,
     // Zustand store functions
     getExpensesForPage,
     hasCompletePageData,
@@ -183,10 +184,11 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
       updateExpenseCategory,
       handleAcceptSuggestion,
       handleClearCategory,
+      handleToggleRemoved,
       setIsTableActive,
       setActiveRowWithTabIndex,
       getCurrentExpense, // Pass function to get current expense data
-      viewMode, // 'personal' view shows personal rows un-greyed
+      viewMode, // 'personal' view shows personal rows un-greyed; 'removed' shows restore
     };
   }, [
     categories,
@@ -196,6 +198,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
     updateExpenseCategory,
     handleAcceptSuggestion,
     handleClearCategory,
+    handleToggleRemoved,
     setIsTableActive,
     setActiveRowWithTabIndex,
     getCurrentExpense,
@@ -236,6 +239,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
           {column}
         </div>
       ))}
+      {/* Trailing remove/restore action column */}
+      <div className="scroll-th px-3 py-2 text-xs font-medium"></div>
     </div>
   );
 

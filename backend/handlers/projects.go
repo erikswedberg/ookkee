@@ -76,7 +76,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 		SELECT id, project_id, row_index, raw_data, source, date_text, date, description, amount, 
 		       suggested_category_id, accepted_category_id, is_personal
 		FROM expense 
-		WHERE project_id = $1 AND deleted_at IS NULL%s
+		WHERE project_id = $1%s
 		ORDER BY date ASC NULLS LAST, row_index ASC
 		LIMIT $%d OFFSET $%d
 	`, filterSQL, limitIdx, offsetIdx)
@@ -122,7 +122,7 @@ func GetExpenseCount(w http.ResponseWriter, r *http.Request) {
 
 	query := fmt.Sprintf(`
 		SELECT COUNT(*) FROM expense
-		WHERE project_id = $1 AND deleted_at IS NULL%s
+		WHERE project_id = $1%s
 	`, filterSQL)
 
 	var count int
@@ -212,6 +212,7 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		AcceptedCategoryID  *int  `json:"accepted_category_id"`
 		SuggestedCategoryID *int  `json:"suggested_category_id"`
 		IsPersonal          *bool `json:"is_personal"`
+		Deleted             *bool `json:"deleted"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -270,6 +271,14 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		argIndex++
 	}
 
+	if req.Deleted != nil {
+		if *req.Deleted {
+			updateFields = append(updateFields, "deleted_at = CURRENT_TIMESTAMP")
+		} else {
+			updateFields = append(updateFields, "deleted_at = NULL")
+		}
+	}
+
 	if len(updateFields) == 0 {
 		http.Error(w, "No fields to update", http.StatusBadRequest)
 		return
@@ -320,6 +329,10 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 
 	if req.IsPersonal != nil {
 		response["is_personal"] = *req.IsPersonal
+	}
+
+	if req.Deleted != nil {
+		response["deleted"] = *req.Deleted
 	}
 
 	w.Header().Set("Content-Type", "application/json")

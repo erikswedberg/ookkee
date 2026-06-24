@@ -1,6 +1,6 @@
 import React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Trash2, RotateCcw } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import dayjs from 'dayjs';
 
@@ -17,6 +17,7 @@ const ExpenseRow2 = ({
   updateExpenseCategory,
   handleAcceptSuggestion,
   handleClearCategory,
+  handleToggleRemoved,
   setIsTableActive,
   setActiveRowWithTabIndex,
   isVisible = true,
@@ -365,6 +366,31 @@ const ExpenseRow2 = ({
           </div>
         );
       })}
+      {/* Remove / Restore action column */}
+      <div className="scroll-column text-center">
+        {!isLoading && (
+          <button
+            className={`remove-action ${
+              isRowActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            }`}
+            title={viewMode === 'removed' ? 'Restore item' : 'Remove item'}
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleToggleRemoved(
+                currentExpense,
+                viewMode !== 'removed'
+              );
+            }}
+          >
+            {viewMode === 'removed' ? (
+              <RotateCcw size={15} />
+            ) : (
+              <Trash2 size={15} />
+            )}
+          </button>
+        )}
+      </div>
     </div>
   );
 };
