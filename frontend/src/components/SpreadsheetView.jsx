@@ -357,7 +357,7 @@ const SpreadsheetViewContent = ({
   return (
     <div>
       <Card className="h-[calc(100vh-50px)] overflow-hidden rounded-none border-0 shadow-none">
-        <CardHeader className="relative">
+        <CardHeader className="relative pb-0">
           {onClose && (
             <Button
               variant="ghost"
