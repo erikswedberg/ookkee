@@ -77,9 +77,9 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 		       suggested_category_id, accepted_category_id, is_personal, suggested_is_personal
 		FROM expense 
 		WHERE project_id = $1%s
-		ORDER BY date ASC NULLS LAST, row_index ASC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, filterSQL, limitIdx, offsetIdx)
+	`, filterSQL, orderByClause(r.URL.Query().Get("sort")), limitIdx, offsetIdx)
 
 	// Fetch expenses with pagination
 	rows, err := database.Pool.Query(ctx, query, args...)

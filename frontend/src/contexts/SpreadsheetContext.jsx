@@ -103,6 +103,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   useEffect(() => {
     viewRef.current = view;
   }, [view]);
+  // Sort order for the expense list. '' = default (date asc); 'amount_desc' /
+  // 'amount_asc' for clicking the Amount header.
+  const [sort, setSort] = useState('');
   const [search, setSearch] = useState('');
   const [filteredCount, setFilteredCount] = useState(0);
 
@@ -155,8 +158,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     const params = new URLSearchParams();
     if (view && view !== 'all') params.set('view', view);
     if (search) params.set('search', search);
+    if (sort) params.set('sort', sort);
     return params.toString();
-  }, [view, search]);
+  }, [view, search, sort]);
 
   // Fetch the filtered expense count (sizes the virtual scrollbar)
   const fetchFilteredCount = useCallback(async () => {
@@ -867,7 +871,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   useEffect(() => {
     if (!project?.id) return;
     fetchFilteredCount();
-  }, [project?.id, view, search]);
+  }, [project?.id, view, search, sort]);
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
@@ -1010,6 +1014,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setView,
     search,
     setSearch,
+    sort,
+    setSort,
     filteredCount,
     fetchFilteredCount,
     filterParams,

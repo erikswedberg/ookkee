@@ -15,6 +15,19 @@ type expenseFilter struct {
 	search string
 }
 
+// orderByClause maps a whitelisted sort key to a safe SQL ORDER BY clause.
+// Default (and any unknown value) is date ascending — the canonical view order.
+func orderByClause(sort string) string {
+	switch sort {
+	case "amount_desc":
+		return "amount DESC NULLS LAST, date ASC NULLS LAST, row_index ASC"
+	case "amount_asc":
+		return "amount ASC NULLS LAST, date ASC NULLS LAST, row_index ASC"
+	default:
+		return "date ASC NULLS LAST, row_index ASC"
+	}
+}
+
 func parseExpenseFilter(r *http.Request) expenseFilter {
 	v := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("view")))
 	switch v {

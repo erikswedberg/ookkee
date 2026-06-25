@@ -52,6 +52,8 @@ const ExpenseTableVirtual = ({
     filterParams,
     view,
     search,
+    sort,
+    setSort,
     refreshNonce,
     clearStore,
     setStoreProject,
@@ -65,7 +67,7 @@ const ExpenseTableVirtual = ({
     clearStore();
     if (projectId) setStoreProject(projectId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, view, search, refreshNonce]);
+  }, [projectId, view, search, sort, refreshNonce]);
 
   // Set virtual scroll active flag and reset inflight requests when component mounts/unmounts
   useEffect(() => {
@@ -240,16 +242,41 @@ const ExpenseTableVirtual = ({
     <div className="scroll-header border-b bg-background ">
       <div className="scroll-th px-3 py-2 text-xs font-medium text-center"></div>
       <div className="scroll-th scroll-th px-3 py-2 text-xs font-medium">#</div>
-      {columns.map(column => (
-        <div
-          key={column}
-          className={`scroll-th px-3 py-2 text-xs font-medium ${
-            column === 'Status' ? 'text-right' : ''
-          }`}
-        >
-          {column}
-        </div>
-      ))}
+      {columns.map(column => {
+        if (column === 'Amount') {
+          const arrow =
+            sort === 'amount_desc' ? ' ↓' : sort === 'amount_asc' ? ' ↑' : '';
+          return (
+            <div
+              key={column}
+              className="scroll-th px-3 py-2 text-xs font-medium cursor-pointer select-none hover:text-blue-600"
+              title="Sort by amount"
+              onClick={() =>
+                setSort(
+                  sort === 'amount_desc'
+                    ? 'amount_asc'
+                    : sort === 'amount_asc'
+                      ? ''
+                      : 'amount_desc'
+                )
+              }
+            >
+              {column}
+              {arrow}
+            </div>
+          );
+        }
+        return (
+          <div
+            key={column}
+            className={`scroll-th px-3 py-2 text-xs font-medium ${
+              column === 'Status' ? 'text-right' : ''
+            }`}
+          >
+            {column}
+          </div>
+        );
+      })}
       {/* Trailing remove/restore action column */}
       <div className="scroll-th px-3 py-2 text-xs font-medium"></div>
     </div>
@@ -260,7 +287,7 @@ const ExpenseTableVirtual = ({
       {/* Virtual Scrolling Table */}
       <div className="overflow-auto" style={{ height: 'calc(100% - 5px)' }}>
         <VirtualInfiniteScroll
-          key={`${projectId}-${view}-${search}-${refreshNonce}`}
+          key={`${projectId}-${view}-${search}-${sort}-${refreshNonce}`}
           totalItems={filteredCount || totalExpenses}
           itemHeight={LIST_ITEM_HEIGHT}
           pageSize={ROWS_PER_PAGE}
