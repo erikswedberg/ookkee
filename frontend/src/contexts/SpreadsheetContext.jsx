@@ -725,6 +725,20 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Keyboard navigation handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignore when typing in a form field or inside an open dialog (e.g. the
+      // category modal), otherwise category hotkeys hijack normal typing.
+      const t = e.target;
+      if (
+        t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.tagName === 'SELECT' ||
+          t.isContentEditable ||
+          t.closest('[role="dialog"]'))
+      ) {
+        return;
+      }
+
       if (!isTableActive) return;
       
       switch (e.key) {
