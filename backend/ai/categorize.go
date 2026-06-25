@@ -37,17 +37,24 @@ type CategorizeFullResponse struct {
 	Message            string               `json:"message,omitempty"`
 }
 
-// GetUncategorizedExpenses retrieves the next batch of uncategorized, non-personal expenses
-func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int) ([]ExpenseForAI, error) {
+// GetUncategorizedExpenses retrieves the next batch of expenses needing a
+// category, in the SAME order the UI shows them (date, then row_index) so the
+// AI processes the next visible rows rather than scattered ones. View scopes
+// business vs personal; "all"/"business" exclude personal rows.
+func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int, view string) ([]ExpenseForAI, error) {
+	personalScope := "AND (is_personal IS NULL OR is_personal = FALSE)"
+	if view == "personal" {
+		personalScope = "AND is_personal = TRUE"
+	}
 	query := `
 		SELECT id, COALESCE(description, '') as description, COALESCE(amount, 0) as amount
 		FROM expense 
 		WHERE project_id = $1 
 		  AND accepted_category_id IS NULL 
 		  AND suggested_category_id IS NULL
-		  AND (is_personal IS NULL OR is_personal = FALSE)
+		  ` + personalScope + `
 		  AND deleted_at IS NULL
-		ORDER BY row_index ASC
+		ORDER BY date ASC NULLS LAST, row_index ASC
 		LIMIT $2
 	`
 
@@ -80,7 +87,7 @@ func GetExpensesByIDs(ctx context.Context, expenseIDs []int) ([]ExpenseForAI, er
 		SELECT id, COALESCE(description, '') as description, COALESCE(amount, 0) as amount
 		FROM expense 
 		WHERE id = ANY($1)
-		ORDER BY row_index ASC
+		ORDER BY date ASC NULLS LAST, row_index ASC
 	`
 
 	rows, err := database.Pool.Query(ctx, query, expenseIDs)

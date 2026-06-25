@@ -14,8 +14,14 @@ const spreadsheetInitialValues = {
   // Data state
   expenses: [],
   categories: [],
-  progress: { percentage: 0, isComplete: false, total_count: 0, categorized_count: 0, uncategorized_count: 0 },
-  
+  progress: {
+    percentage: 0,
+    isComplete: false,
+    total_count: 0,
+    categorized_count: 0,
+    uncategorized_count: 0,
+  },
+
   // Loading states
   loading: false,
   error: null,
@@ -24,11 +30,11 @@ const spreadsheetInitialValues = {
   processingRows: new Set(),
   aiCategorizing: false,
   autoplayMode: false,
-  
+
   // UI state
   isTableActive: false,
   activeRowIndex: null,
-  
+
   // Actions
   updateExpense: () => undefined,
   handleTogglePersonal: () => undefined,
@@ -38,7 +44,7 @@ const spreadsheetInitialValues = {
   toggleAutoplay: () => undefined,
   handleClearCategory: () => undefined,
   fetchProgress: () => undefined,
-  
+
   // Refs
   loadMoreRef: null,
   containerRef: null,
@@ -63,14 +69,22 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     getExpenseByIndex,
     clearAll: clearStore,
   } = useExpenseStore();
-  
+
   // Store functions already available above
-  
+
   const [categories, setCategories] = useState([]);
-  const [progress, setProgress] = useState({ percentage: 0, isComplete: false, total_count: 0, categorized_count: 0, uncategorized_count: 0 });
-  
+  const [progress, setProgress] = useState({
+    percentage: 0,
+    isComplete: false,
+    total_count: 0,
+    categorized_count: 0,
+    uncategorized_count: 0,
+  });
+
   // Convert Zustand store to array format for compatibility
-  const expenses = Object.values(expenseStore).sort((a, b) => (a._rowIndex || 0) - (b._rowIndex || 0));
+  const expenses = Object.values(expenseStore).sort(
+    (a, b) => (a._rowIndex || 0) - (b._rowIndex || 0)
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -79,11 +93,16 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [aiCategorizing, setAiCategorizing] = useState(false);
   const [autoplayMode, setAutoplayMode] = useState(false);
   const autoplayModeRef = useRef(false);
+  const aiModeRef = useRef('categorize'); // current AI mode for autoplay continuations
+  const viewRef = useRef('all'); // current tab/view for AI scoping
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
 
   // View/search filtering (backend-driven for virtual scroll)
-  const [view, setView] = useState('all'); // 'all' | 'business' | 'personal'
+  const [view, setView] = useState('all'); // 'all' | 'business' | 'personal' | 'removed'
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
   const [search, setSearch] = useState('');
   const [filteredCount, setFilteredCount] = useState(0);
 
@@ -96,7 +115,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [previousActiveRowIndex, setPreviousActiveRowIndex] = useState(null);
   const [isVirtualScrollActive, setIsVirtualScrollActive] = useState(false);
-  
+
   const loadMoreRef = useRef(null);
   const containerRef = useRef(null);
   const tableRef = useRef(null);
@@ -109,10 +128,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Fetch project progress
   const fetchProgress = useCallback(async () => {
     if (!project?.id) return;
-    
+
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "";
-      const response = await fetch(`${API_URL}/api/projects/${project.id}/progress`);
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(
+        `${API_URL}/api/projects/${project.id}/progress`
+      );
       if (response.ok) {
         const data = await response.json();
         setProgress({
@@ -120,11 +141,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           isComplete: data.is_complete,
           total_count: data.total_count || 0,
           categorized_count: data.categorized_count || 0,
-          uncategorized_count: data.uncategorized_count || 0
+          uncategorized_count: data.uncategorized_count || 0,
         });
       }
     } catch (error) {
-      console.error("Failed to fetch progress:", error);
+      console.error('Failed to fetch progress:', error);
     }
   }, [project?.id]);
 
@@ -155,60 +176,75 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   }, [project?.id, filterParams]);
 
   // Update expense function (handles both category and personal)
-  const updateExpense = useCallback(async (expenseId, updates) => {
-    // Optimistic update using Zustand store
-    updateStoreExpense(expenseId, updates);
-    
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || "";
-      const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates)
-      });
+  const updateExpense = useCallback(
+    async (expenseId, updates) => {
+      // Optimistic update using Zustand store
+      updateStoreExpense(expenseId, updates);
 
-      if (!response.ok) {
-        throw new Error(`Failed to update expense: ${response.status}`);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updates),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to update expense: ${response.status}`);
+        }
+
+        // Get the actual values from API response
+        const responseData = await response.json();
+
+        // Update Zustand store with API response values (not request values)
+        const mainUpdates = {};
+        if (responseData.accepted_category_id !== undefined)
+          mainUpdates.accepted_category_id = responseData.accepted_category_id;
+        if (responseData.suggested_category_id !== undefined)
+          mainUpdates.suggested_category_id =
+            responseData.suggested_category_id;
+        if (responseData.is_personal !== undefined)
+          mainUpdates.is_personal = responseData.is_personal;
+
+        updateStoreExpense(expenseId, mainUpdates);
+
+        // Refresh progress after categorization changes
+        fetchProgress();
+      } catch (error) {
+        console.error('Failed to update expense:', error);
       }
-
-      // Get the actual values from API response
-      const responseData = await response.json();
-
-      // Update Zustand store with API response values (not request values)
-      const mainUpdates = {};
-      if (responseData.accepted_category_id !== undefined) mainUpdates.accepted_category_id = responseData.accepted_category_id;
-      if (responseData.suggested_category_id !== undefined) mainUpdates.suggested_category_id = responseData.suggested_category_id;
-      if (responseData.is_personal !== undefined) mainUpdates.is_personal = responseData.is_personal;
-
-      updateStoreExpense(expenseId, mainUpdates);
-
-      // Refresh progress after categorization changes
-      fetchProgress();
-    } catch (error) {
-      console.error('Failed to update expense:', error);
-    }
-  }, [fetchProgress, updateStoreExpense]);
+    },
+    [fetchProgress, updateStoreExpense]
+  );
 
   // After a manual edit, look up other same-description rows and, if any exist,
   // open the confirmation modal so the user can opt in to propagation.
-  const checkAndOfferPropagation = useCallback(async (sourceExpense, field, payload) => {
-    if (!project?.id || !sourceExpense?.id) return;
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(
-        `${API_URL}/api/projects/${project.id}/similar?expenseId=${sourceExpense.id}&field=${field}`
-      );
-      if (!response.ok) return;
-      const similar = await response.json();
-      if (Array.isArray(similar) && similar.length > 0) {
-        setPendingPropagation({ field, ...payload, sourceId: sourceExpense.id, similar });
+  const checkAndOfferPropagation = useCallback(
+    async (sourceExpense, field, payload) => {
+      if (!project?.id || !sourceExpense?.id) return;
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(
+          `${API_URL}/api/projects/${project.id}/similar?expenseId=${sourceExpense.id}&field=${field}`
+        );
+        if (!response.ok) return;
+        const similar = await response.json();
+        if (Array.isArray(similar) && similar.length > 0) {
+          setPendingPropagation({
+            field,
+            ...payload,
+            sourceId: sourceExpense.id,
+            similar,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to check similar expenses:', error);
       }
-    } catch (error) {
-      console.error('Failed to check similar expenses:', error);
-    }
-  }, [project?.id]);
+    },
+    [project?.id]
+  );
 
   // User confirmed propagation -> bulk apply to the similar rows.
   const confirmPropagation = useCallback(async () => {
@@ -220,37 +256,56 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
     // Optimistic store update
     const optimistic = {};
-    if (pending.field === 'category') optimistic.accepted_category_id = pending.categoryId;
-    if (pending.field === 'personal') optimistic.is_personal = pending.isPersonal;
+    if (pending.field === 'category')
+      optimistic.accepted_category_id = pending.categoryId;
+    if (pending.field === 'personal')
+      optimistic.is_personal = pending.isPersonal;
     ids.forEach(id => updateStoreExpense(id, optimistic));
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || '';
       const body = { ids };
-      if (pending.field === 'category') body.accepted_category_id = pending.categoryId;
+      if (pending.field === 'category')
+        body.accepted_category_id = pending.categoryId;
       if (pending.field === 'personal') body.is_personal = pending.isPersonal;
-      const response = await fetch(`${API_URL}/api/projects/${project.id}/bulk-update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const response = await fetch(
+        `${API_URL}/api/projects/${project.id}/bulk-update`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
       if (response.ok) {
         const data = await response.json();
-        toast.success(`${data.updated} similar item${data.updated === 1 ? '' : 's'} updated`);
+        toast.success(
+          `${data.updated} similar item${data.updated === 1 ? '' : 's'} updated`
+        );
       }
       fetchProgress();
       await fetchFilteredCount();
       // If propagating personal makes the rows fall out of the current view,
       // refresh so they disappear instead of lingering greyed.
       const fallsOut =
-        (pending.field === 'personal' && view === 'business' && pending.isPersonal) ||
-        (pending.field === 'personal' && view === 'personal' && !pending.isPersonal);
+        (pending.field === 'personal' &&
+          view === 'business' &&
+          pending.isPersonal) ||
+        (pending.field === 'personal' &&
+          view === 'personal' &&
+          !pending.isPersonal);
       if (fallsOut) setRefreshNonce(n => n + 1);
     } catch (error) {
       console.error('Bulk update failed:', error);
       toast.error('Failed to update similar items');
     }
-  }, [pendingPropagation, project?.id, updateStoreExpense, fetchProgress, fetchFilteredCount, view]);
+  }, [
+    pendingPropagation,
+    project?.id,
+    updateStoreExpense,
+    fetchProgress,
+    fetchFilteredCount,
+    view,
+  ]);
 
   // User declined propagation -> keep only the single explicit edit.
   const cancelPropagation = useCallback(() => {
@@ -258,170 +313,217 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   }, []);
 
   // Scroll active row into view helper (works for both regular and virtual scroll)
-  const scrollActiveRowIntoView = useCallback((rowIndex) => {
-    const row = document.querySelector(`[data-row-index="${rowIndex}"]`);
-    if (!row) return;
-    
-    // Find the scrollable container for this row
-    let scrollContainer = row.closest('.overflow-auto');
-    if (!scrollContainer) {
-      scrollContainer = containerRef.current; // Fallback to regular table container
-    }
-    
-    if (scrollContainer) {
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const rowRect = row.getBoundingClientRect();
-      
-      // Scroll if row is out of view (above or below)
-      if (rowRect.bottom > containerRect.bottom || rowRect.top < containerRect.top) {
-        // Calculate scroll position to center the row in view
-        const rowOffsetTop = row.offsetTop;
-        const containerHeight = scrollContainer.clientHeight;
-        const rowHeight = row.clientHeight;
-        
-        // Center the row in the viewport
-        const scrollTop = rowOffsetTop - (containerHeight / 2) + (rowHeight / 2);
-        scrollContainer.scrollTop = Math.max(0, scrollTop);
+  const scrollActiveRowIntoView = useCallback(
+    rowIndex => {
+      const row = document.querySelector(`[data-row-index="${rowIndex}"]`);
+      if (!row) return;
+
+      // Find the scrollable container for this row
+      let scrollContainer = row.closest('.overflow-auto');
+      if (!scrollContainer) {
+        scrollContainer = containerRef.current; // Fallback to regular table container
       }
-    }
-  }, [containerRef]);
+
+      if (scrollContainer) {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+
+        // Scroll if row is out of view (above or below)
+        if (
+          rowRect.bottom > containerRect.bottom ||
+          rowRect.top < containerRect.top
+        ) {
+          // Calculate scroll position to center the row in view
+          const rowOffsetTop = row.offsetTop;
+          const containerHeight = scrollContainer.clientHeight;
+          const rowHeight = row.clientHeight;
+
+          // Center the row in the viewport
+          const scrollTop = rowOffsetTop - containerHeight / 2 + rowHeight / 2;
+          scrollContainer.scrollTop = Math.max(0, scrollTop);
+        }
+      }
+    },
+    [containerRef]
+  );
 
   // Set active row with proper tab index management
-  const setActiveRowWithTabIndex = useCallback((newIndex) => {
-    // For virtual scroll, use pure React state and programmatic focus
-    if (isVirtualScrollActive) {
+  const setActiveRowWithTabIndex = useCallback(
+    newIndex => {
+      // For virtual scroll, use pure React state and programmatic focus
+      if (isVirtualScrollActive) {
+        setPreviousActiveRowIndex(activeRowIndex);
+        setActiveRowIndex(newIndex);
+
+        // Move browser focus to the new active row
+        if (newIndex !== null) {
+          // Use setTimeout to ensure DOM has updated with new active state
+          setTimeout(() => {
+            const newRow = document.querySelector(
+              `[data-row-index="${newIndex}"]`
+            );
+            if (newRow) {
+              newRow.focus();
+            }
+          }, 0);
+        }
+        return;
+      }
+
+      // For regular table, use DOM queries (original behavior)
+      // Clear tabIndex from previous active row
+      if (previousActiveRowIndex !== null) {
+        const prevRow = document.querySelector(
+          `[data-row-index="${previousActiveRowIndex}"]`
+        );
+        if (prevRow) {
+          prevRow.setAttribute('tabindex', '1');
+        }
+      }
+
+      // Set tabIndex on new active row and focus it
+      if (newIndex !== null) {
+        const newRow = document.querySelector(`[data-row-index="${newIndex}"]`);
+        if (newRow) {
+          newRow.setAttribute('tabindex', '0');
+          newRow.focus();
+        }
+      }
+
       setPreviousActiveRowIndex(activeRowIndex);
       setActiveRowIndex(newIndex);
-      
-      // Move browser focus to the new active row
-      if (newIndex !== null) {
-        // Use setTimeout to ensure DOM has updated with new active state
-        setTimeout(() => {
-          const newRow = document.querySelector(`[data-row-index="${newIndex}"]`);
-          if (newRow) {
-            newRow.focus();
-          }
-        }, 0);
-      }
-      return;
-    }
-    
-    // For regular table, use DOM queries (original behavior)
-    // Clear tabIndex from previous active row
-    if (previousActiveRowIndex !== null) {
-      const prevRow = document.querySelector(`[data-row-index="${previousActiveRowIndex}"]`);
-      if (prevRow) {
-        prevRow.setAttribute('tabindex', '1');
-      }
-    }
-    
-    // Set tabIndex on new active row and focus it
-    if (newIndex !== null) {
-      const newRow = document.querySelector(`[data-row-index="${newIndex}"]`);
-      if (newRow) {
-        newRow.setAttribute('tabindex', '0');
-        newRow.focus();
-      }
-    }
-    
-    setPreviousActiveRowIndex(activeRowIndex);
-    setActiveRowIndex(newIndex);
-  }, [activeRowIndex, previousActiveRowIndex, isVirtualScrollActive]);
+    },
+    [activeRowIndex, previousActiveRowIndex, isVirtualScrollActive]
+  );
 
   // Auto-advance to next row helper
-  const advanceToNextRow = useCallback((expense) => {
-    const currentIndex = expenses.findIndex(e => e.id === expense.id);
-    if (currentIndex !== -1 && currentIndex === activeRowIndex && currentIndex < expenses.length - 1) {
-      const newIndex = currentIndex + 1;
-      setActiveRowWithTabIndex(newIndex);
-      scrollActiveRowIntoView(newIndex);
-    }
-  }, [expenses, activeRowIndex, setActiveRowWithTabIndex, scrollActiveRowIntoView]);
+  const advanceToNextRow = useCallback(
+    expense => {
+      const currentIndex = expenses.findIndex(e => e.id === expense.id);
+      if (
+        currentIndex !== -1 &&
+        currentIndex === activeRowIndex &&
+        currentIndex < expenses.length - 1
+      ) {
+        const newIndex = currentIndex + 1;
+        setActiveRowWithTabIndex(newIndex);
+        scrollActiveRowIntoView(newIndex);
+      }
+    },
+    [
+      expenses,
+      activeRowIndex,
+      setActiveRowWithTabIndex,
+      scrollActiveRowIntoView,
+    ]
+  );
 
-  const handleTogglePersonal = useCallback(async (expense) => {
-    const turningOn = !expense.is_personal;
-    await updateExpense(expense.id, { is_personal: turningOn });
+  const handleTogglePersonal = useCallback(
+    async expense => {
+      const turningOn = !expense.is_personal;
+      await updateExpense(expense.id, { is_personal: turningOn });
 
-    // If the toggle makes the row no longer belong to the current view, refresh
-    // the list so it disappears (rather than just being greyed). This happens on
-    // the Business tab when marking personal ON, and on the Personal tab when
-    // marking personal OFF.
-    const fallsOutOfView =
-      (view === 'business' && turningOn) ||
-      (view === 'personal' && !turningOn);
-    if (fallsOutOfView) {
-      await fetchFilteredCount();
-      setRefreshNonce(n => n + 1);
-    } else {
-      advanceToNextRow(expense);
-    }
+      // If the toggle makes the row no longer belong to the current view, refresh
+      // the list so it disappears (rather than just being greyed). This happens on
+      // the Business tab when marking personal ON, and on the Personal tab when
+      // marking personal OFF.
+      const fallsOutOfView =
+        (view === 'business' && turningOn) ||
+        (view === 'personal' && !turningOn);
+      if (fallsOutOfView) {
+        await fetchFilteredCount();
+        setRefreshNonce(n => n + 1);
+      } else {
+        advanceToNextRow(expense);
+      }
 
-    // Offer to propagate only when marking personal ON (off is a single edit).
-    if (turningOn) {
-      checkAndOfferPropagation(expense, 'personal', { isPersonal: true });
-    }
-  }, [updateExpense, advanceToNextRow, checkAndOfferPropagation, view, fetchFilteredCount]);
+      // Offer to propagate only when marking personal ON (off is a single edit).
+      if (turningOn) {
+        checkAndOfferPropagation(expense, 'personal', { isPersonal: true });
+      }
+    },
+    [
+      updateExpense,
+      advanceToNextRow,
+      checkAndOfferPropagation,
+      view,
+      fetchFilteredCount,
+    ]
+  );
 
   // Convenience functions for specific actions.
   // offerPropagation: when true (manual dropdown / hotkey), after the single
   // edit we check for same-description rows and prompt the user to propagate.
-  const updateExpenseCategory = useCallback(async (expenseId, categoryId, offerPropagation = false) => {
-    await updateExpense(expenseId, { accepted_category_id: categoryId || null });
-    if (offerPropagation && categoryId) {
-      const sourceExpense = expenses.find(e => e.id === expenseId) || { id: expenseId };
-      checkAndOfferPropagation(sourceExpense, 'category', { categoryId });
-    }
-  }, [updateExpense, expenses, checkAndOfferPropagation]);
+  const updateExpenseCategory = useCallback(
+    async (expenseId, categoryId, offerPropagation = false) => {
+      await updateExpense(expenseId, {
+        accepted_category_id: categoryId || null,
+      });
+      if (offerPropagation && categoryId) {
+        const sourceExpense = expenses.find(e => e.id === expenseId) || {
+          id: expenseId,
+        };
+        checkAndOfferPropagation(sourceExpense, 'category', { categoryId });
+      }
+    },
+    [updateExpense, expenses, checkAndOfferPropagation]
+  );
 
-  const handleAcceptSuggestion = useCallback((expense) => {
-    if (expense.suggested_category_id && !expense.accepted_category_id) {
-      updateExpenseCategory(expense.id, expense.suggested_category_id);
-      advanceToNextRow(expense);
-    }
-  }, [updateExpenseCategory, advanceToNextRow]);
+  const handleAcceptSuggestion = useCallback(
+    expense => {
+      if (expense.suggested_category_id && !expense.accepted_category_id) {
+        updateExpenseCategory(expense.id, expense.suggested_category_id);
+        advanceToNextRow(expense);
+      }
+    },
+    [updateExpenseCategory, advanceToNextRow]
+  );
 
   // Remove (soft-delete) or restore an expense. The row vanishes from the
   // current view and the filtered count is refreshed so the scrollbar resizes.
-  const handleToggleRemoved = useCallback(async (expense, removed) => {
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${API_URL}/api/expenses/${expense.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deleted: removed }),
-      });
-      if (!response.ok) throw new Error(`Failed: ${response.status}`);
-      // Refresh: resize scrollbar, update progress, and remount the virtual
-      // table so it refetches (the store clear happens in the table's layout
-      // effect, keyed on refreshNonce — clearing here would leave the table's
-      // internal page cache stale and render a blank list).
-      await fetchFilteredCount();
-      fetchProgress();
-      setRefreshNonce(n => n + 1);
-      toast.success(removed ? 'Item removed' : 'Item restored');
-    } catch (error) {
-      console.error('Failed to toggle removed:', error);
-      toast.error('Failed to update item');
-    }
-  }, [fetchFilteredCount, fetchProgress]);
+  const handleToggleRemoved = useCallback(
+    async (expense, removed) => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${API_URL}/api/expenses/${expense.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deleted: removed }),
+        });
+        if (!response.ok) throw new Error(`Failed: ${response.status}`);
+        // Refresh: resize scrollbar, update progress, and remount the virtual
+        // table so it refetches (the store clear happens in the table's layout
+        // effect, keyed on refreshNonce — clearing here would leave the table's
+        // internal page cache stale and render a blank list).
+        await fetchFilteredCount();
+        fetchProgress();
+        setRefreshNonce(n => n + 1);
+        toast.success(removed ? 'Item removed' : 'Item restored');
+      } catch (error) {
+        console.error('Failed to toggle removed:', error);
+        toast.error('Failed to update item');
+      }
+    },
+    [fetchFilteredCount, fetchProgress]
+  );
 
-  const handleClearCategory = (expense) => {
+  const handleClearCategory = expense => {
     // Send API call with -1 values (backend converts to NULL and returns null)
-    updateExpense(expense.id, { 
+    updateExpense(expense.id, {
       accepted_category_id: -1,
-      suggested_category_id: -1 
+      suggested_category_id: -1,
     });
   };
 
   // Handle autoplay continuation logic
-  const handleAutoplayContinuation = (suggestions) => {
+  const handleAutoplayContinuation = suggestions => {
     const currentAutoplayMode = autoplayModeRef.current;
-    
+
     // Check current autoplay mode using ref (not stale state)
     if (!currentAutoplayMode) {
       return false;
     }
-    
+
     if (suggestions.length > 0) {
       handleAiCategorization();
       return true; // Continue processing
@@ -432,8 +534,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
   };
 
-  // Toggle autoplay mode
-  const toggleAutoplay = () => {
+  // Toggle continuous (autoplay) mode for the given AI mode.
+  const toggleAutoplay = (mode = aiModeRef.current) => {
+    aiModeRef.current = mode;
     setAutoplayMode(prev => {
       const newValue = !prev;
       autoplayModeRef.current = newValue; // Keep ref in sync
@@ -442,107 +545,60 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   };
 
   // AI Categorization function - now with job tracking
-  const handleAiCategorization = async () => {
+  const handleAiCategorization = async (mode = aiModeRef.current) => {
     if (!project?.id) {
-      console.warn('Cannot categorize: no project selected');
+      console.warn('Cannot run AI: no project selected');
       return;
     }
-
-    // Set AI categorizing state
+    aiModeRef.current = mode;
     setAiCategorizing(true);
 
     try {
-      // Call the backend endpoint to start a job
-      const API_URL = import.meta.env.VITE_API_URL || "";
-      const response = await fetch(`${API_URL}/api/projects/${project.id}/ai-categorize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'openai'  // Optional: specify AI model
-        })
-      });
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(
+        `${API_URL}/api/projects/${project.id}/ai-categorize`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode, view: viewRef.current }),
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`AI categorization failed: ${response.status} - ${errorText}`);
+        throw new Error(`${response.status} - ${errorText}`);
       }
 
       const jobResult = await response.json();
-      
-      // Always expect a job response now
       if (!jobResult.job_id) {
-        throw new Error('Backend did not return a job_id - this should not happen');
+        throw new Error('Backend did not return a job_id');
       }
-      
-      // Set processing state for selected expenses
+
       const selectedExpenses = jobResult.selected_expenses || [];
       setProcessingRows(new Set(selectedExpenses));
-      
-      toast.info(`AI categorization started for ${selectedExpenses.length} expenses`);
-      
-      // Start polling for job completion
       pollJobStatus(jobResult.job_id);
-      
     } catch (error) {
-      console.error('AI categorization failed:', error);
-      toast.error(`AI categorization failed: ${error.message}`);
+      console.error('AI job failed:', error);
+      toast.error(`AI failed: ${error.message}`);
       setAiCategorizing(false);
     }
   };
-
-  // AI Set Personal: classify the next batch of unsorted rows as business or
-  // personal, writing staged suggestions (synchronous endpoint).
-  const handleAiSetPersonal = async () => {
-    if (!project?.id) return;
-    setAiCategorizing(true);
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${API_URL}/api/projects/${project.id}/ai-set-personal`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (!response.ok) throw new Error(`status ${response.status}`);
-      const result = await response.json();
-      const classifications = result.classifications || [];
-      if (classifications.length === 0) {
-        toast.info(result.message || 'No unsorted expenses to classify');
-      } else {
-        // Apply staged suggestions to the store for immediate UI feedback.
-        classifications.forEach(c => {
-          updateStoreExpense(c.rowId, { suggested_is_personal: c.isPersonal });
-        });
-        const personalCount = classifications.filter(c => c.isPersonal).length;
-        toast.success(
-          `AI flagged ${personalCount} of ${classifications.length} as personal`
-        );
-      }
-    } catch (error) {
-      console.error('AI set personal failed:', error);
-      toast.error(`AI Set Personal failed: ${error.message}`);
-    } finally {
-      setAiCategorizing(false);
-    }
-  };
-
   // Poll job status until completion
-  const pollJobStatus = async (jobId) => {
-    const API_URL = import.meta.env.VITE_API_URL || "";
+  const pollJobStatus = async jobId => {
+    const API_URL = import.meta.env.VITE_API_URL || '';
     let attempts = 0;
     const maxAttempts = 300; // Poll for up to 5 minutes (1s intervals)
-    
+
     const poll = async () => {
       try {
         const response = await fetch(`${API_URL}/api/jobs/${jobId}`);
-        
+
         if (!response.ok) {
           throw new Error(`Job status check failed: ${response.status}`);
         }
-        
+
         const jobStatus = await response.json();
-        
+
         if (jobStatus.status === 'completed') {
           // Job completed successfully
           handleJobCompletion(jobStatus);
@@ -550,7 +606,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         } else if (jobStatus.status === 'failed') {
           // Job failed
           throw new Error(jobStatus.error || 'AI categorization job failed');
-        } else if (jobStatus.status === 'processing' || jobStatus.status === 'queued') {
+        } else if (
+          jobStatus.status === 'processing' ||
+          jobStatus.status === 'queued'
+        ) {
           // Job still in progress
           attempts++;
           if (attempts < maxAttempts) {
@@ -566,62 +625,65 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         setAiCategorizing(false);
       }
     };
-    
+
     // Start polling
     poll();
   };
 
   // Handle job completion
-  const handleJobCompletion = (jobStatus) => {
-    const suggestions = jobStatus.categorizations || [];
-    const selectedIds = jobStatus.selected_expenses || [];
-    
-    if (suggestions.length === 0) {
-      toast.info(jobStatus.message || 'No expenses needed categorization');
-      
-      // Check autoplay continuation even with no suggestions
-      if (handleAutoplayContinuation(suggestions)) {
-        return; // Don't clear processing state yet
-      }
+  const handleJobCompletion = jobStatus => {
+    const isPersonalMode = jobStatus.mode === 'set_personal';
+    const results = isPersonalMode
+      ? jobStatus.classifications || []
+      : jobStatus.categorizations || [];
+
+    if (results.length === 0) {
+      toast.info(jobStatus.message || 'Nothing left for AI to process');
+    } else if (isPersonalMode) {
+      // Apply staged business/personal suggestions.
+      results.forEach(c => {
+        updateStoreExpense(c.rowId, { suggested_is_personal: c.isPersonal });
+      });
+      const personalCount = results.filter(c => c.isPersonal).length;
+      toast.success(
+        `AI flagged ${personalCount} of ${results.length} as personal`
+      );
+      fetchProgress();
     } else {
-      // Update expenses with AI suggestions using Zustand store
-      suggestions.forEach(suggestion => {
+      // Apply staged category suggestions.
+      results.forEach(suggestion => {
         updateStoreExpense(suggestion.rowId, {
           suggested_category_id: suggestion.categoryId,
           ai_confidence: suggestion.confidence,
-          ai_reasoning: suggestion.reasoning
+          ai_reasoning: suggestion.reasoning,
         });
       });
-      
-      toast.success(jobStatus.message || `AI categorized ${suggestions.length} expenses`);
-      
-      // Refresh progress after successful categorization
+      toast.success(
+        jobStatus.message || `AI categorized ${results.length} expenses`
+      );
       fetchProgress();
-      
-      // Check if we should continue in autoplay mode
-      if (handleAutoplayContinuation(suggestions)) {
-        return; // Don't clear processing state yet
-      }
     }
-    
-    // Clear processing state (reached when autoplay doesn't continue)
+
+    // Continue in autoplay if there was work this round.
+    if (handleAutoplayContinuation(results)) {
+      return; // keep processing state; next round starts
+    }
+
     setProcessingRows(new Set());
     setAiCategorizing(false);
   };
-
-
 
   // Load expenses function
   const loadExpenses = async (pageNum = 0, isInitial = false) => {
     // Prevent multiple simultaneous requests
     if (loadingRef.current) return;
-    
+
     loadingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "";
+      const API_URL = import.meta.env.VITE_API_URL || '';
       const offset = pageNum * LIMIT;
       const response = await fetch(
         `${API_URL}/api/projects/${project.id}/expenses?offset=${offset}&limit=${LIMIT}`
@@ -642,11 +704,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       const actualPage = pageNum + 1; // Convert to 1-based page
       setStoreExpenses(newExpenses, actualPage, LIMIT);
       markPageRequested(actualPage, `expenses?offset=${offset}&limit=${LIMIT}`);
-      
+
       // Always update page to reflect what we just loaded
       setPage(pageNum);
     } catch (err) {
-      console.error("Failed to fetch expenses:", err);
+      console.error('Failed to fetch expenses:', err);
       setError(`Failed to load expenses: ${err.message}`);
     } finally {
       setLoading(false);
@@ -657,9 +719,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Reset and load data when project changes
   useEffect(() => {
     if (!project?.id) return;
-    
+
     const abortController = new AbortController();
-    
+
     // Reset state - both local and Zustand store
     setStoreProject(project.id);
     setPage(0);
@@ -667,15 +729,15 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setError(null);
     setProcessingRows(new Set());
     loadingRef.current = false;
-    
+
     // Load categories only. The virtual scroll table fetches its own expense
     // pages (filter-aware) via requestExpensePage; prefetching expenses here
     // would race with and clobber the filtered data in the store.
     const loadInitialData = async () => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "";
+        const API_URL = import.meta.env.VITE_API_URL || '';
         const categoriesResponse = await fetch(`${API_URL}/api/categories`, {
-          signal: abortController.signal
+          signal: abortController.signal,
         });
         if (abortController.signal.aborted) return;
         if (categoriesResponse.ok) {
@@ -689,9 +751,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         }
       }
     };
-    
+
     loadInitialData();
-    
+
     // Cleanup function to abort requests if component unmounts or project changes
     return () => {
       abortController.abort();
@@ -724,7 +786,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Keyboard navigation handlers
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = e => {
       // Ignore when typing in a form field or inside an open dialog (e.g. the
       // category modal), otherwise category hotkeys hijack normal typing.
       const t = e.target;
@@ -740,7 +802,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       }
 
       if (!isTableActive) return;
-      
+
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
@@ -776,7 +838,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         case 'A':
           if (activeRowIndex !== null) {
             e.preventDefault();
-            const currentExpense = getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
+            const currentExpense =
+              getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
             if (currentExpense) {
               handleAcceptSuggestion(currentExpense);
             }
@@ -786,7 +849,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         case 'P':
           if (activeRowIndex !== null) {
             e.preventDefault();
-            const currentExpense = getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
+            const currentExpense =
+              getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
             if (currentExpense) {
               handleTogglePersonal(currentExpense);
             }
@@ -799,27 +863,38 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
             const category = categories.find(cat => cat.hotkey === hotkey);
             if (category) {
               e.preventDefault();
-              const currentExpense = getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
+              const currentExpense =
+                getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
               if (currentExpense) {
                 updateExpenseCategory(currentExpense.id, category.id, true);
               }
             }
           }
           break;
-
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isTableActive, activeRowIndex, expenses, handleAcceptSuggestion, handleTogglePersonal, scrollActiveRowIntoView, setActiveRowWithTabIndex, getExpenseByIndex, updateExpenseCategory, categories]);
+  }, [
+    isTableActive,
+    activeRowIndex,
+    expenses,
+    handleAcceptSuggestion,
+    handleTogglePersonal,
+    scrollActiveRowIntoView,
+    setActiveRowWithTabIndex,
+    getExpenseByIndex,
+    updateExpenseCategory,
+    categories,
+  ]);
 
   const value = {
     // Data state
     expenses,
     categories,
     progress,
-    
+
     // Loading states
     loading,
     error,
@@ -828,7 +903,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     processingRows,
     aiCategorizing,
     autoplayMode,
-    
+
     // UI state
     isTableActive,
     activeRowIndex,
@@ -855,30 +930,29 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     // Store reset (used by the table to clear cache on filter change)
     clearStore,
     setStoreProject,
-    
+
     // Actions
     updateExpense,
     handleTogglePersonal,
     updateExpenseCategory,
     handleAcceptSuggestion,
     handleAiCategorization,
-    handleAiSetPersonal,
     toggleAutoplay,
     handleClearCategory,
     handleToggleRemoved,
     fetchProgress,
     loadExpenses,
     setActiveRowWithTabIndex,
-    
+
     // Refs
     loadMoreRef,
     containerRef,
     tableRef,
     loadingRef,
-    
+
     // Constants
     LIMIT,
-    
+
     // Zustand store functions for virtual scroll
     getExpensesForPage,
     hasCompletePageData,
@@ -896,5 +970,3 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     </SpreadsheetContext.Provider>
   );
 };
-
-

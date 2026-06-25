@@ -94,7 +94,6 @@ func main() {
 		r.Put("/projects/{projectID}", handlers.UpdateProject)
 		r.Delete("/projects/{projectID}", handlers.DeleteProject)
 		r.Post("/projects/{projectID}/ai-categorize", handlers.AICategorizeExpenses)
-		r.Post("/projects/{projectID}/ai-set-personal", handlers.AISetPersonalExpenses)
 
 		// Job endpoints
 		r.Get("/jobs/{jobID}", handlers.GetJobStatus)

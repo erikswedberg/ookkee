@@ -24,14 +24,27 @@ const (
 	JobStatusFailed     JobStatus = "failed"
 )
 
-// AICategorizationJob represents a job for AI categorization
+// PersonalResponse is the AI's business/personal classification for one expense.
+type PersonalResponse struct {
+	RowID      int     `json:"rowId"`
+	IsPersonal bool    `json:"isPersonal"`
+	Confidence float32 `json:"confidence"`
+	Reasoning  string  `json:"reasoning,omitempty"`
+}
+
+// AICategorizationJob represents an AI job. The same job/processor pipeline
+// handles two modes: "categorize" (assign categories) and "set_personal"
+// (classify business/personal). View scopes which rows are eligible.
 type AICategorizationJob struct {
 	ID               string                 `json:"id"`
 	ProjectID        int                    `json:"project_id"`
 	Model            string                 `json:"model"`
+	Mode             string                 `json:"mode"` // "categorize" | "set_personal"
+	View             string                 `json:"view"` // "all" | "business" | "personal"
 	Status           JobStatus              `json:"status"`
 	SelectedExpenses []int                  `json:"selected_expenses"` // IDs of expenses being processed
 	Categorizations  []AICategorizeResponse `json:"categorizations,omitempty"`
+	Classifications  []PersonalResponse     `json:"classifications,omitempty"`
 	Message          string                 `json:"message,omitempty"`
 	Error            string                 `json:"error,omitempty"`
 	CreatedAt        time.Time              `json:"created_at"`
@@ -54,26 +67,25 @@ func NewJobManager() *JobManager {
 	}
 }
 
-// CreateJob creates a new AI categorization job
+// CreateJob creates a new AI job (mode=categorize, view=business by default).
 func (jm *JobManager) CreateJob(projectID int, model string) *AICategorizationJob {
-	return jm.createJob(projectID, model)
+	return jm.CreateJobWithMode(projectID, model, "categorize", "business")
 }
 
-// createJob is the internal implementation
-func (jm *JobManager) createJob(projectID int, model string) *AICategorizationJob {
+// CreateJobWithMode creates a job with an explicit mode and view.
+func (jm *JobManager) CreateJobWithMode(projectID int, model, mode, view string) *AICategorizationJob {
 	jm.mu.Lock()
 	defer jm.mu.Unlock()
 
-	// Generate unique job ID
 	jobID := generateJobID()
-
-	// Create job context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 
 	job := &AICategorizationJob{
 		ID:        jobID,
 		ProjectID: projectID,
 		Model:     model,
+		Mode:      mode,
+		View:      view,
 		Status:    JobStatusQueued,
 		CreatedAt: time.Now(),
 		Ctx:       ctx,

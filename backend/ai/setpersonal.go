@@ -39,7 +39,7 @@ func GetUnsortedExpenses(ctx context.Context, projectID int, limit int) ([]Expen
 		  AND deleted_at IS NULL
 		  AND (is_personal IS NULL OR is_personal = FALSE)
 		  AND suggested_is_personal IS NULL
-		ORDER BY row_index ASC
+		ORDER BY date ASC NULLS LAST, row_index ASC
 		LIMIT $2
 	`
 	rows, err := database.Pool.Query(ctx, query, projectID, limit)

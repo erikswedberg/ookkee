@@ -125,6 +125,7 @@ func (p *JobProcessor) processJob(jobID string) {
 	err = p.manager.UpdateJob(jobID, func(j *AICategorizationJob) {
 		j.Status = JobStatusCompleted
 		j.Categorizations = result.Categorizations
+		j.Classifications = result.Classifications
 		j.Message = result.Message
 		j.CompletedAt = &completedAt
 	})
@@ -136,42 +137,58 @@ func (p *JobProcessor) processJob(jobID string) {
 	log.Printf("Job %s completed successfully", jobID)
 }
 
-// runAICategorizationJob executes the actual AI categorization logic
+// runAICategorizationJob executes the AI work for a job, branching on mode.
 func (p *JobProcessor) runAICategorizationJob(ctx context.Context, job *AICategorizationJob) (*AICategorizationResult, error) {
-	// This is the same logic as in the original handler, but adapted for job processing
-
-	// Step 1: Get expenses from job (already selected when job was created)
 	if len(job.SelectedExpenses) == 0 {
 		return &AICategorizationResult{
 			SelectedExpenseIDs: []int{},
 			Categorizations:    []AICategorizeResponse{},
+			Classifications:    []PersonalResponse{},
 			Message:            "No expenses selected for processing",
 		}, nil
 	}
 
-	// Convert selected expense IDs to ExpenseForAI structs
-	expensesToCategorize, err := ai.GetExpensesByIDs(ctx, job.SelectedExpenses)
+	expenses, err := ai.GetExpensesByIDs(ctx, job.SelectedExpenses)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 2: Get available categories from database
 	categoryDetails, err := ai.GetAllCategories(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	// set_personal mode: classify business/personal.
+	if job.Mode == "set_personal" {
+		res, err := ai.ProcessSetPersonalLogic(ctx, job.ProjectID, expenses, categoryDetails, job.Model)
+		if err != nil {
+			return nil, err
+		}
+		classifications := make([]PersonalResponse, len(res.Classifications))
+		for i, c := range res.Classifications {
+			classifications[i] = PersonalResponse{
+				RowID:      c.RowID,
+				IsPersonal: c.IsPersonal,
+				Confidence: c.Confidence,
+				Reasoning:  c.Reasoning,
+			}
+		}
+		return &AICategorizationResult{
+			SelectedExpenseIDs: res.SelectedExpenseIDs,
+			Categorizations:    []AICategorizeResponse{},
+			Classifications:    classifications,
+			Message:            res.Message,
+		}, nil
+	}
+
+	// categorize mode (default): assign categories.
 	if len(categoryDetails) == 0 {
 		return nil, JobError{Message: "No categories available for categorization"}
 	}
-
-	// Step 3: Process with AI (this would call the actual AI categorization logic)
-	result, err := ai.ProcessCategorizationLogic(ctx, job.ProjectID, expensesToCategorize, categoryDetails, job.Model)
+	result, err := ai.ProcessCategorizationLogic(ctx, job.ProjectID, expenses, categoryDetails, job.Model)
 	if err != nil {
 		return nil, err
 	}
-
-	// Convert ai.CategorizeResponse to AICategorizeResponse
 	categorizations := make([]AICategorizeResponse, len(result.Categorizations))
 	for i, cat := range result.Categorizations {
 		categorizations[i] = AICategorizeResponse{
@@ -181,18 +198,19 @@ func (p *JobProcessor) runAICategorizationJob(ctx context.Context, job *AICatego
 			Reasoning:  cat.Reasoning,
 		}
 	}
-
 	return &AICategorizationResult{
 		SelectedExpenseIDs: result.SelectedExpenseIDs,
 		Categorizations:    categorizations,
+		Classifications:    []PersonalResponse{},
 		Message:            result.Message,
 	}, nil
 }
 
-// AICategorizationResult represents the result of AI categorization
+// AICategorizationResult represents the result of an AI job (either mode).
 type AICategorizationResult struct {
 	SelectedExpenseIDs []int                  `json:"selected_expense_ids"`
 	Categorizations    []AICategorizeResponse `json:"categorizations"`
+	Classifications    []PersonalResponse     `json:"classifications"`
 	Message            string                 `json:"message"`
 }
 
