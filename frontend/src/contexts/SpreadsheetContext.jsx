@@ -472,10 +472,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   const handleAcceptSuggestion = useCallback(
     expense => {
+      // Accept the AI suggestion if there's one to accept; either way advance to
+      // the next row so you can mash 'A' through already-accepted rows.
       if (expense.suggested_category_id && !expense.accepted_category_id) {
         updateExpenseCategory(expense.id, expense.suggested_category_id);
-        advanceToNextRow(expense);
       }
+      advanceToNextRow(expense);
     },
     [updateExpenseCategory, advanceToNextRow]
   );
@@ -885,7 +887,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           t.tagName === 'TEXTAREA' ||
           t.tagName === 'SELECT' ||
           t.isContentEditable ||
-          t.closest('[role="dialog"]'))
+          (typeof t.closest === 'function' && t.closest('[role="dialog"]')))
       ) {
         return;
       }
