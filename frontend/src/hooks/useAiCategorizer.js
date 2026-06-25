@@ -45,7 +45,7 @@ export const useAiCategorizer = (rows = [], categories = [], learnedMap = {}) =>
       }));
 
       // Call the AI categorization endpoint
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const API_URL = import.meta.env.VITE_API_URL || '';
       const response = await fetch(`${API_URL}/api/projects/${projectId}/ai-categorize`, {
         method: 'POST',
         headers: {

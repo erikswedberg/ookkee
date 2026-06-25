@@ -125,7 +125,7 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
       setPageLoading(page, true);
 
       try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const API_URL = import.meta.env.VITE_API_URL || '';
         const offset = (page - 1) * pageSize;
         const extra = filterParams ? filterParams() : '';
         const queryString = `expenses?limit=${pageSize}&offset=${offset}${extra ? `&${extra}` : ''}`;

@@ -44,7 +44,7 @@ const FileUpload = ({ onUploadSuccess, projectName }) => {
         setUploadProgress(prev => (prev < 90 ? prev + 10 : prev));
       }, 100);
 
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/upload`, {
         method: "POST",
         body: formData,

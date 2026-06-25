@@ -111,7 +111,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     if (!project?.id) return;
     
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/projects/${project.id}/progress`);
       if (response.ok) {
         const data = await response.json();
@@ -140,7 +140,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const fetchFilteredCount = useCallback(async () => {
     if (!project?.id) return;
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const API_URL = import.meta.env.VITE_API_URL || '';
       const qs = filterParams();
       const response = await fetch(
         `${API_URL}/api/projects/${project.id}/expenses/count${qs ? `?${qs}` : ''}`
@@ -160,7 +160,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     updateStoreExpense(expenseId, updates);
     
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/expenses/${expenseId}`, {
         method: 'PUT',
         headers: {
@@ -196,7 +196,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const checkAndOfferPropagation = useCallback(async (sourceExpense, field, payload) => {
     if (!project?.id || !sourceExpense?.id) return;
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const API_URL = import.meta.env.VITE_API_URL || '';
       const response = await fetch(
         `${API_URL}/api/projects/${project.id}/similar?expenseId=${sourceExpense.id}&field=${field}`
       );
@@ -225,7 +225,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     ids.forEach(id => updateStoreExpense(id, optimistic));
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const API_URL = import.meta.env.VITE_API_URL || '';
       const body = { ids };
       if (pending.field === 'category') body.accepted_category_id = pending.categoryId;
       if (pending.field === 'personal') body.is_personal = pending.isPersonal;
@@ -384,7 +384,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // current view and the filtered count is refreshed so the scrollbar resizes.
   const handleToggleRemoved = useCallback(async (expense, removed) => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const API_URL = import.meta.env.VITE_API_URL || '';
       const response = await fetch(`${API_URL}/api/expenses/${expense.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -453,7 +453,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
     try {
       // Call the backend endpoint to start a job
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/projects/${project.id}/ai-categorize`, {
         method: 'POST',
         headers: {
@@ -498,7 +498,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     if (!project?.id) return;
     setAiCategorizing(true);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const API_URL = import.meta.env.VITE_API_URL || '';
       const response = await fetch(`${API_URL}/api/projects/${project.id}/ai-set-personal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -529,7 +529,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Poll job status until completion
   const pollJobStatus = async (jobId) => {
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+    const API_URL = import.meta.env.VITE_API_URL || "";
     let attempts = 0;
     const maxAttempts = 300; // Poll for up to 5 minutes (1s intervals)
     
@@ -621,7 +621,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setError(null);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const offset = pageNum * LIMIT;
       const response = await fetch(
         `${API_URL}/api/projects/${project.id}/expenses?offset=${offset}&limit=${LIMIT}`
@@ -673,7 +673,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     // would race with and clobber the filtered data in the store.
     const loadInitialData = async () => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const API_URL = import.meta.env.VITE_API_URL || "";
         const categoriesResponse = await fetch(`${API_URL}/api/categories`, {
           signal: abortController.signal
         });

@@ -30,7 +30,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/categories`);
       if (response.ok) {
         const data = await response.json();
@@ -49,7 +49,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
     if (!editingName.trim()) return;
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/categories/${categoryId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -90,7 +90,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
     if (!confirm("Are you sure you want to delete this category?")) return;
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/categories/${categoryId}`, {
         method: "DELETE",
       });
@@ -105,7 +105,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
 
   const handleMove = async (categoryId, direction) => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/categories/${categoryId}/move`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -124,7 +124,7 @@ const CategoryModal = ({ isOpen, onClose }) => {
     if (!newCategoryName.trim()) return;
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/categories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

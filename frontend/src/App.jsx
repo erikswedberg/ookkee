@@ -33,7 +33,7 @@ function App() {
 
   const fetchCategories = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/categories`);
       if (response.ok) {
         const data = await response.json();
@@ -69,7 +69,7 @@ function App() {
 
   const fetchProjects = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/projects`);
       const data = await response.json();
       setProjects(data || []);
@@ -102,7 +102,7 @@ function App() {
 
   const handleDeleteProject = async projectId => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const API_URL = import.meta.env.VITE_API_URL || "";
       const response = await fetch(`${API_URL}/api/projects/${projectId}`, {
         method: "DELETE",
       });
@@ -132,7 +132,7 @@ function App() {
     try {
       if (editingProject) {
         // Update existing project
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const API_URL = import.meta.env.VITE_API_URL || "";
         const response = await fetch(
           `${API_URL}/api/projects/${editingProject.id}`,
           {

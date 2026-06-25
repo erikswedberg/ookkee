@@ -68,6 +68,11 @@ load_env() {
     eval "$line"
   done < "$ENV_FILE"
   set +a
+
+  # The frontend talks to the backend through Vite's dev-server proxy (relative
+  # /api), so no backend IP or CORS origin needs to be known here. Point the
+  # proxy at the local backend port.
+  export VITE_PROXY_TARGET="http://localhost:${SERVER_PORT}"
 }
 
 check_db() {

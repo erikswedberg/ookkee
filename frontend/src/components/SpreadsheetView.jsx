@@ -24,7 +24,7 @@ import './Spreadsheet.css';
 const DownloadTotalsButton = ({ project }) => {
   const downloadCSV = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const API_URL = import.meta.env.VITE_API_URL || '';
       const response = await fetch(
         `${API_URL}/api/projects/${project.id}/totals/csv`
       );
