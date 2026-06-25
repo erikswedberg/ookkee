@@ -330,6 +330,7 @@ const SpreadsheetViewContent = ({
     categories,
     handleAiCategorization,
     toggleAutoplay,
+    resolveAllPersonal,
     view,
     setView,
     search,
@@ -502,6 +503,32 @@ const SpreadsheetViewContent = ({
                   className="max-w-xs"
                 />
               </div>
+              {/* Bulk approve/dismiss bar for pending AI personal suggestions */}
+              {progress.pending_personal_count > 0 && (
+                <div className="flex items-center justify-between gap-4 px-[25px] py-2 bg-amber-50 border-y border-amber-200">
+                  <span className="text-sm text-amber-900">
+                    AI suggests {progress.pending_personal_count} expense
+                    {progress.pending_personal_count === 1 ? '' : 's'} as
+                    personal.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => resolveAllPersonal('approve')}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      Approve all ({progress.pending_personal_count})
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => resolveAllPersonal('dismiss')}
+                    >
+                      Dismiss all
+                    </Button>
+                  </div>
+                </div>
+              )}
               <ExpenseTableVirtual
                 projectId={project?.id}
                 totalExpenses={progress?.total_count || 0}

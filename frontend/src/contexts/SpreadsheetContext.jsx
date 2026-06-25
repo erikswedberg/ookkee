@@ -142,6 +142,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           total_count: data.total_count || 0,
           categorized_count: data.categorized_count || 0,
           uncategorized_count: data.uncategorized_count || 0,
+          pending_personal_count: data.pending_personal_count || 0,
         });
       }
     } catch (error) {
@@ -505,6 +506,89 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       }
     },
     [fetchFilteredCount, fetchProgress]
+  );
+
+  // Approve a single AI personal suggestion: confirm is_personal = suggested
+  // value (clears the suggestion). Reuses handleTogglePersonal semantics for
+  // the common case (suggestion is 'personal').
+  const approvePersonalSuggestion = useCallback(
+    async expense => {
+      const target = expense.suggested_is_personal === true;
+      // Optimistic: set personal + clear suggestion.
+      updateStoreExpense(expense.id, {
+        is_personal: target,
+        suggested_is_personal: null,
+      });
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        await fetch(`${API_URL}/api/expenses/${expense.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_personal: target }),
+        });
+        fetchProgress();
+        // If the row now leaves the current view, refresh the list.
+        if (
+          (viewRef.current === 'business' && target) ||
+          (viewRef.current === 'personal' && !target)
+        ) {
+          await fetchFilteredCount();
+          setRefreshNonce(n => n + 1);
+        }
+      } catch (error) {
+        console.error('Approve personal failed:', error);
+      }
+    },
+    [updateStoreExpense, fetchProgress, fetchFilteredCount]
+  );
+
+  // Dismiss a single AI personal suggestion without changing is_personal.
+  const dismissPersonalSuggestion = useCallback(
+    async expense => {
+      updateStoreExpense(expense.id, { suggested_is_personal: null });
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        await fetch(`${API_URL}/api/expenses/${expense.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clear_personal_suggestion: true }),
+        });
+        fetchProgress();
+      } catch (error) {
+        console.error('Dismiss personal failed:', error);
+      }
+    },
+    [updateStoreExpense, fetchProgress]
+  );
+
+  // Bulk approve or dismiss ALL pending personal suggestions in the project.
+  const resolveAllPersonal = useCallback(
+    async action => {
+      if (!project?.id) return;
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(
+          `${API_URL}/api/projects/${project.id}/resolve-personal`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+          }
+        );
+        if (!response.ok) throw new Error(`status ${response.status}`);
+        const data = await response.json();
+        toast.success(
+          `${action === 'approve' ? 'Approved' : 'Dismissed'} ${data.affected} suggestion${data.affected === 1 ? '' : 's'}`
+        );
+        await fetchFilteredCount();
+        fetchProgress();
+        setRefreshNonce(n => n + 1);
+      } catch (error) {
+        console.error('Resolve all personal failed:', error);
+        toast.error('Failed to resolve suggestions');
+      }
+    },
+    [project?.id, fetchFilteredCount, fetchProgress]
   );
 
   const handleClearCategory = expense => {
@@ -940,6 +1024,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     toggleAutoplay,
     handleClearCategory,
     handleToggleRemoved,
+    approvePersonalSuggestion,
+    dismissPersonalSuggestion,
+    resolveAllPersonal,
     fetchProgress,
     loadExpenses,
     setActiveRowWithTabIndex,

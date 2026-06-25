@@ -38,6 +38,8 @@ const ExpenseRow2 = ({
   handleAcceptSuggestion,
   handleClearCategory,
   handleToggleRemoved,
+  approvePersonalSuggestion,
+  dismissPersonalSuggestion,
   setIsTableActive,
   setActiveRowWithTabIndex,
   isVisible = true,
@@ -59,6 +61,9 @@ const ExpenseRow2 = ({
   // In the Personal tab, personal rows are the subject of work and shouldn't be
   // greyed out. Only grey personal rows in the All view.
   const greyPersonal = isPersonal && viewMode !== 'personal';
+  // AI suggested this row is personal and the user hasn't confirmed/dismissed.
+  const hasPersonalSuggestion =
+    !isPersonal && currentExpense.suggested_is_personal === true;
 
   // Calculate if this row is active based on expenseIndex and activeRowIndex
   const isRowActive = activeRowIndex === expenseIndex;
@@ -189,6 +194,7 @@ const ExpenseRow2 = ({
   const renderStatus = expense => {
     const getStatusValue = expense => {
       if (currentExpense.is_personal) return 'Personal';
+      if (hasPersonalSuggestion) return 'Personal?';
 
       if (currentExpense.accepted_category_id) {
         if (!currentExpense.suggested_category_id) return 'Manual';
@@ -222,6 +228,16 @@ const ExpenseRow2 = ({
     const status = getStatusValue(currentExpense);
     const className = getStatusClassName(currentExpense);
 
+    if (hasPersonalSuggestion) {
+      return (
+        <div className="status-column">
+          <span className="badge bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
+            {status}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div className={`status-column ${className}`}>
         <span className="badge">{status}</span>
@@ -231,6 +247,37 @@ const ExpenseRow2 = ({
 
   // EXACT copy of renderAction from original
   const renderAction = (expense, expenseIndex) => {
+    // When AI suggests personal, the action column offers Approve / Dismiss so
+    // the user can act on it directly. Always visible (not hover-gated) so the
+    // suggestion is obvious.
+    if (hasPersonalSuggestion) {
+      return (
+        <div className="actions opacity-100">
+          <button
+            className="link text-amber-700 hover:text-amber-900 font-medium"
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              approvePersonalSuggestion(currentExpense);
+            }}
+          >
+            Approve
+          </button>
+          <span className="separator">|</span>
+          <button
+            className="link text-gray-500 hover:text-gray-700"
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              dismissPersonalSuggestion(currentExpense);
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div
         className={`actions ${
@@ -319,7 +366,13 @@ const ExpenseRow2 = ({
       data-row-index={expenseIndex}
       tabIndex={isRowActive ? 0 : -1}
       className={`scroll-row border-b spreadsheet row group cursor-pointer text-sm ${
-        isRowActive ? 'active' : greyPersonal ? 'personal' : 'hover:bg-sky-50'
+        isRowActive
+          ? 'active'
+          : hasPersonalSuggestion
+            ? 'bg-amber-50 hover:bg-amber-100'
+            : greyPersonal
+              ? 'personal'
+              : 'hover:bg-sky-50'
       }`}
       onClick={() => {
         setIsTableActive(true);
@@ -412,10 +465,7 @@ const ExpenseRow2 = ({
             onClick={e => {
               e.preventDefault();
               e.stopPropagation();
-              handleToggleRemoved(
-                currentExpense,
-                viewMode !== 'removed'
-              );
+              handleToggleRemoved(currentExpense, viewMode !== 'removed');
             }}
           >
             {viewMode === 'removed' ? (

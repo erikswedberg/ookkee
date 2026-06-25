@@ -16,7 +16,11 @@ import { SpreadsheetContext } from '../contexts/SpreadsheetContext';
 const LIST_ITEM_HEIGHT = 50; // Height of each row in pixels
 const ROWS_PER_PAGE = 20; // Number of rows per virtual page
 
-const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' }) => {
+const ExpenseTableVirtual = ({
+  projectId,
+  totalExpenses = 0,
+  viewMode = 'all',
+}) => {
   const inflightRequests = useRef(new Set()); // Track API requests currently in flight
 
   // Get all context values from SpreadsheetContext (includes Zustand store functions)
@@ -33,6 +37,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
     handleAcceptSuggestion,
     handleClearCategory,
     handleToggleRemoved,
+    approvePersonalSuggestion,
+    dismissPersonalSuggestion,
     // Zustand store functions
     getExpensesForPage,
     hasCompletePageData,
@@ -186,6 +192,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
       handleAcceptSuggestion,
       handleClearCategory,
       handleToggleRemoved,
+      approvePersonalSuggestion,
+      dismissPersonalSuggestion,
       setIsTableActive,
       setActiveRowWithTabIndex,
       getCurrentExpense, // Pass function to get current expense data
@@ -200,6 +208,8 @@ const ExpenseTableVirtual = ({ projectId, totalExpenses = 0, viewMode = 'all' })
     handleAcceptSuggestion,
     handleClearCategory,
     handleToggleRemoved,
+    approvePersonalSuggestion,
+    dismissPersonalSuggestion,
     setIsTableActive,
     setActiveRowWithTabIndex,
     getCurrentExpense,
