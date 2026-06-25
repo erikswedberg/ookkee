@@ -490,94 +490,95 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(progress)
 }
 
-// GetProjectTotalsCSV generates and returns CSV of category totals for a project
+// GetProjectTotalsCSV returns a single CSV with Business and Personal sections,
+// each grouped by category with a subtotal, plus a grand total.
 func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	projectIDStr := chi.URLParam(r, "projectID")
-
 	if projectIDStr == "" {
 		http.Error(w, "Project ID is required", http.StatusBadRequest)
 		return
 	}
 
-	// Query to get category totals (excluding Personal expenses)
-	rows, err := database.Pool.Query(ctx, `
-		SELECT 
-			ec.name as category_name,
-			SUM(e.amount) as total_amount
+	type categoryTotal struct {
+		Name   string
+		Amount float64
+	}
+
+	readSection := func(query string) ([]categoryTotal, float64, error) {
+		rows, err := database.Pool.Query(ctx, query, projectIDStr)
+		if err != nil {
+			return nil, 0, err
+		}
+		defer rows.Close()
+		var out []categoryTotal
+		var sum float64
+		for rows.Next() {
+			var t categoryTotal
+			if err := rows.Scan(&t.Name, &t.Amount); err != nil {
+				return nil, 0, err
+			}
+			out = append(out, t)
+			sum += t.Amount
+		}
+		return out, sum, rows.Err()
+	}
+
+	business, businessTotal, err := readSection(`
+		SELECT ec.name AS category_name, SUM(e.amount) AS total_amount
 		FROM expense e
 		JOIN expense_category ec ON e.accepted_category_id = ec.id
-		WHERE e.project_id = $1 
-			AND e.accepted_category_id IS NOT NULL
-			AND e.deleted_at IS NULL
-			AND e.is_personal = FALSE
+		WHERE e.project_id = $1 AND e.accepted_category_id IS NOT NULL AND e.deleted_at IS NULL
+			AND (e.is_personal IS NULL OR e.is_personal = FALSE)
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY ec.sort_order ASC
-	`, projectIDStr)
-
+		ORDER BY ec.sort_order ASC`)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to fetch totals: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to fetch business totals: %v", err), http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
-
-	type CategoryTotal struct {
-		CategoryName string
-		TotalAmount  float64
-	}
-
-	var totals []CategoryTotal
-	var grandTotal float64
-
-	for rows.Next() {
-		var total CategoryTotal
-		err := rows.Scan(&total.CategoryName, &total.TotalAmount)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to scan total: %v", err), http.StatusInternalServerError)
-			return
-		}
-		totals = append(totals, total)
-		grandTotal += total.TotalAmount
-	}
-
-	if err = rows.Err(); err != nil {
-		http.Error(w, fmt.Sprintf("Row iteration error: %v", err), http.StatusInternalServerError)
+	personal, personalTotal, err := readSection(`
+		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name, SUM(e.amount) AS total_amount
+		FROM expense e
+		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
+		WHERE e.project_id = $1 AND e.deleted_at IS NULL AND e.is_personal = TRUE
+		GROUP BY ec.id, ec.name, ec.sort_order
+		ORDER BY COALESCE(ec.sort_order, 2147483647) ASC, category_name ASC`)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch personal totals: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Set CSV headers
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename=totals.csv")
-
-	// Create CSV writer
 	writer := csv.NewWriter(w)
 	defer writer.Flush()
 
-	// Write header
-	if err := writer.Write([]string{"Category", "Total"}); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to write CSV header: %v", err), http.StatusInternalServerError)
-		return
-	}
+	money := func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) }
 
-	// Write category totals
-	for _, total := range totals {
-		if err := writer.Write([]string{
-			total.CategoryName,
-			strconv.FormatFloat(total.TotalAmount, 'f', 2, 64),
-		}); err != nil {
-			http.Error(w, fmt.Sprintf("Failed to write CSV row: %v", err), http.StatusInternalServerError)
-			return
+	writeSection := func(title string, rows []categoryTotal, subtotal float64) error {
+		if err := writer.Write([]string{title, ""}); err != nil {
+			return err
 		}
+		for _, t := range rows {
+			if err := writer.Write([]string{t.Name, money(t.Amount)}); err != nil {
+				return err
+			}
+		}
+		return writer.Write([]string{title + " Total", money(subtotal)})
 	}
 
-	// Write grand total row
-	if err := writer.Write([]string{
-		"Total",
-		strconv.FormatFloat(grandTotal, 'f', 2, 64),
-	}); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to write CSV total row: %v", err), http.StatusInternalServerError)
+	writer.Write([]string{"Category", "Total"})
+	if err := writeSection("Business", business, businessTotal); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to write CSV: %v", err), http.StatusInternalServerError)
 		return
 	}
+	writer.Write([]string{"", ""})
+	if err := writeSection("Personal", personal, personalTotal); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to write CSV: %v", err), http.StatusInternalServerError)
+		return
+	}
+	writer.Write([]string{"", ""})
+	writer.Write([]string{"Grand Total", money(businessTotal + personalTotal)})
 }
 
 // GetSimilarExpenses returns OTHER expenses in the same project sharing the
