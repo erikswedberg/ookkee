@@ -399,21 +399,23 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
   // Auto-advance to next row helper
   const advanceToNextRow = useCallback(
-    expense => {
-      const currentIndex = expenses.findIndex(e => e.id === expense.id);
-      if (
-        currentIndex !== -1 &&
-        currentIndex === activeRowIndex &&
-        currentIndex < expenses.length - 1
-      ) {
-        const newIndex = currentIndex + 1;
+    () => {
+      // Advance from the currently active row to the next one. Use
+      // activeRowIndex directly (the true row index in the current view) rather
+      // than expenses.findIndex, which only reflects loaded rows and breaks once
+      // you've scrolled past the first page of the virtual list.
+      if (activeRowIndex === null) return;
+      const total = filteredCount || expenses.length;
+      if (activeRowIndex < total - 1) {
+        const newIndex = activeRowIndex + 1;
         setActiveRowWithTabIndex(newIndex);
         scrollActiveRowIntoView(newIndex);
       }
     },
     [
-      expenses,
       activeRowIndex,
+      filteredCount,
+      expenses.length,
       setActiveRowWithTabIndex,
       scrollActiveRowIntoView,
     ]
@@ -435,7 +437,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         await fetchFilteredCount();
         setRefreshNonce(n => n + 1);
       } else {
-        advanceToNextRow(expense);
+        advanceToNextRow();
       }
 
       // Offer to propagate only when marking personal ON (off is a single edit).
@@ -477,7 +479,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
       if (expense.suggested_category_id && !expense.accepted_category_id) {
         updateExpenseCategory(expense.id, expense.suggested_category_id);
       }
-      advanceToNextRow(expense);
+      advanceToNextRow();
     },
     [updateExpenseCategory, advanceToNextRow]
   );
