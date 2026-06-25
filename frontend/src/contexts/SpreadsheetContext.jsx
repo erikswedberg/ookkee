@@ -527,6 +527,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           body: JSON.stringify({ is_personal: target }),
         });
         fetchProgress();
+        // Offer to propagate to other same-description rows, same as a manual
+        // personal toggle (only when confirming personal = ON).
+        if (target) {
+          checkAndOfferPropagation(expense, 'personal', { isPersonal: true });
+        }
         // If the row now leaves the current view, refresh the list.
         if (
           (viewRef.current === 'business' && target) ||
@@ -539,7 +544,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         console.error('Approve personal failed:', error);
       }
     },
-    [updateStoreExpense, fetchProgress, fetchFilteredCount]
+    [updateStoreExpense, fetchProgress, fetchFilteredCount, checkAndOfferPropagation]
   );
 
   // Dismiss a single AI personal suggestion without changing is_personal.
