@@ -126,16 +126,24 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
+	// Map known field names to their column index, case-insensitively, so CSVs
+	// with headers like "Date" or "date" both import correctly.
+	colIdx := func(name string) int {
+		for j, h := range headers {
+			if strings.EqualFold(strings.TrimSpace(h), name) {
+				return j
+			}
+		}
+		return -1
+	}
+	sourceColIdx := colIdx("Source")
+	descColIdx := colIdx("Description")
+	amountColIdx := colIdx("Amount")
+
 	// Pre-pass: collect each row's raw Date string so we can infer a default
 	// year for yearless dates before inserting.
 	dateTexts := make([]string, len(dataRows))
-	dateColIdx := -1
-	for j, h := range headers {
-		if h == "Date" {
-			dateColIdx = j
-			break
-		}
-	}
+	dateColIdx := colIdx("Date")
 	if dateColIdx >= 0 {
 		for i, row := range dataRows {
 			if dateColIdx < len(row) {
@@ -165,23 +173,24 @@ func processCSVAndCreateProject(ctx context.Context, filepath, projectName, orig
 		var description *string
 		var amount *float64
 
-		// Extract Source field
-		if sourceStr, ok := rawData["Source"].(string); ok && sourceStr != "" {
-			source = &sourceStr
+		// Extract fields by (case-insensitive) column index.
+		if sourceColIdx >= 0 && sourceColIdx < len(row) && row[sourceColIdx] != "" {
+			v := row[sourceColIdx]
+			source = &v
 		}
 
-		// Extract Date field as text
-		if dateStr, ok := rawData["Date"].(string); ok && dateStr != "" {
-			dateText = &dateStr
+		if dateColIdx >= 0 && dateColIdx < len(row) && row[dateColIdx] != "" {
+			v := row[dateColIdx]
+			dateText = &v
 		}
 
-		// Extract Description field
-		if desc, ok := rawData["Description"].(string); ok && desc != "" {
-			description = &desc
+		if descColIdx >= 0 && descColIdx < len(row) && row[descColIdx] != "" {
+			v := row[descColIdx]
+			description = &v
 		}
 
-		// Extract Amount field
-		if amtStr, ok := rawData["Amount"].(string); ok && amtStr != "" {
+		if amountColIdx >= 0 && amountColIdx < len(row) && row[amountColIdx] != "" {
+			amtStr := row[amountColIdx]
 			// Clean amount string: remove $, commas, and other common formatting
 			cleanAmount := strings.ReplaceAll(amtStr, "$", "")
 			cleanAmount = strings.ReplaceAll(cleanAmount, ",", "")
