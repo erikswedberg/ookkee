@@ -338,14 +338,20 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           rowRect.bottom > containerRect.bottom ||
           rowRect.top < containerRect.top
         ) {
-          // Calculate scroll position to center the row in view
-          const rowOffsetTop = row.offsetTop;
+          // Compute the target scroll from the row's CURRENT position relative
+          // to the container, plus the container's current scroll. Do NOT use
+          // row.offsetTop: in the virtual list rows sit inside absolutely-
+          // positioned page containers, so offsetTop is the row's position
+          // within its page (0..pageHeight), not its true list position — which
+          // made scrolling jump back toward page 1 at page boundaries.
           const containerHeight = scrollContainer.clientHeight;
-          const rowHeight = row.clientHeight;
-
-          // Center the row in the viewport
-          const scrollTop = rowOffsetTop - containerHeight / 2 + rowHeight / 2;
-          scrollContainer.scrollTop = Math.max(0, scrollTop);
+          const rowHeight = rowRect.height;
+          const delta =
+            rowRect.top - containerRect.top - containerHeight / 2 + rowHeight / 2;
+          scrollContainer.scrollTop = Math.max(
+            0,
+            scrollContainer.scrollTop + delta
+          );
         }
       }
     },
@@ -914,19 +920,21 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           }
           // If activeRowIndex === 0, do nothing (stay on first row)
           break;
-        case 'ArrowDown':
+        case 'ArrowDown': {
           e.preventDefault();
+          // Bound by the filtered TOTAL, not expenses.length: in the virtual
+          // list `expenses` only holds loaded rows, so using its length stopped
+          // ArrowDown at the first page boundary.
+          const total = filteredCount || expenses.length;
           if (activeRowIndex === null) {
-            // No active row, select first row
             setActiveRowWithTabIndex(0);
-          } else if (activeRowIndex < expenses.length - 1) {
-            // Move down one row
+          } else if (activeRowIndex < total - 1) {
             const downIndex = activeRowIndex + 1;
             setActiveRowWithTabIndex(downIndex);
             setTimeout(() => scrollActiveRowIntoView(downIndex), 0);
           }
-          // If activeRowIndex === expenses.length - 1, do nothing (stay on last row)
           break;
+        }
         case 'Escape':
           setIsTableActive(false);
           setActiveRowWithTabIndex(null);
@@ -977,6 +985,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     isTableActive,
     activeRowIndex,
     expenses,
+    filteredCount,
     handleAcceptSuggestion,
     handleTogglePersonal,
     scrollActiveRowIntoView,
