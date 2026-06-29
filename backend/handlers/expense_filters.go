@@ -11,8 +11,9 @@ import (
 // always starts with "AND ..." pieces appended to a base query that already has
 // "WHERE project_id = $1 AND deleted_at IS NULL". argStart is the next $N index.
 type expenseFilter struct {
-	view   string // "all" | "business" | "personal"
+	view   string // "all" | "business" | "personal" | "removed"
 	search string
+	uncat  bool // only rows with no accepted category
 }
 
 // orderByClause maps a whitelisted sort key to a safe SQL ORDER BY clause.
@@ -38,6 +39,7 @@ func parseExpenseFilter(r *http.Request) expenseFilter {
 	return expenseFilter{
 		view:   v,
 		search: strings.TrimSpace(r.URL.Query().Get("search")),
+		uncat:  r.URL.Query().Get("uncat") == "1",
 	}
 }
 
@@ -61,6 +63,15 @@ func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 		parts = append(parts, "(is_personal IS NULL OR is_personal = FALSE)")
 	case "personal":
 		parts = append(parts, "is_personal = TRUE")
+	}
+
+	// Uncategorized only: no accepted category. On the All view (no personal
+	// scope) also exclude personal rows, since those aren't "to categorize".
+	if f.uncat {
+		parts = append(parts, "accepted_category_id IS NULL")
+		if f.view == "all" {
+			parts = append(parts, "(is_personal IS NULL OR is_personal = FALSE)")
+		}
 	}
 
 	if f.search != "" {

@@ -106,6 +106,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Sort order for the expense list. '' = default (date asc); 'amount_desc' /
   // 'amount_asc' for clicking the Amount header.
   const [sort, setSort] = useState('');
+  // Show only uncategorized rows when true.
+  const [uncatOnly, setUncatOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [filteredCount, setFilteredCount] = useState(0);
 
@@ -159,8 +161,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     if (view && view !== 'all') params.set('view', view);
     if (search) params.set('search', search);
     if (sort) params.set('sort', sort);
+    if (uncatOnly) params.set('uncat', '1');
     return params.toString();
-  }, [view, search, sort]);
+  }, [view, search, sort, uncatOnly]);
 
   // Fetch the filtered expense count (sizes the virtual scrollbar)
   const fetchFilteredCount = useCallback(async () => {
@@ -877,7 +880,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   useEffect(() => {
     if (!project?.id) return;
     fetchFilteredCount();
-  }, [project?.id, view, search, sort]);
+  }, [project?.id, view, search, sort, uncatOnly]);
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
@@ -1025,6 +1028,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setSearch,
     sort,
     setSort,
+    uncatOnly,
+    setUncatOnly,
     filteredCount,
     fetchFilteredCount,
     filterParams,

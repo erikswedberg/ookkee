@@ -335,6 +335,8 @@ const SpreadsheetViewContent = ({
     setView,
     search,
     setSearch,
+    uncatOnly,
+    setUncatOnly,
   } = useContext(SpreadsheetContext);
 
   // On the All tab the AI button sorts business/personal; on Business/Personal
@@ -495,13 +497,24 @@ const SpreadsheetViewContent = ({
                     <TabsTrigger value="removed">Removed</TabsTrigger>
                   </TabsList>
                 </Tabs>
-                <Input
-                  type="text"
-                  placeholder="Filter by description..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="max-w-xs"
-                />
+                <div className="flex items-center gap-3">
+                  {view !== 'removed' && (
+                    <label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+                      <Checkbox
+                        checked={uncatOnly}
+                        onCheckedChange={v => setUncatOnly(!!v)}
+                      />
+                      Uncategorized Only
+                    </label>
+                  )}
+                  <Input
+                    type="text"
+                    placeholder="Filter by description..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="max-w-xs"
+                  />
+                </div>
               </div>
               {/* Bulk approve/dismiss bar for pending AI personal suggestions */}
               {progress.pending_personal_count > 0 && (
