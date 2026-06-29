@@ -148,6 +148,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           categorized_count: data.categorized_count || 0,
           uncategorized_count: data.uncategorized_count || 0,
           pending_personal_count: data.pending_personal_count || 0,
+          pending_suggested_count: data.pending_suggested_count || 0,
         });
       }
     } catch (error) {
@@ -613,6 +614,36 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     [project?.id, fetchFilteredCount, fetchProgress]
   );
 
+  // Bulk approve or dismiss ALL pending category suggestions in the project.
+  const resolveAllCategory = useCallback(
+    async action => {
+      if (!project?.id) return;
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(
+          `${API_URL}/api/projects/${project.id}/resolve-category`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+          }
+        );
+        if (!response.ok) throw new Error(`status ${response.status}`);
+        const data = await response.json();
+        toast.success(
+          `${action === 'approve' ? 'Accepted' : 'Dismissed'} ${data.affected} suggestion${data.affected === 1 ? '' : 's'}`
+        );
+        await fetchFilteredCount();
+        fetchProgress();
+        setRefreshNonce(n => n + 1);
+      } catch (error) {
+        console.error('Resolve all category failed:', error);
+        toast.error('Failed to resolve suggestions');
+      }
+    },
+    [project?.id, fetchFilteredCount, fetchProgress]
+  );
+
   const handleClearCategory = expense => {
     // Send API call with -1 values (backend converts to NULL and returns null)
     updateExpense(expense.id, {
@@ -1056,6 +1087,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     approvePersonalSuggestion,
     dismissPersonalSuggestion,
     resolveAllPersonal,
+    resolveAllCategory,
     fetchProgress,
     loadExpenses,
     setActiveRowWithTabIndex,

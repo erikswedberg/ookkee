@@ -91,6 +91,7 @@ func main() {
 		r.Get("/projects/{projectID}/similar", handlers.GetSimilarExpenses)
 		r.Post("/projects/{projectID}/bulk-update", handlers.BulkUpdateExpenses)
 		r.Post("/projects/{projectID}/resolve-personal", handlers.ResolvePersonalSuggestions)
+		r.Post("/projects/{projectID}/resolve-category", handlers.ResolveCategorySuggestions)
 		r.Get("/projects/{projectID}/totals", handlers.GetProjectTotals)
 		r.Get("/projects/{projectID}/totals/csv", handlers.GetProjectTotalsCSV)
 		r.Get("/projects/{projectID}/progress", handlers.GetProjectProgress)

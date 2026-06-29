@@ -481,16 +481,17 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 
 	// Query to get total count, categorized count (for progress), uncategorized
 	// count (for AI button), and pending personal suggestions (for approve-all).
-	var totalCount, categorizedCount, uncategorizedCount, pendingPersonalCount int
+	var totalCount, categorizedCount, uncategorizedCount, pendingPersonalCount, pendingSuggestedCount int
 	err := database.Pool.QueryRow(ctx, `
 		SELECT 
 			COUNT(*) as total_count,
 			COUNT(CASE WHEN (accepted_category_id IS NOT NULL OR is_personal = true) THEN 1 END) as categorized_count,
 			COUNT(CASE WHEN (is_personal IS NULL OR is_personal = false) AND accepted_category_id IS NULL AND suggested_category_id IS NULL THEN 1 END) as uncategorized_count,
-			COUNT(CASE WHEN suggested_is_personal = TRUE THEN 1 END) as pending_personal_count
+			COUNT(CASE WHEN suggested_is_personal = TRUE THEN 1 END) as pending_personal_count,
+			COUNT(CASE WHEN suggested_category_id IS NOT NULL AND accepted_category_id IS NULL THEN 1 END) as pending_suggested_count
 		FROM expense 
 		WHERE project_id = $1 AND deleted_at IS NULL
-	`, projectIDStr).Scan(&totalCount, &categorizedCount, &uncategorizedCount, &pendingPersonalCount)
+	`, projectIDStr).Scan(&totalCount, &categorizedCount, &uncategorizedCount, &pendingPersonalCount, &pendingSuggestedCount)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch progress: %v", err), http.StatusInternalServerError)
@@ -498,12 +499,13 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type ProgressData struct {
-		TotalCount           int     `json:"total_count"`
-		CategorizedCount     int     `json:"categorized_count"`
-		UncategorizedCount   int     `json:"uncategorized_count"`
-		PendingPersonalCount int     `json:"pending_personal_count"`
-		Percentage           float64 `json:"percentage"`
-		IsComplete           bool    `json:"is_complete"`
+		TotalCount            int     `json:"total_count"`
+		CategorizedCount      int     `json:"categorized_count"`
+		UncategorizedCount    int     `json:"uncategorized_count"`
+		PendingPersonalCount  int     `json:"pending_personal_count"`
+		PendingSuggestedCount int     `json:"pending_suggested_count"`
+		Percentage            float64 `json:"percentage"`
+		IsComplete            bool    `json:"is_complete"`
 	}
 
 	percentage := 0.0
@@ -512,12 +514,13 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	progress := ProgressData{
-		TotalCount:           totalCount,
-		CategorizedCount:     categorizedCount,
-		UncategorizedCount:   uncategorizedCount,
-		PendingPersonalCount: pendingPersonalCount,
-		Percentage:           percentage,
-		IsComplete:           categorizedCount == totalCount && totalCount > 0,
+		TotalCount:            totalCount,
+		CategorizedCount:      categorizedCount,
+		UncategorizedCount:    uncategorizedCount,
+		PendingPersonalCount:  pendingPersonalCount,
+		PendingSuggestedCount: pendingSuggestedCount,
+		Percentage:            percentage,
+		IsComplete:            categorizedCount == totalCount && totalCount > 0,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -705,6 +708,48 @@ func GetSimilarExpenses(w http.ResponseWriter, r *http.Request) {
 // business/personal suggestions for a project. action="approve" confirms each
 // suggestion (sets is_personal to the suggested value); action="dismiss" just
 // clears them. Returns how many were affected.
+// ResolveCategorySuggestions bulk-applies or dismisses ALL pending AI category
+// suggestions for a project (rows with a suggested category but no accepted one).
+// approve -> accepted = suggested; dismiss -> clear the suggestion.
+func ResolveCategorySuggestions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectID := chi.URLParam(r, "projectID")
+
+	var req struct {
+		Action string `json:"action"` // "approve" | "dismiss"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	var query string
+	switch req.Action {
+	case "approve":
+		query = `UPDATE expense
+			SET accepted_category_id = suggested_category_id, accepted_at = CURRENT_TIMESTAMP
+			WHERE project_id = $1 AND deleted_at IS NULL
+			  AND suggested_category_id IS NOT NULL AND accepted_category_id IS NULL`
+	case "dismiss":
+		query = `UPDATE expense
+			SET suggested_category_id = NULL, suggested_at = NULL
+			WHERE project_id = $1 AND deleted_at IS NULL
+			  AND suggested_category_id IS NOT NULL AND accepted_category_id IS NULL`
+	default:
+		http.Error(w, "action must be 'approve' or 'dismiss'", http.StatusBadRequest)
+		return
+	}
+
+	tag, err := database.Pool.Exec(ctx, query, projectID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to resolve suggestions: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"affected": tag.RowsAffected()})
+}
+
 func ResolvePersonalSuggestions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	projectID := chi.URLParam(r, "projectID")

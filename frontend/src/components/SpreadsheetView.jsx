@@ -331,6 +331,7 @@ const SpreadsheetViewContent = ({
     handleAiCategorization,
     toggleAutoplay,
     resolveAllPersonal,
+    resolveAllCategory,
     view,
     setView,
     search,
@@ -536,6 +537,31 @@ const SpreadsheetViewContent = ({
                       size="sm"
                       variant="outline"
                       onClick={() => resolveAllPersonal('dismiss')}
+                    >
+                      Dismiss all
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {/* Bulk approve/dismiss bar for pending AI category suggestions */}
+              {progress.pending_suggested_count > 0 && (
+                <div className="flex items-center justify-between gap-4 px-[25px] py-2 bg-blue-50 border-y border-blue-200">
+                  <span className="text-sm text-blue-900">
+                    AI suggests categories for {progress.pending_suggested_count}{' '}
+                    expense{progress.pending_suggested_count === 1 ? '' : 's'}.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => resolveAllCategory('approve')}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Accept all ({progress.pending_suggested_count})
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => resolveAllCategory('dismiss')}
                     >
                       Dismiss all
                     </Button>
