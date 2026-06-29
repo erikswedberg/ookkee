@@ -147,12 +147,13 @@ func AppendFileToProject(w http.ResponseWriter, r *http.Request) {
 
 // parsedCSV holds a validated CSV ready for insertion.
 type parsedCSV struct {
-	headers      []string
-	dataRows     [][]string
-	sourceColIdx int
-	dateColIdx   int
-	descColIdx   int
-	amountColIdx int
+	headers        []string
+	dataRows       [][]string
+	sourceColIdx   int
+	dateColIdx     int
+	descColIdx     int
+	amountColIdx   int
+	currencyColIdx int
 }
 
 // readAndValidateCSV reads a CSV from disk and verifies it has the expected
@@ -186,12 +187,13 @@ func readAndValidateCSV(filepath string) (*parsedCSV, error) {
 	}
 
 	p := &parsedCSV{
-		headers:      headers,
-		dataRows:     records[1:],
-		sourceColIdx: colIdx("Source"),
-		dateColIdx:   colIdx("Date"),
-		descColIdx:   colIdx("Description"),
-		amountColIdx: colIdx("Amount"),
+		headers:        headers,
+		dataRows:       records[1:],
+		sourceColIdx:   colIdx("Source"),
+		dateColIdx:     colIdx("Date"),
+		descColIdx:     colIdx("Description"),
+		amountColIdx:   colIdx("Amount"),
+		currencyColIdx: colIdx("Currency"), // optional; absent -> all USD
 	}
 
 	var missing []string
@@ -226,6 +228,25 @@ func insertExpenseRows(ctx context.Context, tx pgx.Tx, projectID int64, startRow
 	}
 	parsedDates := resolveDates(dateTexts)
 
+	// Fallback year for FX conversion on rows whose own date didn't parse: use
+	// the most common year among the parsed dates, else the current year.
+	defaultYear := time.Now().Year()
+	{
+		counts := map[int]int{}
+		for _, d := range parsedDates {
+			if d != nil {
+				counts[d.Year()]++
+			}
+		}
+		best := 0
+		for y, c := range counts {
+			if c > best {
+				best = c
+				defaultYear = y
+			}
+		}
+	}
+
 	for i, row := range p.dataRows {
 		rawData := make(map[string]interface{})
 		for j, value := range row {
@@ -258,7 +279,18 @@ func insertExpenseRows(ctx context.Context, tx pgx.Tx, projectID int64, startRow
 			cleanAmount = strings.ReplaceAll(cleanAmount, ",", "")
 			cleanAmount = strings.TrimSpace(cleanAmount)
 			if amt, err := strconv.ParseFloat(cleanAmount, 64); err == nil {
-				amount = &amt
+				// Convert to USD at import using the row's year. amount is always
+				// stored as USD; the source CSV remains the record of the original.
+				currency := ""
+				if p.currencyColIdx >= 0 && p.currencyColIdx < len(row) {
+					currency = row[p.currencyColIdx]
+				}
+				year := defaultYear
+				if parsedDates[i] != nil {
+					year = parsedDates[i].Year()
+				}
+				usd := amt * fxRateToUSD(currency, year)
+				amount = &usd
 			}
 		}
 
