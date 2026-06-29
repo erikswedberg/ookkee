@@ -13,6 +13,41 @@ import (
 	"ookkee/models"
 )
 
+// GetProjectFiles returns the source CSV files that make up a project.
+func GetProjectFiles(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectID := chi.URLParam(r, "projectID")
+	if projectID == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	rows, err := database.Pool.Query(ctx, `
+		SELECT id, project_id, original_name, row_count, created_at
+		FROM project_file
+		WHERE project_id = $1
+		ORDER BY created_at ASC, id ASC
+	`, projectID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch project files: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	files := []models.ProjectFile{}
+	for rows.Next() {
+		var f models.ProjectFile
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.OriginalName, &f.RowCount, &f.CreatedAt); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to scan project file: %v", err), http.StatusInternalServerError)
+			return
+		}
+		files = append(files, f)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(files)
+}
+
 func GetProjects(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

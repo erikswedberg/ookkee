@@ -78,6 +78,8 @@ func main() {
 	r.Route("/api", func(r chi.Router) {
 		// Upload
 		r.Post("/upload", handlers.FileUpload)
+		r.Post("/projects/{projectID}/append", handlers.AppendFileToProject)
+		r.Get("/projects/{projectID}/files", handlers.GetProjectFiles)
 
 		// Health
 		r.Get("/health", handlers.Health)

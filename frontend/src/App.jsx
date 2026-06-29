@@ -26,6 +26,15 @@ function App() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [categories, setCategories] = useState([]);
+  // Bumped to force the open project's view to remount/refetch after an append.
+  const [appendNonce, setAppendNonce] = useState(0);
+
+  const handleAppended = appendedProjectId => {
+    fetchProjects(); // refresh row_count in the sidebar
+    if (selectedProject?.id === appendedProjectId) {
+      setAppendNonce(n => n + 1);
+    }
+  };
 
   useEffect(() => {
     fetchProjects();
@@ -277,7 +286,7 @@ function App() {
         <div className="flex-1 overflow-hidden">
           {selectedProject ? (
             <SpreadsheetView 
-              key={selectedProject.id} 
+              key={`${selectedProject.id}-${appendNonce}`} 
               project={selectedProject} 
               isSidebarCollapsed={isSidebarCollapsed}
               onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -301,6 +310,7 @@ function App() {
         isOpen={isModalOpen}
         onClose={handleModalClose}
         onSave={handleModalSave}
+        onAppended={handleAppended}
         project={editingProject}
       />
       

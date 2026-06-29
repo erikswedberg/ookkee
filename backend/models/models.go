@@ -19,6 +19,15 @@ type Project struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// ProjectFile is one source CSV that contributes rows to a project.
+type ProjectFile struct {
+	ID           int64     `json:"id"`
+	ProjectID    int64     `json:"project_id"`
+	OriginalName string    `json:"original_name"`
+	RowCount     int       `json:"row_count"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type Expense struct {
 	ID                  int64           `json:"id"`
 	ProjectID           int64           `json:"project_id"`
