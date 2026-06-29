@@ -9,19 +9,25 @@ import dayjs from 'dayjs';
 // only — every category remains selectable. Original order preserved within
 // each group.
 const orderCategoriesByLean = (categories, viewMode) => {
+  const byName = (a, b) =>
+    (a.name || '').localeCompare(b.name || '', undefined, {
+      sensitivity: 'base',
+    });
   const lane =
     viewMode === 'personal'
       ? 'personal'
       : viewMode === 'business'
         ? 'business'
         : null;
-  if (!lane) return categories;
+  // No lane (All view): straight alphabetical.
+  if (!lane) return [...categories].sort(byName);
+  // Lane view: group by relevance, alphabetical within each group.
   const rank = cat => {
     if (!cat.lean) return 1; // either
     if (cat.lean === lane) return 0; // matches current lane
     return 2; // opposite lane
   };
-  return [...categories].sort((a, b) => rank(a) - rank(b));
+  return [...categories].sort((a, b) => rank(a) - rank(b) || byName(a, b));
 };
 
 // ExpenseRow2 component for virtual scroll with flex layout and percentage-based column widths
