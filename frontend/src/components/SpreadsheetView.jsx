@@ -510,6 +510,13 @@ const SpreadsheetViewContent = ({
                       Uncategorized Only
                     </label>
                   )}
+                  <Input
+                    type="text"
+                    placeholder={`Filter by ${searchField}...`}
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="max-w-xs"
+                  />
                   <select
                     value={searchField}
                     onChange={e => setSearchField(e.target.value)}
@@ -520,13 +527,6 @@ const SpreadsheetViewContent = ({
                     <option value="source">Source</option>
                     <option value="category">Category</option>
                   </select>
-                  <Input
-                    type="text"
-                    placeholder={`Filter by ${searchField}...`}
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="max-w-xs"
-                  />
                 </div>
               </div>
               {/* Bulk approve/dismiss bar for pending AI personal suggestions */}
