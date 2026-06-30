@@ -11,9 +11,10 @@ import (
 // always starts with "AND ..." pieces appended to a base query that already has
 // "WHERE project_id = $1 AND deleted_at IS NULL". argStart is the next $N index.
 type expenseFilter struct {
-	view   string // "all" | "business" | "personal" | "removed"
-	search string
-	uncat  bool // only rows with no accepted category
+	view        string // "all" | "business" | "personal" | "removed"
+	search      string
+	searchField string // "description" | "source" | "category"
+	uncat       bool   // only rows with no accepted category
 }
 
 // orderByClause maps a whitelisted sort key to a safe SQL ORDER BY clause.
@@ -36,10 +37,17 @@ func parseExpenseFilter(r *http.Request) expenseFilter {
 	default:
 		v = "all"
 	}
+	field := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("searchField")))
+	switch field {
+	case "source", "category":
+	default:
+		field = "description"
+	}
 	return expenseFilter{
-		view:   v,
-		search: strings.TrimSpace(r.URL.Query().Get("search")),
-		uncat:  r.URL.Query().Get("uncat") == "1",
+		view:        v,
+		search:      strings.TrimSpace(r.URL.Query().Get("search")),
+		searchField: field,
+		uncat:       r.URL.Query().Get("uncat") == "1",
 	}
 }
 
@@ -75,8 +83,20 @@ func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 	}
 
 	if f.search != "" {
-		parts = append(parts, fmt.Sprintf("description ILIKE $%d", idx))
-		args = append(args, "%"+f.search+"%")
+		pattern := "%" + f.search + "%"
+		switch f.searchField {
+		case "source":
+			parts = append(parts, fmt.Sprintf("source ILIKE $%d", idx))
+			args = append(args, pattern)
+		case "category":
+			// Match the accepted category's name.
+			parts = append(parts, fmt.Sprintf(
+				"accepted_category_id IN (SELECT id FROM expense_category WHERE name ILIKE $%d)", idx))
+			args = append(args, pattern)
+		default: // description
+			parts = append(parts, fmt.Sprintf("description ILIKE $%d", idx))
+			args = append(args, pattern)
+		}
 		idx++
 	}
 

@@ -336,6 +336,8 @@ const SpreadsheetViewContent = ({
     setView,
     search,
     setSearch,
+    searchField,
+    setSearchField,
     uncatOnly,
     setUncatOnly,
   } = useContext(SpreadsheetContext);
@@ -508,9 +510,19 @@ const SpreadsheetViewContent = ({
                       Uncategorized Only
                     </label>
                   )}
+                  <select
+                    value={searchField}
+                    onChange={e => setSearchField(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                    title="Field to search"
+                  >
+                    <option value="description">Description</option>
+                    <option value="source">Source</option>
+                    <option value="category">Category</option>
+                  </select>
                   <Input
                     type="text"
-                    placeholder="Filter by description..."
+                    placeholder={`Filter by ${searchField}...`}
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     className="max-w-xs"

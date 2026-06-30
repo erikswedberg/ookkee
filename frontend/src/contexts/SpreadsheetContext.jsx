@@ -109,6 +109,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Show only uncategorized rows when true.
   const [uncatOnly, setUncatOnly] = useState(false);
   const [search, setSearch] = useState('');
+  // Which field the search box matches: 'description' (default) | 'source' | 'category'.
+  const [searchField, setSearchField] = useState('description');
   const [filteredCount, setFilteredCount] = useState(0);
 
   // Pending propagation confirmation (manual category / personal toggle)
@@ -160,11 +162,14 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const filterParams = useCallback(() => {
     const params = new URLSearchParams();
     if (view && view !== 'all') params.set('view', view);
-    if (search) params.set('search', search);
+    if (search) {
+      params.set('search', search);
+      if (searchField !== 'description') params.set('searchField', searchField);
+    }
     if (sort) params.set('sort', sort);
     if (uncatOnly) params.set('uncat', '1');
     return params.toString();
-  }, [view, search, sort, uncatOnly]);
+  }, [view, search, searchField, sort, uncatOnly]);
 
   // Fetch the filtered expense count (sizes the virtual scrollbar)
   const fetchFilteredCount = useCallback(async () => {
@@ -911,7 +916,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   useEffect(() => {
     if (!project?.id) return;
     fetchFilteredCount();
-  }, [project?.id, view, search, sort, uncatOnly]);
+  }, [project?.id, view, search, searchField, sort, uncatOnly]);
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
@@ -1057,6 +1062,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setView,
     search,
     setSearch,
+    searchField,
+    setSearchField,
     sort,
     setSort,
     uncatOnly,
