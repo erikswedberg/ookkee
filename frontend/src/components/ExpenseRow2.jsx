@@ -13,14 +13,17 @@ import dayjs from 'dayjs';
 // lean matches the lane, or that have no lean ("both"), are offered, alphabetical.
 // currentId (if set) is always included so a row's existing category — even a
 // now-mismatched one — still shows in its dropdown.
-const categoriesForLane = (categories, lane, currentId) => {
+const categoriesForLane = (categories, lane, currentId, unrestricted) => {
   const byName = (a, b) =>
     (a.name || '').localeCompare(b.name || '', undefined, {
       sensitivity: 'base',
     });
-  const allowed = categories.filter(
-    c => !c.lean || c.lean === lane || c.id === currentId
-  );
+  // Miscategorized rows show ALL categories so the user can fix them in either
+  // direction (e.g. recategorize a personal row to its correct personal
+  // category before, or instead of, moving it to business).
+  const allowed = unrestricted
+    ? [...categories]
+    : categories.filter(c => !c.lean || c.lean === lane || c.id === currentId);
   return allowed.sort(byName);
 };
 
@@ -187,7 +190,8 @@ const ExpenseRow2 = ({
             categories,
             currentExpense.is_personal ? 'personal' : 'business',
             currentExpense.accepted_category_id ||
-              currentExpense.suggested_category_id
+              currentExpense.suggested_category_id,
+            isMiscategorized
           ).map(category => {
             const isAiSuggested =
               currentExpense.suggested_category_id === category.id &&
