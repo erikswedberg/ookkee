@@ -408,7 +408,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 			AND e.deleted_at IS NULL
 			AND (e.is_personal IS NULL OR e.is_personal = FALSE)
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY ec.sort_order ASC
+		ORDER BY ec.name ASC
 	`
 
 	// Personal: personal expenses grouped by their category, with an
@@ -423,7 +423,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 			AND e.deleted_at IS NULL
 			AND e.is_personal = TRUE
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY sort_order ASC, category_name ASC
+		ORDER BY category_name ASC
 	`
 
 	readTotals := func(query string, hasSort bool) ([]CategoryTotal, error) {
@@ -569,7 +569,7 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 		WHERE e.project_id = $1 AND e.accepted_category_id IS NOT NULL AND e.deleted_at IS NULL
 			AND (e.is_personal IS NULL OR e.is_personal = FALSE)
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY ec.sort_order ASC`)
+		ORDER BY ec.name ASC`)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch business totals: %v", err), http.StatusInternalServerError)
 		return
@@ -580,7 +580,7 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1 AND e.deleted_at IS NULL AND e.is_personal = TRUE
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY COALESCE(ec.sort_order, 2147483647) ASC, category_name ASC`)
+		ORDER BY category_name ASC`)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch personal totals: %v", err), http.StatusInternalServerError)
 		return
