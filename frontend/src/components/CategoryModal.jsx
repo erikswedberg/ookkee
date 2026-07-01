@@ -226,9 +226,9 @@ const CategoryModal = ({ isOpen, onClose }) => {
                           className="h-8 rounded border border-input bg-background px-2 text-sm"
                           title="Business / Personal lean"
                         >
-                          <option value="">— Either</option>
-                          <option value="business">Business</option>
-                          <option value="personal">Personal</option>
+                          <option value="">Both</option>
+                          <option value="business">Business Only</option>
+                          <option value="personal">Personal Only</option>
                         </select>
                         <Button
                           size="sm"
@@ -324,9 +324,9 @@ const CategoryModal = ({ isOpen, onClose }) => {
                     className="h-8 rounded border border-input bg-background px-2 text-sm"
                     title="Business / Personal lean"
                   >
-                    <option value="">— Either</option>
-                    <option value="business">Business</option>
-                    <option value="personal">Personal</option>
+                    <option value="">Both</option>
+                          <option value="business">Business Only</option>
+                          <option value="personal">Personal Only</option>
                   </select>
                   <Button
                     size="sm"

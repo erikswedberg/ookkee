@@ -110,6 +110,23 @@ func GetExpensesByIDs(ctx context.Context, expenseIDs []int) ([]ExpenseForAI, er
 }
 
 // GetAllCategories retrieves all available categories
+// FilterCategoriesForLane returns only categories valid for the given lane so
+// the AI can't suggest a business-only category for a personal row (or vice
+// versa). lane is "business" or "personal"; a category with nil lean ("both")
+// is always allowed. Any other lane value returns all categories unchanged.
+func FilterCategoriesForLane(cats []models.ExpenseCategory, lane string) []models.ExpenseCategory {
+	if lane != "business" && lane != "personal" {
+		return cats
+	}
+	out := make([]models.ExpenseCategory, 0, len(cats))
+	for _, c := range cats {
+		if c.Lean == nil || *c.Lean == lane {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func GetAllCategories(ctx context.Context) ([]models.ExpenseCategory, error) {
 	query := `
 		SELECT id, name, lean, sort_order, created_at 
@@ -138,7 +155,7 @@ func GetAllCategories(ctx context.Context) ([]models.ExpenseCategory, error) {
 }
 
 // ProcessCategorizationLogic contains the core AI categorization logic
-func ProcessCategorizationLogic(ctx context.Context, projectID int, expensesToCategorize []ExpenseForAI, categoryDetails []models.ExpenseCategory, modelProvider string) (*CategorizeFullResponse, error) {
+func ProcessCategorizationLogic(ctx context.Context, projectID int, expensesToCategorize []ExpenseForAI, categoryDetails []models.ExpenseCategory, modelProvider string, lane string) (*CategorizeFullResponse, error) {
 	// Step 1: Determine which AI model to use
 	if modelProvider == "" {
 		modelProvider = getEnv("AI_MODEL_PROVIDER", "openai") // Default to OpenAI
@@ -169,7 +186,7 @@ func ProcessCategorizationLogic(ctx context.Context, projectID int, expensesToCa
 		currentDescriptions[i] = expense.Description
 	}
 
-	acceptedMap, err := fetchAcceptedMap(ctx, projectID, currentDescriptions)
+	acceptedMap, err := fetchAcceptedMap(ctx, projectID, currentDescriptions, lane)
 	if err != nil {
 		log.Printf("Failed to fetch accepted map: %v", err)
 		// Continue without accepted map
@@ -178,7 +195,7 @@ func ProcessCategorizationLogic(ctx context.Context, projectID int, expensesToCa
 	log.Printf("Debug: accepted map size: %d, contents: %+v", len(acceptedMap), acceptedMap)
 
 	// Step 4: Create categorization prompt with accepted map
-	prompt := buildCategorizationPrompt(expensesToCategorize, categoryDetails, acceptedMap)
+	prompt := buildCategorizationPrompt(expensesToCategorize, categoryDetails, acceptedMap, lane)
 	log.Printf("Debug: AI prompt length: %d characters", len(prompt))
 	log.Printf("Debug: AI prompt:\n%s", prompt)
 
@@ -264,22 +281,31 @@ func initializeLLM(provider string) (llms.Model, string, error) {
 	}
 }
 
-func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []string) (map[string]int, error) {
+func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []string, lane string) (map[string]int, error) {
 	if len(currentDescriptions) == 0 {
 		return make(map[string]int), nil
 	}
 
-	// Fallback query without pg_trgm (just get all accepted descriptions)
+	// Few-shot examples must stay within the same lane so a personal example
+	// can't teach the AI to pick a business category (or vice versa).
+	laneScope := ""
+	switch lane {
+	case "personal":
+		laneScope = "AND is_personal = TRUE"
+	case "business":
+		laneScope = "AND (is_personal IS NULL OR is_personal = FALSE)"
+	}
+
 	fallbackQuery := `
 		SELECT DISTINCT lower(description) AS key,
 		       accepted_category_id
 		FROM   expense
 		WHERE  project_id = $1
 		  AND  accepted_category_id IS NOT NULL
+		  AND  deleted_at IS NULL
+		  ` + laneScope + `
 		LIMIT  50
 	`
-
-	log.Printf("Debug: fetchAcceptedMap query - projectID: %d, descriptions: %+v", projectID, currentDescriptions)
 
 	rows, err := database.Pool.Query(ctx, fallbackQuery, projectID)
 	if err != nil {
@@ -303,13 +329,22 @@ func fetchAcceptedMap(ctx context.Context, projectID int, currentDescriptions []
 	return acceptedMap, rows.Err()
 }
 
-func buildCategorizationPrompt(expenses []ExpenseForAI, categories []models.ExpenseCategory, acceptedMap map[string]int) string {
+func buildCategorizationPrompt(expenses []ExpenseForAI, categories []models.ExpenseCategory, acceptedMap map[string]int, lane string) string {
 	var prompt strings.Builder
 
-	prompt.WriteString("You are an expert accountant helping categorize business expenses. ")
-	prompt.WriteString("Analyze each expense description and amount, then choose the best category from the provided list.\n\n")
+	kind := "expenses"
+	switch lane {
+	case "personal":
+		kind = "PERSONAL expenses"
+	case "business":
+		kind = "BUSINESS expenses"
+	}
 
-	prompt.WriteString("Available Categories:\n")
+	prompt.WriteString(fmt.Sprintf("You are an expert accountant helping categorize %s. ", kind))
+	prompt.WriteString("Analyze each expense description and amount, then choose the best category ONLY from the provided list. ")
+	prompt.WriteString("Do not use any category outside this list.\n\n")
+
+	prompt.WriteString(fmt.Sprintf("Available Categories (all valid for %s):\n", kind))
 	for _, cat := range categories {
 		prompt.WriteString(fmt.Sprintf("- ID: %d, Name: %s\n", cat.ID, cat.Name))
 	}

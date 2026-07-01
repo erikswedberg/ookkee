@@ -8,26 +8,20 @@ import dayjs from 'dayjs';
 // matching lean, then 'either' (no lean), then the opposite lean. Soft sort
 // only — every category remains selectable. Original order preserved within
 // each group.
-const orderCategoriesByLean = (categories, viewMode) => {
+// Categories valid for a row's lane. A row's lane is derived from is_personal
+// (personal, else business — business is the default). Only categories whose
+// lean matches the lane, or that have no lean ("both"), are offered, alphabetical.
+// currentId (if set) is always included so a row's existing category — even a
+// now-mismatched one — still shows in its dropdown.
+const categoriesForLane = (categories, lane, currentId) => {
   const byName = (a, b) =>
     (a.name || '').localeCompare(b.name || '', undefined, {
       sensitivity: 'base',
     });
-  const lane =
-    viewMode === 'personal'
-      ? 'personal'
-      : viewMode === 'business'
-        ? 'business'
-        : null;
-  // No lane (All view): straight alphabetical.
-  if (!lane) return [...categories].sort(byName);
-  // Lane view: group by relevance, alphabetical within each group.
-  const rank = cat => {
-    if (!cat.lean) return 1; // either
-    if (cat.lean === lane) return 0; // matches current lane
-    return 2; // opposite lane
-  };
-  return [...categories].sort((a, b) => rank(a) - rank(b) || byName(a, b));
+  const allowed = categories.filter(
+    c => !c.lean || c.lean === lane || c.id === currentId
+  );
+  return allowed.sort(byName);
 };
 
 // ExpenseRow2 component for virtual scroll with flex layout and percentage-based column widths
@@ -70,6 +64,15 @@ const ExpenseRow2 = ({
   // AI suggested this row is personal and the user hasn't confirmed/dismissed.
   const hasPersonalSuggestion =
     !isPersonal && currentExpense.suggested_is_personal === true;
+
+  // Miscategorized: the accepted category's lean conflicts with the row's lane
+  // (personal row filed under a business-only category, or vice versa).
+  const rowLane = isPersonal ? 'personal' : 'business';
+  const acceptedCat = currentExpense.accepted_category_id
+    ? categories.find(c => c.id === currentExpense.accepted_category_id)
+    : null;
+  const isMiscategorized =
+    !!acceptedCat && !!acceptedCat.lean && acceptedCat.lean !== rowLane;
 
   // Calculate if this row is active based on expenseIndex and activeRowIndex
   const isRowActive = activeRowIndex === expenseIndex;
@@ -180,7 +183,12 @@ const ExpenseRow2 = ({
           style={{ maxWidth: '220px' }}
         >
           <option value=""></option>
-          {orderCategoriesByLean(categories, viewMode).map(category => {
+          {categoriesForLane(
+            categories,
+            currentExpense.is_personal ? 'personal' : 'business',
+            currentExpense.accepted_category_id ||
+              currentExpense.suggested_category_id
+          ).map(category => {
             const isAiSuggested =
               currentExpense.suggested_category_id === category.id &&
               !currentExpense.accepted_category_id;
@@ -374,11 +382,13 @@ const ExpenseRow2 = ({
       className={`scroll-row border-b spreadsheet row group cursor-pointer text-sm ${
         isRowActive
           ? 'active'
-          : hasPersonalSuggestion
-            ? 'bg-amber-50 hover:bg-amber-100'
-            : greyPersonal
-              ? 'personal'
-              : 'hover:bg-sky-50'
+          : isMiscategorized
+            ? 'bg-red-100 hover:bg-red-200'
+            : hasPersonalSuggestion
+              ? 'bg-amber-50 hover:bg-amber-100'
+              : greyPersonal
+                ? 'personal'
+                : 'hover:bg-sky-50'
       }`}
       onClick={() => {
         setIsTableActive(true);

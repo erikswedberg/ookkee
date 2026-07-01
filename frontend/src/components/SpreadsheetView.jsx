@@ -340,6 +340,8 @@ const SpreadsheetViewContent = ({
     setSearchField,
     uncatOnly,
     setUncatOnly,
+    miscatOnly,
+    setMiscatOnly,
   } = useContext(SpreadsheetContext);
 
   // On the All tab the AI button sorts business/personal; on Business/Personal
@@ -508,6 +510,15 @@ const SpreadsheetViewContent = ({
                         onCheckedChange={v => setUncatOnly(!!v)}
                       />
                       Uncategorized Only
+                    </label>
+                  )}
+                  {view !== 'removed' && (
+                    <label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+                      <Checkbox
+                        checked={miscatOnly}
+                        onCheckedChange={v => setMiscatOnly(!!v)}
+                      />
+                      Miscategorized Only
                     </label>
                   )}
                   <Input

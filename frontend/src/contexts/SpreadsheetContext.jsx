@@ -108,6 +108,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [sort, setSort] = useState('');
   // Show only uncategorized rows when true.
   const [uncatOnly, setUncatOnly] = useState(false);
+  // Show only miscategorized rows (category lean conflicts with lane) when true.
+  const [miscatOnly, setMiscatOnly] = useState(false);
   const [search, setSearch] = useState('');
   // Which field the search box matches: 'description' (default) | 'source' | 'category'.
   const [searchField, setSearchField] = useState('description');
@@ -168,8 +170,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     }
     if (sort) params.set('sort', sort);
     if (uncatOnly) params.set('uncat', '1');
+    if (miscatOnly) params.set('miscat', '1');
     return params.toString();
-  }, [view, search, searchField, sort, uncatOnly]);
+  }, [view, search, searchField, sort, uncatOnly, miscatOnly]);
 
   // Fetch the filtered expense count (sizes the virtual scrollbar)
   const fetchFilteredCount = useCallback(async () => {
@@ -916,7 +919,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   useEffect(() => {
     if (!project?.id) return;
     fetchFilteredCount();
-  }, [project?.id, view, search, searchField, sort, uncatOnly]);
+  }, [project?.id, view, search, searchField, sort, uncatOnly, miscatOnly]);
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
@@ -1068,6 +1071,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setSort,
     uncatOnly,
     setUncatOnly,
+    miscatOnly,
+    setMiscatOnly,
     filteredCount,
     fetchFilteredCount,
     filterParams,

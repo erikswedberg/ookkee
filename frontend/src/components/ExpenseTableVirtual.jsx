@@ -56,6 +56,7 @@ const ExpenseTableVirtual = ({
     sort,
     setSort,
     uncatOnly,
+    miscatOnly,
     refreshNonce,
     clearStore,
     setStoreProject,
@@ -69,7 +70,7 @@ const ExpenseTableVirtual = ({
     clearStore();
     if (projectId) setStoreProject(projectId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, view, search, searchField, sort, uncatOnly, refreshNonce]);
+  }, [projectId, view, search, searchField, sort, uncatOnly, miscatOnly, refreshNonce]);
 
   // Set virtual scroll active flag and reset inflight requests when component mounts/unmounts
   useEffect(() => {
@@ -289,7 +290,7 @@ const ExpenseTableVirtual = ({
       {/* Virtual Scrolling Table */}
       <div className="overflow-auto" style={{ height: 'calc(100% - 5px)' }}>
         <VirtualInfiniteScroll
-          key={`${projectId}-${view}-${search}-${searchField}-${sort}-${uncatOnly}-${refreshNonce}`}
+          key={`${projectId}-${view}-${search}-${searchField}-${sort}-${uncatOnly}-${miscatOnly}-${refreshNonce}`}
           totalItems={filteredCount || totalExpenses}
           itemHeight={LIST_ITEM_HEIGHT}
           pageSize={ROWS_PER_PAGE}
