@@ -400,7 +400,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 
 	// Business: categorized, non-personal expenses grouped by category.
 	businessQuery := `
-		SELECT ec.name AS category_name, SUM(e.amount) AS total_amount
+		SELECT ec.name AS category_name, COALESCE(SUM(e.amount), 0) AS total_amount
 		FROM expense e
 		JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1
@@ -415,7 +415,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 	// "Uncategorized" bucket for personal rows that have no category yet.
 	personalQuery := `
 		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name,
-		       SUM(e.amount) AS total_amount,
+		       COALESCE(SUM(e.amount), 0) AS total_amount,
 		       COALESCE(ec.sort_order, 2147483647) AS sort_order
 		FROM expense e
 		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
@@ -563,7 +563,7 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 	}
 
 	business, businessTotal, err := readSection(`
-		SELECT ec.name AS category_name, SUM(e.amount) AS total_amount
+		SELECT ec.name AS category_name, COALESCE(SUM(e.amount), 0) AS total_amount
 		FROM expense e
 		JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1 AND e.accepted_category_id IS NOT NULL AND e.deleted_at IS NULL
@@ -575,7 +575,7 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	personal, personalTotal, err := readSection(`
-		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name, SUM(e.amount) AS total_amount
+		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name, COALESCE(SUM(e.amount), 0) AS total_amount
 		FROM expense e
 		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1 AND e.deleted_at IS NULL AND e.is_personal = TRUE
