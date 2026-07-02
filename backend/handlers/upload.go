@@ -272,6 +272,13 @@ func insertExpenseRows(ctx context.Context, tx pgx.Tx, projectID int64, startRow
 		}
 		if p.descColIdx >= 0 && p.descColIdx < len(row) && row[p.descColIdx] != "" {
 			v := row[p.descColIdx]
+			// Cap description length: real merchant descriptions are short; anything
+			// huge is an import artifact (e.g. a statement blob) and would also blow
+			// past Postgres's btree index size limit. Full text stays in raw_data.
+			const maxDesc = 500
+			if len(v) > maxDesc {
+				v = strings.ToValidUTF8(v[:maxDesc], "")
+			}
 			description = &v
 		}
 		if p.amountColIdx >= 0 && p.amountColIdx < len(row) && row[p.amountColIdx] != "" {
