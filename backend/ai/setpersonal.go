@@ -39,6 +39,7 @@ func GetUnsortedExpenses(ctx context.Context, projectID int, limit int) ([]Expen
 		  AND deleted_at IS NULL
 		  AND (is_personal IS NULL OR is_personal = FALSE)
 		  AND suggested_is_personal IS NULL
+		  AND accepted_category_id IS NULL
 		ORDER BY date ASC NULLS LAST, row_index ASC
 		LIMIT $2
 	`
