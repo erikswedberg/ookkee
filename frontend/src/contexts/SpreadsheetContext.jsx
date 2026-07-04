@@ -116,6 +116,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const [miscatOnly, setMiscatOnly] = useState(false);
   // Show only rows never triaged into a lane (is_personal IS NULL) when true.
   const [unsetOnly, setUnsetOnly] = useState(false);
+  // Show only rows with a pending personal suggestion when true.
+  const [suggestedOnly, setSuggestedOnly] = useState(false);
   const [search, setSearch] = useState('');
   // Which field the search box matches: 'description' (default) | 'source' | 'category'.
   const [searchField, setSearchField] = useState('description');
@@ -178,8 +180,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     if (uncatOnly) params.set('uncat', '1');
     if (miscatOnly) params.set('miscat', '1');
     if (unsetOnly) params.set('unset', '1');
+    if (suggestedOnly) params.set('suggested', '1');
     return params.toString();
-  }, [view, search, searchField, sort, uncatOnly, miscatOnly, unsetOnly]);
+  }, [view, search, searchField, sort, uncatOnly, miscatOnly, unsetOnly, suggestedOnly]);
 
   // Fetch the filtered expense count (sizes the virtual scrollbar)
   const fetchFilteredCount = useCallback(async () => {
@@ -929,7 +932,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   useEffect(() => {
     if (!project?.id) return;
     fetchFilteredCount();
-  }, [project?.id, view, search, searchField, sort, uncatOnly, miscatOnly, unsetOnly]);
+  }, [project?.id, view, search, searchField, sort, uncatOnly, miscatOnly, unsetOnly, suggestedOnly]);
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
@@ -1085,6 +1088,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setMiscatOnly,
     unsetOnly,
     setUnsetOnly,
+    suggestedOnly,
+    setSuggestedOnly,
     filteredCount,
     fetchFilteredCount,
     filterParams,

@@ -17,6 +17,7 @@ type expenseFilter struct {
 	uncat       bool   // only rows with no accepted category
 	miscat      bool   // only rows whose accepted category conflicts with the lane
 	unset       bool   // only rows never triaged into a lane (is_personal IS NULL)
+	suggested   bool   // only rows with a pending personal suggestion
 }
 
 // orderByClause maps a whitelisted sort key to a safe SQL ORDER BY clause.
@@ -52,6 +53,7 @@ func parseExpenseFilter(r *http.Request) expenseFilter {
 		uncat:       r.URL.Query().Get("uncat") == "1",
 		miscat:      r.URL.Query().Get("miscat") == "1",
 		unset:       r.URL.Query().Get("unset") == "1",
+		suggested:   r.URL.Query().Get("suggested") == "1",
 	}
 }
 
@@ -92,6 +94,11 @@ func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 	// Unset only: never triaged into a business/personal lane.
 	if f.unset {
 		parts = append(parts, "is_personal IS NULL")
+	}
+
+	// Pending personal suggestion only.
+	if f.suggested {
+		parts = append(parts, "suggested_is_personal = TRUE")
 	}
 
 	if f.miscat {

@@ -344,11 +344,21 @@ const SpreadsheetViewContent = ({
     setMiscatOnly,
     unsetOnly,
     setUnsetOnly,
+    suggestedOnly,
+    setSuggestedOnly,
   } = useContext(SpreadsheetContext);
 
   // On the All tab the AI button sorts business/personal; on Business/Personal
   // it categorizes. Same async job mechanism either way.
   const isSortMode = view === 'all';
+
+  // If the pending suggestions are all resolved, drop the 'show only these'
+  // filter so the list doesn't get stuck showing nothing.
+  useEffect(() => {
+    if (suggestedOnly && progress.pending_personal_count === 0) {
+      setSuggestedOnly(false);
+    }
+  }, [suggestedOnly, progress.pending_personal_count, setSuggestedOnly]);
   const aiMode = isSortMode ? 'set_personal' : 'categorize';
 
   if (error) {
@@ -557,7 +567,14 @@ const SpreadsheetViewContent = ({
                   <span className="text-sm text-amber-900">
                     AI suggests {progress.pending_personal_count} expense
                     {progress.pending_personal_count === 1 ? '' : 's'} as
-                    personal.
+                    personal.{' '}
+                    <button
+                      type="button"
+                      onClick={() => setSuggestedOnly(v => !v)}
+                      className="underline font-medium hover:text-amber-950"
+                    >
+                      {suggestedOnly ? 'Show all rows' : 'Show only these'}
+                    </button>
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
