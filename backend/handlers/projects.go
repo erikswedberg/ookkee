@@ -317,9 +317,11 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Dismiss an AI business/personal suggestion without changing is_personal.
+	// Dismiss an AI personal suggestion = confirm business. Set FALSE (not NULL)
+	// so AI Set Personal won't reconsider and re-suggest the same row. Does not
+	// change is_personal or set a category — the row stays plain business.
 	if req.ClearPersonalSuggestion != nil && *req.ClearPersonalSuggestion {
-		updateFields = append(updateFields, "suggested_is_personal = NULL")
+		updateFields = append(updateFields, "suggested_is_personal = FALSE")
 	}
 
 	if len(updateFields) == 0 {
@@ -772,8 +774,11 @@ func ResolvePersonalSuggestions(w http.ResponseWriter, r *http.Request) {
 			SET is_personal = TRUE, suggested_is_personal = NULL
 			WHERE project_id = $1 AND deleted_at IS NULL AND suggested_is_personal = TRUE`
 	case "dismiss":
+		// Dismiss = "no, this is business." Set FALSE (confirmed business) so the
+		// row is NOT reconsidered by AI Set Personal. NULL would return it to the
+		// undecided pool and it'd get re-suggested every run.
 		query = `UPDATE expense
-			SET suggested_is_personal = NULL
+			SET suggested_is_personal = FALSE
 			WHERE project_id = $1 AND deleted_at IS NULL AND suggested_is_personal = TRUE`
 	default:
 		http.Error(w, "action must be 'approve' or 'dismiss'", http.StatusBadRequest)

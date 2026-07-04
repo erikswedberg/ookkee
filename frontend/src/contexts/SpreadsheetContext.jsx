@@ -577,10 +577,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     [updateStoreExpense, fetchProgress, fetchFilteredCount, checkAndOfferPropagation]
   );
 
-  // Dismiss a single AI personal suggestion without changing is_personal.
+  // Dismiss a single AI personal suggestion = confirm business (FALSE), so it
+  // isn't reconsidered by AI Set Personal. Doesn't change is_personal.
   const dismissPersonalSuggestion = useCallback(
     async expense => {
-      updateStoreExpense(expense.id, { suggested_is_personal: null });
+      updateStoreExpense(expense.id, { suggested_is_personal: false });
       try {
         const API_URL = import.meta.env.VITE_API_URL || '';
         await fetch(`${API_URL}/api/expenses/${expense.id}`, {
