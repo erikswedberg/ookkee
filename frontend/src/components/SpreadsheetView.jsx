@@ -539,7 +539,7 @@ const SpreadsheetViewContent = ({
                         checked={unsetOnly}
                         onCheckedChange={v => setUnsetOnly(!!v)}
                       />
-                      Unset Only
+                      Untriaged Only
                     </label>
                   )}
                   <Input

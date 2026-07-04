@@ -91,9 +91,14 @@ func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 	// Miscategorized only: the accepted category's lean conflicts with the row's
 	// lane. Personal row (is_personal=TRUE) + business category, or business row
 	// (is_personal NULL/FALSE) + personal category.
-	// Unset only: never triaged into a business/personal lane.
+	// Untriaged only: exactly the rows AI Set Personal would pick — not yet
+	// personal, no pending personal suggestion, and not categorized (a category
+	// implies a business decision). Matches ai.GetUnsortedExpenses.
 	if f.unset {
-		parts = append(parts, "is_personal IS NULL")
+		parts = append(parts,
+			"(is_personal IS NULL OR is_personal = FALSE)",
+			"suggested_is_personal IS NULL",
+			"accepted_category_id IS NULL")
 	}
 
 	// Pending personal suggestion only.
