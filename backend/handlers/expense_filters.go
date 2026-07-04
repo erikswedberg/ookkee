@@ -16,6 +16,7 @@ type expenseFilter struct {
 	searchField string // "description" | "source" | "category"
 	uncat       bool   // only rows with no accepted category
 	miscat      bool   // only rows whose accepted category conflicts with the lane
+	unset       bool   // only rows never triaged into a lane (is_personal IS NULL)
 }
 
 // orderByClause maps a whitelisted sort key to a safe SQL ORDER BY clause.
@@ -50,6 +51,7 @@ func parseExpenseFilter(r *http.Request) expenseFilter {
 		searchField: field,
 		uncat:       r.URL.Query().Get("uncat") == "1",
 		miscat:      r.URL.Query().Get("miscat") == "1",
+		unset:       r.URL.Query().Get("unset") == "1",
 	}
 }
 
@@ -87,6 +89,11 @@ func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 	// Miscategorized only: the accepted category's lean conflicts with the row's
 	// lane. Personal row (is_personal=TRUE) + business category, or business row
 	// (is_personal NULL/FALSE) + personal category.
+	// Unset only: never triaged into a business/personal lane.
+	if f.unset {
+		parts = append(parts, "is_personal IS NULL")
+	}
+
 	if f.miscat {
 		parts = append(parts, `accepted_category_id IN (
 			SELECT id FROM expense_category WHERE lean IS NOT NULL AND lean = CASE
