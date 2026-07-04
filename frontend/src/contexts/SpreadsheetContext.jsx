@@ -95,6 +95,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const autoplayModeRef = useRef(false);
   const aiModeRef = useRef('categorize'); // current AI mode for autoplay continuations
   const viewRef = useRef('all'); // current tab/view for AI scoping
+  const sortRef = useRef(''); // current sort so AI picks rows in view order
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
 
@@ -106,6 +107,9 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Sort order for the expense list. '' = default (date asc); 'amount_desc' /
   // 'amount_asc' for clicking the Amount header.
   const [sort, setSort] = useState('');
+  useEffect(() => {
+    sortRef.current = sort;
+  }, [sort]);
   // Show only uncategorized rows when true.
   const [uncatOnly, setUncatOnly] = useState(false);
   // Show only miscategorized rows (category lean conflicts with lane) when true.
@@ -705,7 +709,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode, view: viewRef.current }),
+          body: JSON.stringify({ mode, view: viewRef.current, sort: sortRef.current }),
         }
       );
 

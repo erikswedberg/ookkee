@@ -41,7 +41,20 @@ type CategorizeFullResponse struct {
 // category, in the SAME order the UI shows them (date, then row_index) so the
 // AI processes the next visible rows rather than scattered ones. View scopes
 // business vs personal; "all"/"business" exclude personal rows.
-func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int, view string) ([]ExpenseForAI, error) {
+// aiOrderBy maps a whitelisted sort key to a safe ORDER BY so AI selection can
+// pick rows in the same order the user is viewing (e.g. amount descending).
+func aiOrderBy(sort string) string {
+	switch sort {
+	case "amount_desc":
+		return "amount DESC NULLS LAST, date ASC NULLS LAST, row_index ASC"
+	case "amount_asc":
+		return "amount ASC NULLS LAST, date ASC NULLS LAST, row_index ASC"
+	default:
+		return "date ASC NULLS LAST, row_index ASC"
+	}
+}
+
+func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int, view string, sort string) ([]ExpenseForAI, error) {
 	personalScope := "AND (is_personal IS NULL OR is_personal = FALSE)"
 	if view == "personal" {
 		personalScope = "AND is_personal = TRUE"
@@ -54,7 +67,7 @@ func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int, vie
 		  AND suggested_category_id IS NULL
 		  ` + personalScope + `
 		  AND deleted_at IS NULL
-		ORDER BY date ASC NULLS LAST, row_index ASC
+		ORDER BY ` + aiOrderBy(sort) + `
 		LIMIT $2
 	`
 

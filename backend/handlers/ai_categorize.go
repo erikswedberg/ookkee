@@ -41,6 +41,7 @@ type AICategorizeRequest struct {
 	Model string `json:"model,omitempty"` // "openai" or "anthropic"
 	Mode  string `json:"mode,omitempty"`  // "categorize" (default) | "set_personal"
 	View  string `json:"view,omitempty"`  // "all" | "business" | "personal"
+	Sort  string `json:"sort,omitempty"`  // "" | "amount_desc" | "amount_asc" — pick rows in view order
 }
 
 // Legacy request structure (commented out for reference)
@@ -112,9 +113,9 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var expensesToProcess []ai.ExpenseForAI
 	if req.Mode == "set_personal" {
-		expensesToProcess, err = ai.GetUnsortedExpenses(ctx, projectID, 20)
+		expensesToProcess, err = ai.GetUnsortedExpenses(ctx, projectID, 20, req.Sort)
 	} else {
-		expensesToProcess, err = ai.GetUncategorizedExpenses(ctx, projectID, 20, req.View)
+		expensesToProcess, err = ai.GetUncategorizedExpenses(ctx, projectID, 20, req.View, req.Sort)
 	}
 	if err != nil {
 		log.Printf("Failed to select expenses for AI: %v", err)
