@@ -54,24 +54,27 @@ func aiOrderBy(sort string) string {
 	}
 }
 
-func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int, view string, sort string) ([]ExpenseForAI, error) {
-	personalScope := "AND (is_personal IS NULL OR is_personal = FALSE)"
-	if view == "personal" {
-		personalScope = "AND is_personal = TRUE"
-	}
-	query := `
+// GetUncategorizedExpenses selects the next batch to categorize: the rows
+// matching the user's current filter (filterSQL/filterArgs, from the shared
+// expenseFilter) that still need a category. So AI categorizes exactly what
+// you're looking at. Order follows the user's sort.
+func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int, filterSQL string, filterArgs []interface{}, sort string) ([]ExpenseForAI, error) {
+	args := []interface{}{projectID}
+	args = append(args, filterArgs...)
+	limitIdx := len(args) + 1
+	args = append(args, limit)
+
+	query := fmt.Sprintf(`
 		SELECT id, COALESCE(description, '') as description, COALESCE(amount, 0) as amount
 		FROM expense 
-		WHERE project_id = $1 
+		WHERE project_id = $1%s
 		  AND accepted_category_id IS NULL 
 		  AND suggested_category_id IS NULL
-		  ` + personalScope + `
-		  AND deleted_at IS NULL
-		ORDER BY ` + aiOrderBy(sort) + `
-		LIMIT $2
-	`
+		ORDER BY %s
+		LIMIT $%d
+	`, filterSQL, aiOrderBy(sort), limitIdx)
 
-	rows, err := database.Pool.Query(ctx, query, projectID, limit)
+	rows, err := database.Pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

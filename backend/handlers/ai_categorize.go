@@ -108,14 +108,21 @@ func AICategorizeExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Select the next batch of rows IN UI ORDER, scoped to mode + view, BEFORE
-	// creating the job so the frontend can show spinners immediately.
+	// Select the next batch of rows to process, honoring the user's current
+	// filter (view/search/checkboxes) + sort so AI works on exactly what's on
+	// screen. The filter comes from the query string (same as list/count).
 	ctx := r.Context()
+	filter := parseExpenseFilter(r)
+	filterSQL, filterArgs := filter.clause(2) // $1 is projectID
+	sort := r.URL.Query().Get("sort")
+	// The lane (for category/few-shot restriction) follows the filter's view.
+	req.View = filter.view
+
 	var expensesToProcess []ai.ExpenseForAI
 	if req.Mode == "set_personal" {
-		expensesToProcess, err = ai.GetUnsortedExpenses(ctx, projectID, 20, req.Sort)
+		expensesToProcess, err = ai.GetUnsortedExpenses(ctx, projectID, 20, sort)
 	} else {
-		expensesToProcess, err = ai.GetUncategorizedExpenses(ctx, projectID, 20, req.View, req.Sort)
+		expensesToProcess, err = ai.GetUncategorizedExpenses(ctx, projectID, 20, filterSQL, filterArgs, sort)
 	}
 	if err != nil {
 		log.Printf("Failed to select expenses for AI: %v", err)

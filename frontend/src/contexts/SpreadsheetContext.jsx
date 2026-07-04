@@ -184,6 +184,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     return params.toString();
   }, [view, search, searchField, sort, uncatOnly, miscatOnly, unsetOnly, suggestedOnly]);
 
+  // Keep the current filter query string in a ref so AI runs (incl. autoplay
+  // continuations) categorize exactly the filtered set the user is viewing.
+  const filterParamsRef = useRef('');
+  useEffect(() => {
+    filterParamsRef.current = filterParams();
+  }, [filterParams]);
+
   // Fetch the filtered expense count (sizes the virtual scrollbar)
   const fetchFilteredCount = useCallback(async () => {
     if (!project?.id) return;
@@ -713,12 +720,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || '';
+      const qs = filterParamsRef.current;
       const response = await fetch(
-        `${API_URL}/api/projects/${project.id}/ai-categorize`,
+        `${API_URL}/api/projects/${project.id}/ai-categorize${qs ? `?${qs}` : ''}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode, view: viewRef.current, sort: sortRef.current }),
+          body: JSON.stringify({ mode }),
         }
       );
 
