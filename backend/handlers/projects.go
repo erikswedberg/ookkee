@@ -285,6 +285,14 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 			args = append(args, req.AcceptedCategoryID)
 			argIndex++
 			updateFields = append(updateFields, "accepted_at = CURRENT_TIMESTAMP")
+			// Assigning a real category to a business-lane row is an implicit
+			// "this is business" decision, so dismiss any pending personal
+			// suggestion (FALSE = confirmed business, won't be reconsidered).
+			// Skip if the same request is also setting is_personal, which already
+			// clears the suggestion below.
+			if req.IsPersonal == nil {
+				updateFields = append(updateFields, "suggested_is_personal = FALSE")
+			}
 		}
 	}
 

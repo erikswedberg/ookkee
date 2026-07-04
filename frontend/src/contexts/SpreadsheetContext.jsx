@@ -485,9 +485,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // edit we check for same-description rows and prompt the user to propagate.
   const updateExpenseCategory = useCallback(
     async (expenseId, categoryId, offerPropagation = false) => {
-      await updateExpense(expenseId, {
-        accepted_category_id: categoryId || null,
-      });
+      const updates = { accepted_category_id: categoryId || null };
+      // Setting a real category dismisses any pending personal suggestion
+      // (mirrors the backend), so the amber highlight clears immediately.
+      if (categoryId) updates.suggested_is_personal = false;
+      await updateExpense(expenseId, updates);
       if (offerPropagation && categoryId) {
         const sourceExpense = expenses.find(e => e.id === expenseId) || {
           id: expenseId,
