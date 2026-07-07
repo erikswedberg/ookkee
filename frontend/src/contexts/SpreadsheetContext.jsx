@@ -1044,6 +1044,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
                 getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
               if (currentExpense) {
                 updateExpenseCategory(currentExpense.id, category.id, true);
+                // Advance like the 'A' key so you can mash category hotkeys.
+                advanceToNextRow();
               }
             }
           }
@@ -1060,6 +1062,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     filteredCount,
     handleAcceptSuggestion,
     handleTogglePersonal,
+    advanceToNextRow,
     scrollActiveRowIntoView,
     setActiveRowWithTabIndex,
     getExpenseByIndex,
