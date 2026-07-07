@@ -148,8 +148,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || '';
+      // Scope progress to the current tab (view) only — not search/checkbox
+      // filters — so the bar shows that lane's overall categorization progress.
+      const v = viewRef.current;
+      const qs = v && v !== 'all' && v !== 'removed' ? `?view=${v}` : '';
       const response = await fetch(
-        `${API_URL}/api/projects/${project.id}/progress`
+        `${API_URL}/api/projects/${project.id}/progress${qs}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -926,12 +930,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     };
   }, [project?.id]);
 
-  // Fetch progress when project changes or expenses are updated
+  // Fetch progress when project changes, expenses update, or the tab (view)
+  // changes — so the bar rescopes to the current lane.
   useEffect(() => {
     if (project?.id) {
       fetchProgress();
     }
-  }, [fetchProgress, project?.id, expenses.length]);
+  }, [fetchProgress, project?.id, expenses.length, view]);
 
   // When the view/search filter changes, refetch the filtered count so the
   // scrollbar resizes. The store is cleared by ExpenseTableVirtual in a

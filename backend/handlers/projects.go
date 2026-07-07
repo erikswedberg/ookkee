@@ -489,19 +489,27 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query to get total count, categorized count (for progress), uncategorized
-	// count (for AI button), and pending personal suggestions (for approve-all).
+	// Scope progress to the current view (Business/Personal/All) so the bar on
+	// the Personal tab reflects personal categorization progress, not the whole
+	// project. The filter provides the view/search clause + deleted_at.
+	filter := parseExpenseFilter(r)
+	filterSQL, filterArgs := filter.clause(2)
+	progArgs := []interface{}{projectIDStr}
+	progArgs = append(progArgs, filterArgs...)
+
+	// Within the scoped set: a row counts as categorized when it has an accepted
+	// category; uncategorized when it has neither accepted nor suggested.
 	var totalCount, categorizedCount, uncategorizedCount, pendingPersonalCount, pendingSuggestedCount int
-	err := database.Pool.QueryRow(ctx, `
+	err := database.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT 
 			COUNT(*) as total_count,
-			COUNT(CASE WHEN (accepted_category_id IS NOT NULL OR is_personal = true) THEN 1 END) as categorized_count,
-			COUNT(CASE WHEN (is_personal IS NULL OR is_personal = false) AND accepted_category_id IS NULL AND suggested_category_id IS NULL THEN 1 END) as uncategorized_count,
+			COUNT(CASE WHEN accepted_category_id IS NOT NULL THEN 1 END) as categorized_count,
+			COUNT(CASE WHEN accepted_category_id IS NULL AND suggested_category_id IS NULL THEN 1 END) as uncategorized_count,
 			COUNT(CASE WHEN suggested_is_personal = TRUE THEN 1 END) as pending_personal_count,
 			COUNT(CASE WHEN suggested_category_id IS NOT NULL AND accepted_category_id IS NULL THEN 1 END) as pending_suggested_count
 		FROM expense 
-		WHERE project_id = $1 AND deleted_at IS NULL
-	`, projectIDStr).Scan(&totalCount, &categorizedCount, &uncategorizedCount, &pendingPersonalCount, &pendingSuggestedCount)
+		WHERE project_id = $1%s
+	`, filterSQL), progArgs...).Scan(&totalCount, &categorizedCount, &uncategorizedCount, &pendingPersonalCount, &pendingSuggestedCount)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch progress: %v", err), http.StatusInternalServerError)
