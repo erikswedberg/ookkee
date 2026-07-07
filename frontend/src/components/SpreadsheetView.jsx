@@ -544,7 +544,11 @@ const SpreadsheetViewContent = ({
                   )}
                   <Input
                     type="text"
-                    placeholder={`Filter by ${searchField}...`}
+                    placeholder={
+                      searchField === 'amount'
+                        ? 'e.g. 255.74, >1000, <=50'
+                        : `Filter by ${searchField}...`
+                    }
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     className="max-w-xs"
@@ -558,6 +562,7 @@ const SpreadsheetViewContent = ({
                     <option value="description">Description</option>
                     <option value="source">Source</option>
                     <option value="category">Category</option>
+                    <option value="amount">Amount</option>
                   </select>
                 </div>
               </div>

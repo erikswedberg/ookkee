@@ -3,8 +3,31 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 )
+
+// parseAmountQuery parses an amount filter like "255.74", ">1000", "<=50".
+// Returns a SQL comparison operator, the numeric value, and ok=false if the
+// input isn't a valid amount query.
+func parseAmountQuery(s string) (string, float64, bool) {
+	s = strings.TrimSpace(s)
+	op := "="
+	for _, cand := range []string{">=", "<=", ">", "<", "="} {
+		if strings.HasPrefix(s, cand) {
+			op = cand
+			s = strings.TrimSpace(s[len(cand):])
+			break
+		}
+	}
+	s = strings.TrimPrefix(s, "$")
+	s = strings.ReplaceAll(s, ",", "")
+	n, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil {
+		return "", 0, false
+	}
+	return op, n, true
+}
 
 // expenseFilter builds a SQL WHERE fragment + args for the view/search params
 // shared by GetExpenses, the count endpoint, and progress. The returned clause
@@ -42,7 +65,7 @@ func parseExpenseFilter(r *http.Request) expenseFilter {
 	}
 	field := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("searchField")))
 	switch field {
-	case "source", "category":
+	case "source", "category", "amount":
 	default:
 		field = "description"
 	}
@@ -118,16 +141,30 @@ func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 		case "source":
 			parts = append(parts, fmt.Sprintf("source ILIKE $%d", idx))
 			args = append(args, pattern)
+			idx++
 		case "category":
 			// Match the accepted category's name.
 			parts = append(parts, fmt.Sprintf(
 				"accepted_category_id IN (SELECT id FROM expense_category WHERE name ILIKE $%d)", idx))
 			args = append(args, pattern)
+			idx++
+		case "amount":
+			// Numeric: optional leading operator (>, <, >=, <=, =) then a number,
+			// compared against ABS(amount) so sign doesn't matter. Bad input =
+			// no rows (a clause that never matches) rather than an error.
+			op, num, ok := parseAmountQuery(f.search)
+			if ok {
+				parts = append(parts, fmt.Sprintf("ABS(amount) %s $%d", op, idx))
+				args = append(args, num)
+				idx++
+			} else {
+				parts = append(parts, "FALSE")
+			}
 		default: // description
 			parts = append(parts, fmt.Sprintf("description ILIKE $%d", idx))
 			args = append(args, pattern)
+			idx++
 		}
-		idx++
 	}
 
 	return " AND " + strings.Join(parts, " AND "), args
