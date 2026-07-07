@@ -958,6 +958,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Keyboard navigation handlers
   useEffect(() => {
     const handleKeyDown = e => {
+      // Never intercept OS/browser shortcuts (Cmd/Ctrl/Alt held) — e.g. Cmd-C to
+      // copy selected text was being caught as the 'C' (Computer) hotkey.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
       // Ignore when typing in a form field or inside an open dialog (e.g. the
       // category modal), otherwise category hotkeys hijack normal typing.
       const t = e.target;
