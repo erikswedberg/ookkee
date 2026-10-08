@@ -73,6 +73,9 @@ load_env() {
   # /api), so no backend IP or CORS origin needs to be known here. Point the
   # proxy at the local backend port.
   export VITE_PROXY_TARGET="http://localhost:${SERVER_PORT}"
+  # An absolute VITE_API_URL (e.g. copied from .envrc.docker) would make the
+  # browser call ITS OWN localhost instead of going through the proxy.
+  unset VITE_API_URL
 }
 
 check_db() {
