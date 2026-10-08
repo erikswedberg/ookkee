@@ -77,7 +77,8 @@ load_env() {
 
 check_db() {
   info "checking DB at ${DB_HOST}:${DB_PORT} ..."
-  if nc -z -w3 "$DB_HOST" "$DB_PORT" 2>/dev/null; then
+  # Use bash's /dev/tcp so we don't depend on netcat being installed.
+  if timeout 3 bash -c "exec 3<>/dev/tcp/${DB_HOST}/${DB_PORT}" 2>/dev/null; then
     info "DB reachable."
   else
     err "cannot reach ${DB_HOST}:${DB_PORT}."
