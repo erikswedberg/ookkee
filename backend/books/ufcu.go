@@ -62,7 +62,7 @@ var (
 	// Continuation line that starts with a date but has no money columns
 	// (e.g. "08/01   HOVER 866-731-6556 MS" = effective date + merchant).
 	reDateCont = regexp.MustCompile(`^\s*(\d{2}/\d{2})\s+(.*\S)\s*$`)
-	reNoise    = regexp.MustCompile(`^\s*(XXXXXX\d+|TRANS EFFECTIVE|DATE DATE TYPE|Dividends Paid|Statement Period|Total Overdraft|Total Returned|\d+ Withdrawals =|R\. ERIK SWEDBERG CONSULTING|\d{4,} +\d{8} +\d{8}|Continued on page)`)
+	reNoise    = regexp.MustCompile(`^\s*(XXXXXX\d+|TRANS EFFECTIVE|DATE DATE TYPE|Dividends Paid|Statement Period|Total Overdraft|Total Returned|\d+ Withdrawals =|R\. ERIK SWEDBERG CONSULTING|\d{4,} +\d{8} +\d{8}|Continued on page|\(512\) 467-8080)`)
 	rePageHdr  = regexp.MustCompile(`\d+ of \d+\s*$`)
 )
 

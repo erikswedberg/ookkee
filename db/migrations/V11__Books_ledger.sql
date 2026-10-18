@@ -216,6 +216,8 @@ BEGIN
     ELSIF NEW.kind = 'personal' THEN
       NEW.kind := 'expense';
     END IF;
+    -- A person flipped it: the statement-rule refine step must not undo it.
+    NEW.kind_set_by := 'user';
   END IF;
   RETURN NEW;
 END $$ LANGUAGE plpgsql;

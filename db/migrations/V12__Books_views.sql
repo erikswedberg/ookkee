@@ -339,6 +339,12 @@ WHERE account_owner = 'business' AND rule_specific AND kind <> rule_kind AND kin
   AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = v_ledger.id)
 GROUP BY year
 UNION ALL
+SELECT l.year, 'invoice-matched deposits not booked as income', COUNT(*)::bigint,
+       STRING_AGG(l.id::text || ' is ' || l.kind || ' ' || ROUND(-l.amount_usd, 2)::text, '; ')
+FROM v_ledger l
+WHERE l.kind <> 'income' AND EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = l.id)
+GROUP BY l.year
+UNION ALL
 SELECT year, 'payroll rows without a Gusto NET/TAX memo', COUNT(*)::bigint,
        STRING_AGG(id::text || ' ' || amount_native::text, '; ')
 FROM v_ledger WHERE kind = 'payroll' AND account_owner = 'business' AND bank_description !~* 'TYPE:\s*(NET|TAX)'

@@ -369,11 +369,13 @@ func LinkAccount(ctx context.Context, pool *pgxpool.Pool, accountName string, wi
 			catID = &id
 		}
 		tag, err := tx.Exec(ctx, `
-			UPDATE expense SET kind = $2, kind_set_by = 'rule',
-			  accepted_category_id = CASE WHEN $3::bigint IS NOT NULL THEN $3 WHEN $2 IN ('expense','payroll','contractor') THEN accepted_category_id ELSE NULL END
+			UPDATE expense e SET kind = $2, kind_set_by = 'rule',
+			  raw_data = CASE WHEN e.accepted_category_id IS NULL OR $2 IN ('expense','payroll','contractor') THEN e.raw_data
+			                  ELSE e.raw_data || jsonb_build_object('prior_category', (SELECT name FROM expense_category c WHERE c.id = e.accepted_category_id)) END,
+			  accepted_category_id = CASE WHEN $3::bigint IS NOT NULL THEN $3 WHEN $2 IN ('expense','payroll','contractor') THEN e.accepted_category_id ELSE NULL END
 			WHERE bank_transaction_id = $1 AND deleted_at IS NULL
 			  AND kind <> $2 AND kind <> 'personal' AND kind_set_by IN ('backfill','rule','match')
-			  AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = expense.id)`, v.id, v.kind, catID)
+			  AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = e.id)`, v.id, v.kind, catID)
 		if err != nil {
 			return nil, err
 		}
