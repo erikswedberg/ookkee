@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import ProjectsSidebar from "./components/ProjectsSidebar";
 import SpreadsheetView from "./components/SpreadsheetView";
+import BooksView from "./components/BooksView";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProjectModal from "./components/ProjectModal";
 import CategoryModal from "./components/CategoryModal";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +28,8 @@ function App() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [categories, setCategories] = useState([]);
+  // Top-level page: "projects" (sidebar + spreadsheet) or "books" (ledger views).
+  const [page, setPage] = useState("projects");
   // Bumped to force the open project's view to remount/refetch after an append.
   const [appendNonce, setAppendNonce] = useState(0);
 
@@ -189,6 +193,16 @@ function App() {
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold">ookkee</h1>
             <p className="text-sm text-muted-foreground">AI Bookkeeping Assistant</p>
+            <Tabs value={page} onValueChange={setPage} className="w-auto ml-4">
+              <TabsList className="h-8">
+                <TabsTrigger value="projects" data-testid="projects-tab">
+                  Projects
+                </TabsTrigger>
+                <TabsTrigger value="books" data-testid="books-tab">
+                  Books
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
           <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
             <DialogTrigger asChild>
@@ -268,6 +282,11 @@ function App() {
         </div>
       </header>
 
+      {page === "books" ? (
+        <div className="h-[calc(100vh-50px)] overflow-hidden">
+          <BooksView />
+        </div>
+      ) : (
       <div className="flex h-[calc(100vh-50px)] relative">
         {/* Sidebar */}
         <div className={`transition-all duration-300 ${isSidebarCollapsed ? 'w-0' : 'w-64'} overflow-hidden`}>
@@ -305,6 +324,7 @@ function App() {
           )}
         </div>
       </div>
+      )}
 
       <ProjectModal
         isOpen={isModalOpen}
