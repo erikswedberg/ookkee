@@ -2,7 +2,11 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileDown, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Download, FileDown, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+
+// Checks whose name starts with "info:" are advisory: the backend will not
+// refuse to close a year over them, but a person should confirm each one.
+const isInfo = (r) => /^info:/.test(r.check_name || '');
 import {
   BooksContextProvider,
   useBooks,
@@ -259,28 +263,36 @@ const ChecksSection = ({ view, year }) => {
       view="checks"
       year={year}
     >
-      {rows.length === 0 ? (
+      {rows.length === 0 || rows.every((r) => isInfo(r)) ? (
         <p
           className="flex items-center gap-2 text-sm text-green-600 font-medium px-2"
           data-testid="checks-pass"
         >
           <CheckCircle2 className="h-4 w-4" />
-          All checks pass
+          All checks pass{rows.length > 0 && ' (items below are for your confirmation)'}
         </p>
-      ) : (
+      ) : null}
+      {rows.length > 0 && (
         <ul className="space-y-1 px-2" data-testid="checks-list">
           {rows.map((r, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-red-700">
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <li
+              key={i}
+              className={`flex items-start gap-2 text-sm ${isInfo(r) ? 'text-sky-800' : 'text-red-700'}`}
+            >
+              {isInfo(r) ? (
+                <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              )}
               <div>
                 <span className="font-medium">
                   {allYears && `${r.year}: `}
-                  {r.check_name}
+                  {isInfo(r) ? r.check_name.replace(/^info:\s*/, '') : r.check_name}
                 </span>
                 <span className="text-muted-foreground">
                   {' '}
                   — {formatInt(r.problems)}{' '}
-                  {Number(r.problems) === 1 ? 'problem' : 'problems'}
+                  {isInfo(r) ? (Number(r.problems) === 1 ? 'item' : 'items') : Number(r.problems) === 1 ? 'problem' : 'problems'}
                 </span>
                 {r.detail && (
                   <div className="text-xs text-muted-foreground font-mono break-words whitespace-pre-wrap">
