@@ -44,3 +44,4 @@ uploads/*
 
 # Database data
 data/
+backups/
