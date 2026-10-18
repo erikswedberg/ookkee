@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"archive/zip"
+	"crypto/sha256"
 	"encoding/csv"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -32,6 +34,7 @@ var bookViews = []struct {
 	{"distributions", "v_distributions", "Distributions", "Business cash to the owner by destination; includes personal spending charged to the business account.", true},
 	{"cash_tie", "v_cash_tie", "Cash tie", "Per statement: opening + lines = closing, and every line explained.", true},
 	{"cash_balances", "v_cash_balances", "Year-end cash", "Closing balance per business account from the last statement of the year.", true},
+	{"return_compare", "v_return_compare", "Books vs prepared return", "Books-side numbers next to the lines of the previously prepared 1120-S, per year.", true},
 	{"ledger", "v_ledger", "Ledger", "Every ledger line with kind, account owner, USD amount (positive = money out).", true},
 }
 
@@ -243,4 +246,151 @@ func ExportBooks(w http.ResponseWriter, r *http.Request) {
 	}
 	f, _ := zw.Create("README.txt")
 	f.Write([]byte(readme.String()))
+}
+
+// ---------------------------------------------------------------- closing
+
+// snapshotYear builds the frozen report pack for a year: every by-year view's
+// rows, keyed by view name, plus a content hash over the canonical JSON.
+func snapshotYear(r *http.Request, year int) (map[string]interface{}, string, error) {
+	pack := map[string]interface{}{}
+	for _, v := range bookViews {
+		if !v.ByYear {
+			continue
+		}
+		_, _, objs, err := queryView(r, v.View, &year)
+		if err != nil {
+			return nil, "", fmt.Errorf("%s: %w", v.Name, err)
+		}
+		if objs == nil {
+			objs = []map[string]interface{}{}
+		}
+		pack[v.Name] = objs
+	}
+	// encoding/json sorts map keys, so this is canonical.
+	b, err := json.Marshal(pack)
+	if err != nil {
+		return nil, "", err
+	}
+	sum := sha256.Sum256(b)
+	return pack, hex.EncodeToString(sum[:]), nil
+}
+
+// CloseBooksYear: POST /api/books/close/{year}  body {"note": "..."} (optional)
+// Freezes the year's report pack. Re-closing replaces the snapshot.
+func CloseBooksYear(w http.ResponseWriter, r *http.Request) {
+	year, err := strconv.Atoi(chi.URLParam(r, "year"))
+	if err != nil {
+		http.Error(w, "bad year", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Note string `json:"note"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	pack, hash, err := snapshotYear(r, year)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Refuse to close a year whose checks are not clean, except the
+	// informational ones (unlabelled income deposits).
+	var problems int
+	if err := database.Pool.QueryRow(r.Context(), `
+		SELECT COALESCE(SUM(problems), 0) FROM v_books_checks
+		WHERE year = $1 AND check_name NOT IN ('income deposits not matched to an invoice')`, year).Scan(&problems); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if problems > 0 && r.URL.Query().Get("force") != "true" {
+		http.Error(w, fmt.Sprintf("year %d has %d open check problems; fix them or pass ?force=true", year, problems), http.StatusConflict)
+		return
+	}
+	raw, _ := json.Marshal(pack)
+	_, err = database.Pool.Exec(r.Context(), `
+		INSERT INTO books_close (year, closed_at, snapshot, content_hash, note)
+		VALUES ($1, NOW(), $2, $3, NULLIF($4, ''))
+		ON CONFLICT (year) DO UPDATE SET closed_at = NOW(), snapshot = EXCLUDED.snapshot,
+		  content_hash = EXCLUDED.content_hash, note = EXCLUDED.note`, year, raw, hash, body.Note)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"year": year, "content_hash": hash, "note": body.Note})
+}
+
+// ListBooksCloses: GET /api/books/close — every closed year with whether the
+// live books have drifted from the frozen snapshot.
+func ListBooksCloses(w http.ResponseWriter, r *http.Request) {
+	rows, err := database.Pool.Query(r.Context(), `SELECT year, closed_at, content_hash, COALESCE(note,'') FROM books_close ORDER BY year`)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	type closed struct {
+		Year        int       `json:"year"`
+		ClosedAt    time.Time `json:"closed_at"`
+		ContentHash string    `json:"content_hash"`
+		Note        string    `json:"note"`
+		Drifted     bool      `json:"drifted"`
+	}
+	var out []closed
+	for rows.Next() {
+		var c closed
+		if err := rows.Scan(&c.Year, &c.ClosedAt, &c.ContentHash, &c.Note); err != nil {
+			rows.Close()
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out = append(out, c)
+	}
+	rows.Close()
+	for i := range out {
+		_, hash, err := snapshotYear(r, out[i].Year)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out[i].Drifted = hash != out[i].ContentHash
+	}
+	if out == nil {
+		out = []closed{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
+}
+
+// GetBooksClose: GET /api/books/close/{year} — the frozen snapshot.
+func GetBooksClose(w http.ResponseWriter, r *http.Request) {
+	year, err := strconv.Atoi(chi.URLParam(r, "year"))
+	if err != nil {
+		http.Error(w, "bad year", http.StatusBadRequest)
+		return
+	}
+	var closedAt time.Time
+	var snapshot []byte
+	var hash, note string
+	err = database.Pool.QueryRow(r.Context(), `SELECT closed_at, snapshot, content_hash, COALESCE(note,'') FROM books_close WHERE year = $1`, year).
+		Scan(&closedAt, &snapshot, &hash, &note)
+	if err != nil {
+		http.Error(w, "year not closed", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"year":%d,"closed_at":%q,"content_hash":%q,"note":%q,"snapshot":%s}`, year, closedAt.Format(time.RFC3339), hash, note, snapshot)
+}
+
+// ReopenBooksYear: DELETE /api/books/close/{year}
+func ReopenBooksYear(w http.ResponseWriter, r *http.Request) {
+	year, err := strconv.Atoi(chi.URLParam(r, "year"))
+	if err != nil {
+		http.Error(w, "bad year", http.StatusBadRequest)
+		return
+	}
+	if _, err := database.Pool.Exec(r.Context(), `DELETE FROM books_close WHERE year = $1`, year); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -103,6 +103,10 @@ func main() {
 		r.Get("/books/views/{name}", handlers.GetBookView)
 		r.Get("/books/years", handlers.BookYears)
 		r.Get("/books/export", handlers.ExportBooks)
+		r.Get("/books/close", handlers.ListBooksCloses)
+		r.Post("/books/close/{year}", handlers.CloseBooksYear)
+		r.Get("/books/close/{year}", handlers.GetBooksClose)
+		r.Delete("/books/close/{year}", handlers.ReopenBooksYear)
 
 		// Job endpoints
 		r.Get("/jobs/{jobID}", handlers.GetJobStatus)
