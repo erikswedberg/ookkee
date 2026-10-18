@@ -21,14 +21,16 @@ SELECT e.id,
        e.currency,
        e.amount                                      AS amount_native,
        CASE WHEN fx.per_usd IS NULL THEN NULL
-            ELSE ROUND(e.amount / fx.per_usd, 2) END AS amount_usd,   -- positive = money out
+            ELSE e.amount / fx.per_usd END           AS amount_usd,   -- positive = money out; unrounded
        fx.per_usd IS NULL                            AS fx_missing,
        c.name                                        AS category,
        e.accepted_category_id,
        e.description,
        COALESCE(bt.description, e.description)       AS bank_description,
        e.bank_transaction_id,
-       e.kind_set_by
+       e.kind_set_by,
+       bt.rule_kind,
+       bt.rule_specific
 FROM expense e
 JOIN project p               ON p.id = e.project_id AND p.deleted_at IS NULL AND p.name ~ '^\d{4}$'
 LEFT JOIN account a          ON a.name = e.source
@@ -70,20 +72,20 @@ WITH lines AS (
   SELECT year,
          CASE kind
            WHEN 'income'     THEN 'Income'
-           WHEN 'refund'     THEN 'Income'
            WHEN 'payroll'    THEN 'Payroll'
            WHEN 'contractor' THEN 'Contract labor'
-           ELSE 'Expenses' END                        AS section,
+           ELSE 'Expenses' END                        AS section,   -- refunds: negative expenses
          CASE kind
            WHEN 'income'     THEN 'Revenue (deposits)'
-           WHEN 'refund'     THEN 'Refunds & adjustments'
+           WHEN 'refund'     THEN COALESCE(category, 'Refunds & adjustments')   -- nets against the category it offsets
            WHEN 'payroll'    THEN CASE WHEN bank_description ~* 'TYPE:\s*TAX' THEN 'Payroll taxes (Gusto TAX)'
                                        WHEN bank_description ~* 'TYPE:\s*NET' THEN 'Wages, net (Gusto NET)'
                                        ELSE 'Payroll (unsplit)' END
            WHEN 'contractor' THEN 'Contract labor'
            ELSE COALESCE(category, 'Uncategorized') END AS line,
-         -- income/refund rows are negative (money in): flip to positive
-         CASE WHEN kind IN ('income','refund') THEN -amount_usd ELSE amount_usd END AS amount_usd,
+         -- income rows are negative (money in): flip to positive. Refunds stay
+         -- negative so they reduce the expense section.
+         CASE WHEN kind = 'income' THEN -amount_usd ELSE amount_usd END AS amount_usd,
          account_owner
   FROM v_ledger
   WHERE kind IN ('income','refund','expense','payroll','contractor')
@@ -123,11 +125,12 @@ WITH lines AS (
          source                                                       AS account,
          CASE WHEN account_owner = 'business' THEN NULL
               ELSE CASE kind WHEN 'payroll' THEN 'Payroll' WHEN 'contractor' THEN 'Contract labor'
+                             WHEN 'refund' THEN 'Refunds (negative)'
                              ELSE COALESCE(category, 'Uncategorized') END END AS category,
          CASE WHEN account_owner = 'business' THEN -amount_usd ELSE amount_usd END AS amount_usd
   FROM v_ledger
   WHERE (account_owner = 'business' AND kind = 'contribution')
-     OR (account_owner = 'personal' AND kind IN ('expense','payroll','contractor'))
+     OR (account_owner = 'personal' AND kind IN ('expense','payroll','contractor','refund'))
 )
 SELECT year, form, account, category,
        ROUND(SUM(amount_usd), 2) AS amount_usd,
@@ -187,9 +190,23 @@ CREATE VIEW v_equity_rollforward AS
 WITH years AS (
   SELECT DISTINCT year FROM v_ledger
 ),
-pl AS (SELECT year, net_income FROM v_pl_summary),
-con AS (SELECT year, SUM(amount_usd) AS contributions FROM v_contributions GROUP BY year),
-dis AS (SELECT year, SUM(amount_usd) AS distributions FROM v_distributions GROUP BY year),
+pl AS (
+  SELECT year,
+         SUM(CASE WHEN kind = 'income' THEN -amount_usd ELSE -amount_usd END) FILTER (WHERE kind IN ('income','refund'))
+         - SUM(amount_usd) FILTER (WHERE kind IN ('expense','payroll','contractor')) AS net_income
+  FROM v_ledger WHERE kind IN ('income','refund','expense','payroll','contractor') GROUP BY year
+),
+con AS (
+  SELECT year, SUM(CASE WHEN account_owner = 'business' THEN -amount_usd ELSE amount_usd END) AS contributions
+  FROM v_ledger
+  WHERE (account_owner = 'business' AND kind = 'contribution')
+     OR (account_owner = 'personal' AND kind IN ('expense','payroll','contractor','refund'))
+  GROUP BY year
+),
+dis AS (
+  SELECT year, SUM(amount_usd) AS distributions
+  FROM v_ledger WHERE account_owner = 'business' AND kind IN ('distribution','personal') GROUP BY year
+),
 cash AS (SELECT year, SUM(cash_eoy) AS cash_eoy FROM v_cash_balances GROUP BY year),
 first_cash AS (
   SELECT SUM(sp.opening_balance) AS cash_boy
@@ -240,33 +257,111 @@ FROM v_equity_rollforward r
 ORDER BY r.year;
 
 -- ------------------------------------------------------- v_books_checks
--- Everything that must be zero/empty before a year is handed to the CPA.
+-- Everything that must be empty before a year is handed to the CPA. Rows whose
+-- check_name starts with 'info:' are informational: they list things a human
+-- should confirm but do not block closing the year.
+--
+-- What the equity-vs-cash identity proves: every business-account line is in
+-- the books exactly once with the right sign. What it does NOT prove: that a
+-- line is in the right bucket (distribution vs expense vs personal; income vs
+-- contribution vs refund) — those move taxable income without moving cash.
+-- The 'kind disagrees with the statement rule' checks are the compensating
+-- control for that.
 CREATE VIEW v_books_checks AS
-SELECT year, 'statement periods not tying'          AS check_name, COUNT(*) AS problems,
+SELECT year, 'statement periods not tying'::text AS check_name, COUNT(*)::bigint AS problems,
        STRING_AGG(account || ' ' || period_start::text || ' diff ' || tie_diff, '; ') AS detail
 FROM v_cash_tie WHERE tie_diff <> 0 GROUP BY year
 UNION ALL
-SELECT year, 'bank lines with no ledger row', SUM(unexplained_lines),
+SELECT year, 'bank lines with no ledger row', SUM(unexplained_lines)::bigint,
        STRING_AGG(account || ' ' || period_start::text || ': ' || unexplained_lines, '; ') FILTER (WHERE unexplained_lines > 0)
 FROM v_cash_tie GROUP BY year HAVING SUM(unexplained_lines) > 0
 UNION ALL
-SELECT year, 'ledger rows with no FX rate', COUNT(*), STRING_AGG(DISTINCT currency, ', ')
+SELECT EXTRACT(YEAR FROM sp.period_start)::int, 'statement gap or overlap', COUNT(*)::bigint,
+       STRING_AGG(a.name || ' ' || sp.period_start::text || ' follows ' || prev_end::text, '; ')
+FROM (SELECT sp.*, LAG(period_end) OVER (PARTITION BY account_id ORDER BY period_start) AS prev_end FROM statement_period sp) sp
+JOIN account a ON a.id = sp.account_id
+WHERE prev_end IS NOT NULL AND sp.period_start <> prev_end + 1
+GROUP BY 1
+UNION ALL
+SELECT EXTRACT(YEAR FROM sp.period_start)::int, 'opening balance != prior closing', COUNT(*)::bigint,
+       STRING_AGG(a.name || ' ' || sp.period_start::text || ' open ' || sp.opening_balance || ' prior close ' || prev_close, '; ')
+FROM (SELECT sp.*, LAG(closing_balance) OVER (PARTITION BY account_id ORDER BY period_start) AS prev_close FROM statement_period sp) sp
+JOIN account a ON a.id = sp.account_id
+WHERE prev_close IS NOT NULL AND sp.opening_balance <> prev_close
+GROUP BY 1
+UNION ALL
+SELECT y.year, 'December statement missing', COUNT(*)::bigint, STRING_AGG(a.name, '; ')
+FROM (SELECT DISTINCT year FROM v_ledger) y
+CROSS JOIN account a
+WHERE a.owner = 'business' AND a.in_books
+  AND NOT EXISTS (SELECT 1 FROM statement_period sp WHERE sp.account_id = a.id
+                  AND EXTRACT(YEAR FROM sp.period_end) = y.year AND EXTRACT(MONTH FROM sp.period_end) = 12)
+GROUP BY y.year
+UNION ALL
+SELECT year, 'ledger rows with no FX rate', COUNT(*)::bigint, STRING_AGG(DISTINCT currency, ', ')
 FROM v_ledger WHERE fx_missing GROUP BY year
 UNION ALL
-SELECT year, 'business-account rows with no statement line', COUNT(*),
+SELECT year, 'business-account rows with no statement line', COUNT(*)::bigint,
        STRING_AGG(id::text || ' ' || COALESCE(date::text,'?') || ' ' || amount_native::text, '; ')
 FROM v_ledger WHERE account_owner = 'business' AND bank_transaction_id IS NULL GROUP BY year
 UNION ALL
-SELECT year, 'uncategorized business expense rows', COUNT(*), NULL
+SELECT p.name::int, 'business-account rows with NULL amount', COUNT(*)::bigint,
+       STRING_AGG(e.id::text || ' ' || COALESCE(e.date::text,'?') || ' ' || LEFT(REGEXP_REPLACE(e.description, '\s+', ' ', 'g'), 40), '; ')
+FROM expense e JOIN project p ON p.id = e.project_id AND p.deleted_at IS NULL AND p.name ~ '^\d{4}$'
+JOIN account a ON a.name = e.source AND a.owner = 'business' AND a.in_books
+WHERE e.deleted_at IS NULL AND e.amount IS NULL GROUP BY p.name
+UNION ALL
+SELECT year, 'kind and sign disagree', COUNT(*)::bigint,
+       STRING_AGG(id::text || ' ' || kind || ' ' || amount_native::text, '; ')
+FROM v_ledger
+WHERE (kind IN ('income','contribution','refund') AND amount_native > 0)
+   OR (kind IN ('expense','payroll','contractor','distribution') AND amount_native < 0)
+GROUP BY year
+UNION ALL
+SELECT year, 'ledger-kind rows carrying a P&L category', COUNT(*)::bigint,
+       STRING_AGG(id::text || ' ' || kind || ' ' || category, '; ')
+FROM v_ledger WHERE kind IN ('income','contribution','distribution','transfer') AND category IS NOT NULL
+GROUP BY year
+UNION ALL
+SELECT year, 'kind disagrees with the statement rule (machine-set)', COUNT(*)::bigint,
+       STRING_AGG(id::text || ' is ' || kind || ', rule says ' || rule_kind || ' (' || LEFT(REGEXP_REPLACE(bank_description, '\s+', ' ', 'g'), 40) || ')', '; ')
+FROM v_ledger
+WHERE account_owner = 'business' AND rule_specific AND kind <> rule_kind AND kind <> 'personal'
+  AND kind_set_by IN ('backfill','rule','match')
+  AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = v_ledger.id)
+GROUP BY year
+UNION ALL
+SELECT year, 'info: owner-categorized rows the statement rule reads differently (confirm)', COUNT(*)::bigint,
+       STRING_AGG(id::text || ' is ' || kind || COALESCE('/' || category, '') || ', rule says ' || rule_kind || ' (' || LEFT(REGEXP_REPLACE(bank_description, '\s+', ' ', 'g'), 40) || ')', '; ')
+FROM v_ledger
+WHERE account_owner = 'business' AND rule_specific AND kind <> rule_kind AND kind <> 'personal'
+  AND (kind_set_by IS NULL OR kind_set_by = 'user')
+  AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = v_ledger.id)
+GROUP BY year
+UNION ALL
+SELECT year, 'payroll rows without a Gusto NET/TAX memo', COUNT(*)::bigint,
+       STRING_AGG(id::text || ' ' || amount_native::text, '; ')
+FROM v_ledger WHERE kind = 'payroll' AND account_owner = 'business' AND bank_description !~* 'TYPE:\s*(NET|TAX)'
+GROUP BY year
+UNION ALL
+SELECT year, 'uncategorized business expense rows', COUNT(*)::bigint,
+       STRING_AGG(id::text || ' ' || COALESCE(date::text,'?') || ' ' || amount_native::text, '; ')
 FROM v_ledger WHERE kind = 'expense' AND accepted_category_id IS NULL GROUP BY year
 UNION ALL
-SELECT l.year, 'income deposits not matched to an invoice', COUNT(*),
-       STRING_AGG(l.date::text || ' ' || (-l.amount_usd)::text, '; ' ORDER BY l.date)
+SELECT l.year, 'info: income deposits not matched to an invoice', COUNT(*)::bigint,
+       STRING_AGG(l.date::text || ' ' || ROUND(-l.amount_usd, 2)::text, '; ' ORDER BY l.date)
 FROM v_ledger l
 WHERE l.kind = 'income' AND l.account_owner = 'business'
   AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = l.id)
 GROUP BY l.year
 UNION ALL
-SELECT year, 'equity rollforward vs cash', 1, 'diff ' || equity_vs_cash_diff
-FROM v_equity_rollforward WHERE equity_vs_cash_diff <> 0
+SELECT year, 'info: anonymous deposits booked as owner contributions (confirm)', COUNT(*)::bigint,
+       STRING_AGG(date::text || ' ' || ROUND(-amount_usd, 2)::text || ' (' || LEFT(REGEXP_REPLACE(bank_description, '\s+', ' ', 'g'), 40) || ')', '; ' ORDER BY date)
+FROM v_ledger
+WHERE kind = 'contribution' AND account_owner = 'business'
+  AND bank_description !~* 'SWEDBERG|CASTLE|P2P'
+GROUP BY year
+UNION ALL
+SELECT year, 'equity rollforward vs cash', 1::bigint, 'diff ' || equity_vs_cash_diff
+FROM v_equity_rollforward WHERE ABS(equity_vs_cash_diff) >= 0.01
 ORDER BY 1, 2;

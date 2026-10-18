@@ -135,7 +135,7 @@ func ParseUFCUText(text string) (*Statement, error) {
 		}
 		if sm := reShare.FindStringSubmatch(line); sm != nil {
 			name, num := strings.TrimSpace(sm[1]), sm[2]
-			if sm[3] != "" { // "- Continued": same share, new page
+			if sm[3] != "" { // "- Continued": same share, new page; keep `last`
 				if cur == nil || cur.Number != num {
 					return nil, fmt.Errorf("continued section %s (%s) without a start", name, num)
 				}
@@ -155,8 +155,11 @@ func ParseUFCUText(text string) (*Statement, error) {
 				w, _ := money(sm[2])
 				d, _ := money(sm[4])
 				cur.SummaryWithdrawals, cur.SummaryDeposits = &w, &d
+				last = nil // end of the share's listing
 			}
-			last = nil
+			// Page headers, column headers and the address block sit in the
+			// middle of a transaction's continuation lines at a page break;
+			// they must not detach `last`.
 			continue
 		}
 		if sm := reBegin.FindStringSubmatch(line); sm != nil {
@@ -190,14 +193,12 @@ func ParseUFCUText(text string) (*Statement, error) {
 		// Continuation lines attach to the previous transaction.
 		if last != nil {
 			s := strings.TrimSpace(line)
-			if sm := reDateCont.FindStringSubmatch(line); sm != nil {
+			if sm := reDateCont.FindStringSubmatch(line); sm != nil && last.EffectiveDate == nil {
 				// effective date on its own line + merchant text
-				if last.EffectiveDate == nil {
-					if e, err := dateIn(sm[1]); err == nil {
-						last.EffectiveDate = &e
-					}
+				if e, err := dateIn(sm[1]); err == nil {
+					last.EffectiveDate = &e
+					s = strings.TrimSpace(sm[2])
 				}
-				s = strings.TrimSpace(sm[2])
 			}
 			switch s {
 			case "Withdrawal", "Deposit":

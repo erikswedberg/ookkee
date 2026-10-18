@@ -100,8 +100,8 @@ func main() {
 			fmt.Println("FAIL", err)
 			os.Exit(1)
 		}
-		fmt.Printf("%s: linked=%d restored_deleted=%d created=%d by_kind=%v orphans=%d\n",
-			res.Account, res.Linked, res.LinkedDeleted, res.Created, res.CreatedByKind, len(res.OrphanExpenses))
+		fmt.Printf("%s: linked=%d restored_deleted=%d created=%d by_kind=%v refined=%d orphans=%d\n",
+			res.Account, res.Linked, res.LinkedDeleted, res.Created, res.CreatedByKind, res.Refined, len(res.OrphanExpenses))
 		for _, o := range res.OrphanExpenses {
 			d := ""
 			if o.Date != nil {

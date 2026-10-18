@@ -77,6 +77,7 @@ type openInvoice struct {
 	ID     int64
 	Number string
 	Client string
+	Issue  time.Time
 	Paid   *time.Time
 	Amount float64
 	Remain float64
@@ -124,15 +125,15 @@ func MatchInvoices(ctx context.Context, pool *pgxpool.Pool, windowDays int) (*Ma
 
 	var invs []*openInvoice
 	rows, err := tx.Query(ctx, `
-		SELECT i.id, i.invoice_number, i.client, i.paid_date, i.amount,
+		SELECT i.id, i.invoice_number, i.client, i.issue_date, i.paid_date, i.amount,
 		       i.amount - COALESCE((SELECT SUM(amount) FROM invoice_payment ip WHERE ip.invoice_id = i.id), 0)
-		FROM invoice i WHERE i.currency = 'USD' ORDER BY i.paid_date NULLS LAST, i.invoice_number`)
+		FROM invoice i WHERE i.currency = 'USD' ORDER BY i.issue_date, i.invoice_number`)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
 		var o openInvoice
-		if err := rows.Scan(&o.ID, &o.Number, &o.Client, &o.Paid, &o.Amount, &o.Remain); err != nil {
+		if err := rows.Scan(&o.ID, &o.Number, &o.Client, &o.Issue, &o.Paid, &o.Amount, &o.Remain); err != nil {
 			return nil, err
 		}
 		invs = append(invs, &o)
@@ -208,11 +209,16 @@ func MatchInvoices(ctx context.Context, pool *pgxpool.Pool, windowDays int) (*Ma
 				cands = append(cands, o)
 			}
 		}
+		// Of the candidates with the exact amount, take the oldest open
+		// invoice (FIFO by issue date, then number). Harvest "paid on" dates
+		// are hand-entered, so nearest-paid-date is not a reliable tiebreak.
 		var single *openInvoice
 		for _, o := range cands {
-			if round2(o.Remain) == round2(d.Remain) {
+			if round2(o.Remain) != round2(d.Remain) {
+				continue
+			}
+			if single == nil || o.Issue.Before(single.Issue) || (o.Issue.Equal(single.Issue) && o.Number < single.Number) {
 				single = o
-				break
 			}
 		}
 		if single != nil {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/csv"
 	"encoding/hex"
@@ -213,10 +214,8 @@ func ExportBooks(w http.ResponseWriter, r *http.Request) {
 	if year != nil {
 		label = strconv.Itoa(*year)
 	}
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", "attachment; filename=books-"+label+".zip")
-	zw := zip.NewWriter(w)
-	defer zw.Close()
+	buf := &bytes.Buffer{}
+	zw := zip.NewWriter(buf)
 
 	readme := &strings.Builder{}
 	fmt.Fprintf(readme, "Ookkee books export — %s — generated %s\n\n", label, time.Now().Format(time.RFC3339))
@@ -224,7 +223,7 @@ func ExportBooks(w http.ResponseWriter, r *http.Request) {
 	readme.WriteString("- Income = deposits into the business account classified as client revenue (invoices are labels, the bank is the record).\n")
 	readme.WriteString("- Contributions = owner cash transferred in + business expenses paid from the owner's personal accounts.\n")
 	readme.WriteString("- Distributions = business cash to the owner (transfers, personal card/loan payments, cash, personal spending on the business account).\n")
-	readme.WriteString("- Equity rollforward is checked against the year-end bank balance; equity_vs_cash_diff must be 0.\n\nFiles\n")
+	readme.WriteString("- Equity rollforward is checked against the year-end bank balance (equity_vs_cash_diff = 0). That proves every business-account line is in the books once with the right sign; it does NOT prove a line is in the right bucket. checks.csv lists the bucket controls (kind vs statement rule) and anything needing a human.\n\nFiles\n")
 	for _, v := range bookViews {
 		y := year
 		if !v.ByYear {
@@ -237,15 +236,32 @@ func ExportBooks(w http.ResponseWriter, r *http.Request) {
 		}
 		f, err := zw.Create(v.Name + ".csv")
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		cw := csv.NewWriter(f)
 		cw.Write(cols)
 		cw.WriteAll(rows)
+		if err := cw.Error(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		fmt.Fprintf(readme, "- %s.csv — %s: %s (%d rows)\n", v.Name, v.Title, v.Doc, len(rows))
 	}
-	f, _ := zw.Create("README.txt")
+	f, err := zw.Create("README.txt")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	f.Write([]byte(readme.String()))
+	if err := zw.Close(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename=books-"+label+".zip")
+	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+	w.Write(buf.Bytes())
 }
 
 // ---------------------------------------------------------------- closing
@@ -298,7 +314,7 @@ func CloseBooksYear(w http.ResponseWriter, r *http.Request) {
 	var problems int
 	if err := database.Pool.QueryRow(r.Context(), `
 		SELECT COALESCE(SUM(problems), 0) FROM v_books_checks
-		WHERE year = $1 AND check_name NOT IN ('income deposits not matched to an invoice')`, year).Scan(&problems); err != nil {
+		WHERE year = $1 AND check_name NOT LIKE 'info:%'`, year).Scan(&problems); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

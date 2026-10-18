@@ -86,6 +86,9 @@ CREATE TABLE bank_transaction (
   amount               NUMERIC(14,2) NOT NULL,      -- + deposit / - withdrawal
   balance_after        NUMERIC(14,2),
   fingerprint          TEXT          NOT NULL UNIQUE, -- idempotent re-import
+  rule_kind            TEXT,                        -- kind the description rules propose (set at link time)
+  rule_category        TEXT,                        -- category the rules propose, if any
+  rule_specific        BOOLEAN       NOT NULL DEFAULT FALSE, -- TRUE when a named rule matched (not the fallback)
   created_at           TIMESTAMPTZ   DEFAULT NOW()
 );
 CREATE INDEX idx_bank_txn_account_date ON bank_transaction (account_id, posted_date);
@@ -112,7 +115,9 @@ WHERE COALESCE(raw_data->>'currency','') <> '';
 UPDATE expense SET kind = 'personal', kind_set_by = 'backfill'
 WHERE is_personal = TRUE;
 
--- 2. Gusto payroll runs (W-2 wages + taxes). Gusto's own fee rows stay 'expense'.
+-- 2. Gusto payroll runs (W-2 wages + taxes). Gusto's own fee rows stay 'expense'
+--    where the CSV text says so; where the CSV text is just "ACH GUSTO" the fee
+--    rows are corrected after statement linking from the bank memo (TYPE: FEE).
 UPDATE expense e SET kind = 'payroll', kind_set_by = 'backfill'
 FROM expense_category c
 WHERE c.id = e.accepted_category_id AND c.name = 'Payroll'
@@ -129,24 +134,44 @@ WHERE c.id = e.accepted_category_id AND c.name = 'Payroll'
   AND (e.description ~* 'HAYES' OR e.description ~* 'Contractor');
 
 -- 4. Business account -> owner/spouse: distributions.
-UPDATE expense e SET kind = 'distribution', kind_set_by = 'backfill'
+UPDATE expense e SET kind = 'distribution', kind_set_by = 'backfill',
+  raw_data = CASE WHEN e.accepted_category_id IS NULL THEN e.raw_data
+                  ELSE e.raw_data || jsonb_build_object('prior_category', (SELECT name FROM expense_category c WHERE c.id = e.accepted_category_id)) END,
+  accepted_category_id = NULL, accepted_at = NULL
 FROM account a
 WHERE a.name = e.source AND a.owner = 'business'
   AND e.description ~* '(Transfer.*To\s+SWEDBERG|Transfer.*To\s+CASTLE)';
 
 -- 5. Business share-to-share housekeeping (savings <-> checking): transfer.
-UPDATE expense e SET kind = 'transfer', kind_set_by = 'backfill'
+UPDATE expense e SET kind = 'transfer', kind_set_by = 'backfill',
+  raw_data = CASE WHEN e.accepted_category_id IS NULL THEN e.raw_data
+                  ELSE e.raw_data || jsonb_build_object('prior_category', (SELECT name FROM expense_category c WHERE c.id = e.accepted_category_id)) END,
+  accepted_category_id = NULL, accepted_at = NULL
 FROM account a
 WHERE a.name = e.source AND a.owner = 'business'
   AND e.description ~* 'Neg Share Xfer';
 
 -- 6. Personal account -> owner's other account: transfer (the business side
 --    of the same movement, if any, shows up as a deposit on the statement).
-UPDATE expense e SET kind = 'transfer', kind_set_by = 'backfill'
+UPDATE expense e SET kind = 'transfer', kind_set_by = 'backfill',
+  raw_data = CASE WHEN e.accepted_category_id IS NULL THEN e.raw_data
+                  ELSE e.raw_data || jsonb_build_object('prior_category', (SELECT name FROM expense_category c WHERE c.id = e.accepted_category_id)) END,
+  accepted_category_id = NULL, accepted_at = NULL
 FROM account a
 WHERE a.name = e.source AND a.owner = 'personal'
   AND e.is_personal = FALSE
   AND e.description ~* 'Transfer\s+To\s+R\.?\s*ERIK\s+SWEDBERG';
+
+-- 8. Credits in the uploaded CSVs (negative amounts) on business-kind rows are
+--    refunds of expenses. Personal rows keep their sign as-is.
+UPDATE expense SET kind = 'refund', kind_set_by = 'backfill'
+WHERE kind = 'expense' AND amount < 0;
+
+-- 9. Junk rows from statement-to-CSV conversion with no amount ("Ending
+--    Balance" captions, header fragments) contribute nothing; retire them so
+--    the books do not have to keep explaining them.
+UPDATE expense SET deleted_at = NOW(), raw_data = raw_data || '{"deleted_by": "V11: no amount"}'::jsonb
+WHERE deleted_at IS NULL AND amount IS NULL;
 
 -- 7. Personal account -> spouse: personal, not a business contribution.
 UPDATE expense e SET kind = 'personal', is_personal = TRUE, kind_set_by = 'backfill'
@@ -155,25 +180,41 @@ WHERE a.name = e.source AND a.owner = 'personal'
   AND e.description ~* 'Transfer.*To\s+CASTLE,\s*WENDY';
 
 -- Keep is_personal and kind consistent from here on, whoever writes.
+--   * kind='personal' <=> is_personal.
+--   * Flagging a row personal is allowed for money-out kinds (expense, payroll,
+--     contractor, distribution): it becomes 'personal'. For deposit-side and
+--     transfer kinds it is an error, so the UI gets feedback instead of a
+--     silent no-op.
+--   * Un-flagging a personal row makes it 'expense'; the statement-rule check
+--     in v_books_checks flags it if the bank memo says otherwise.
+--   * If both columns change in one statement, kind wins.
 CREATE OR REPLACE FUNCTION expense_sync_kind() RETURNS trigger AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    IF NEW.kind = 'expense' AND NEW.is_personal THEN NEW.kind := 'personal'; END IF;
+    IF NEW.kind = 'personal' THEN
+      NEW.is_personal := TRUE;
+    ELSIF NEW.is_personal THEN
+      IF NEW.kind = 'expense' THEN
+        NEW.kind := 'personal';
+      ELSE
+        RAISE EXCEPTION 'is_personal cannot be set on a % row', NEW.kind;
+      END IF;
+    END IF;
     RETURN NEW;
   END IF;
-  -- UPDATE: a change to is_personal moves the row between expense/personal
-  -- only; it never overrides a ledger kind (payroll, distribution, ...).
-  IF NEW.is_personal IS DISTINCT FROM OLD.is_personal THEN
-    IF NEW.is_personal AND NEW.kind IN ('expense','personal') THEN
-      NEW.kind := 'personal';
-    ELSIF NOT NEW.is_personal AND NEW.kind = 'personal' THEN
-      NEW.kind := 'expense';
-    END IF;
-  END IF;
-  -- and the reverse: setting kind='personal' flips the flag
   IF NEW.kind IS DISTINCT FROM OLD.kind THEN
-    IF NEW.kind = 'personal' THEN NEW.is_personal := TRUE;
-    ELSIF OLD.kind = 'personal' THEN NEW.is_personal := FALSE;
+    NEW.is_personal := (NEW.kind = 'personal');
+    RETURN NEW;
+  END IF;
+  IF NEW.is_personal IS DISTINCT FROM OLD.is_personal THEN
+    IF NEW.is_personal THEN
+      IF NEW.kind IN ('expense','payroll','contractor','distribution') THEN
+        NEW.kind := 'personal';
+      ELSE
+        RAISE EXCEPTION 'a % row cannot be marked personal', NEW.kind;
+      END IF;
+    ELSIF NEW.kind = 'personal' THEN
+      NEW.kind := 'expense';
     END IF;
   END IF;
   RETURN NEW;

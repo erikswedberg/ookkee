@@ -19,6 +19,7 @@ type LinkResult struct {
 	LinkedDeleted   int // bank rows linked to a soft-deleted row (row restored)
 	Created         int // bank rows with no expense row: one was created
 	CreatedByKind   map[string]int
+	Refined         int // machine-set kinds corrected from the bank memo
 	OrphanExpenses  []Orphan // live expense rows on this account with no bank row
 }
 
@@ -87,7 +88,7 @@ var depositRules = []kindRule{
 
 var withdrawalRules = []kindRule{
 	{regexp.MustCompile(`(?i)GUSTO[\s\S]*TYPE:\s*(NET|TAX)\b`), "payroll", "Payroll"},
-	{regexp.MustCompile(`(?i)GUSTO[\s\S]*TYPE:\s*FEE\b`), "expense", "Fees"},
+	{regexp.MustCompile(`(?i)GUSTO[\s\S]*TYPE:\s*(FEE|BBV|EBV|BVC|INV)\b`), "expense", "Fees"}, // fees and penny verifications
 	{regexp.MustCompile(`(?i)HAYES|Contractor`), "contractor", "Payroll"},
 	{regexp.MustCompile(`(?i)To SWEDBERG|TO SWEDBERG|To CASTLE|To R\.? ERIK|ALLY BANK|PAYPAL \*Swedberg|Swedberg Erik|at ATM|Shared Branch|Cash Withdrawal|Domestic Wire Out`), "distribution", ""},
 	// A bare "Internet Banking Transfer" out of the business account with no
@@ -102,17 +103,19 @@ var withdrawalRules = []kindRule{
 	{regexp.MustCompile(`.`), "expense", ""},
 }
 
-func classify(desc string, amount float64) (kind, category string) {
+// classify applies the description rules. specific is false when only the
+// catch-all rule matched (plain expense / plain income).
+func classify(desc string, amount float64) (kind, category string, specific bool) {
 	rules := withdrawalRules
 	if amount > 0 {
 		rules = depositRules
 	}
-	for _, r := range rules {
+	for i, r := range rules {
 		if r.re.MatchString(desc) {
-			return r.kind, r.category
+			return r.kind, r.category, i < len(rules)-1
 		}
 	}
-	return "expense", ""
+	return "expense", "", false
 }
 
 var nonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
@@ -274,15 +277,21 @@ func LinkAccount(ctx context.Context, pool *pgxpool.Pool, accountName string, wi
 			if best.Deleted {
 				// The user removed this row (as a transfer/distribution/double
 				// count). Restore it under its ledger kind so it is explained.
-				kind, _ := classify(b.Desc, b.Amount)
+				kind, _, _ := classify(b.Desc, b.Amount)
 				if kind == "expense" {
 					// No rule explains it. The owner removed this line from
 					// the expenses, so for the books the cash left the
-					// business for the owner's benefit: a distribution. The
-					// original category is kept on the row for review.
+					// business for the owner's benefit: a distribution.
 					kind = "distribution"
 				}
-				if _, err := tx.Exec(ctx, `UPDATE expense SET bank_transaction_id = $1, deleted_at = NULL, kind = $2, kind_set_by = 'match', source = $4 WHERE id = $3`, b.ID, kind, best.ID, accountName); err != nil {
+				// A ledger-kind row must not carry a P&L category (it would
+				// look like an expense in disguise); remember it in raw_data.
+				if _, err := tx.Exec(ctx, `
+					UPDATE expense e SET bank_transaction_id = $1, deleted_at = NULL, kind = $2, kind_set_by = 'match', source = $4,
+					  raw_data = CASE WHEN e.accepted_category_id IS NULL THEN e.raw_data
+					                  ELSE e.raw_data || jsonb_build_object('prior_category', (SELECT name FROM expense_category c WHERE c.id = e.accepted_category_id)) END,
+					  accepted_category_id = NULL, accepted_at = NULL
+					WHERE id = $3`, b.ID, kind, best.ID, accountName); err != nil {
 					return nil, err
 				}
 				res.LinkedDeleted++
@@ -296,7 +305,7 @@ func LinkAccount(ctx context.Context, pool *pgxpool.Pool, accountName string, wi
 		}
 
 		// Nothing explains this statement line: create the expense row.
-		kind, catName := classify(b.Desc, b.Amount)
+		kind, catName, _ := classify(b.Desc, b.Amount)
 		var catID *int64
 		if id, ok := categories[catName]; ok && catName != "" {
 			catID = &id
@@ -322,12 +331,61 @@ func LinkAccount(ctx context.Context, pool *pgxpool.Pool, accountName string, wi
 		res.CreatedByKind[kind]++
 	}
 
+	// Record what the rules say about every line on this account, and correct
+	// machine-set kinds that disagree with a named rule. Rows a person decided
+	// (kind_set_by = 'user') and rows flagged personal are left alone; the
+	// disagreement is surfaced by v_books_checks instead.
+	rows, err = tx.Query(ctx, `SELECT id, description, amount FROM bank_transaction WHERE account_id = $1`, accID)
+	if err != nil {
+		return nil, err
+	}
+	type verdict struct {
+		id       int64
+		kind     string
+		category string
+		specific bool
+	}
+	var verdicts []verdict
+	for rows.Next() {
+		var id int64
+		var desc string
+		var amt float64
+		if err := rows.Scan(&id, &desc, &amt); err != nil {
+			return nil, err
+		}
+		k, c, sp := classify(desc, amt)
+		verdicts = append(verdicts, verdict{id, k, c, sp})
+	}
+	rows.Close()
+	for _, v := range verdicts {
+		if _, err := tx.Exec(ctx, `UPDATE bank_transaction SET rule_kind = $2, rule_category = NULLIF($3,''), rule_specific = $4 WHERE id = $1`, v.id, v.kind, v.category, v.specific); err != nil {
+			return nil, err
+		}
+		if !v.specific {
+			continue
+		}
+		var catID *int64
+		if id, ok := categories[v.category]; ok && v.category != "" {
+			catID = &id
+		}
+		tag, err := tx.Exec(ctx, `
+			UPDATE expense SET kind = $2, kind_set_by = 'rule',
+			  accepted_category_id = CASE WHEN $3::bigint IS NOT NULL THEN $3 WHEN $2 IN ('expense','payroll','contractor') THEN accepted_category_id ELSE NULL END
+			WHERE bank_transaction_id = $1 AND deleted_at IS NULL
+			  AND kind <> $2 AND kind <> 'personal' AND kind_set_by IN ('backfill','rule','match')
+			  AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = expense.id)`, v.id, v.kind, catID)
+		if err != nil {
+			return nil, err
+		}
+		res.Refined += int(tag.RowsAffected())
+	}
+
 	// Live expense rows on this account that no statement line explains.
 	rows, err = tx.Query(ctx, `
 		SELECT e.id, p.name, e.date, COALESCE(e.description,''), e.amount
 		FROM expense e JOIN project p ON p.id = e.project_id
-		WHERE e.source = ANY($1) AND p.deleted_at IS NULL AND e.deleted_at IS NULL AND e.bank_transaction_id IS NULL
-		ORDER BY p.name, e.date, e.row_index`, sourcesFor(accountName))
+		WHERE e.source = $1 AND p.deleted_at IS NULL AND e.deleted_at IS NULL AND e.bank_transaction_id IS NULL
+		ORDER BY p.name, e.date, e.row_index`, accountName)
 	if err != nil {
 		return nil, err
 	}
