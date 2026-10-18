@@ -96,7 +96,8 @@ var withdrawalRules = []kindRule{
 	// Paying a personal card or loan from the business account returns the
 	// owner's capital: a distribution, not an expense and not a transfer.
 	{regexp.MustCompile(`(?i)BARCLAY|PAYPAL\s*\*?\s*CREDIT|PAYPAL CREDIT|APPLE ?CARD|APPLECARD|USAA|CAPITAL ONE|CAPITALONE|AMEX|AMERICAN EXPRESS|CHASE CARD|CARDMEMBER|SYNCHRONY|DISCOVER|CITI ?CARD|CREDIT CARD|CRDTCARD|CC PAYMENT|Loan Payment|REDWOOD CREDIT`), "distribution", ""},
-	{regexp.MustCompile(`(?i)Neg Share Xfer|To Share 0000|From Share|Share Transfer`), "transfer", ""},
+	// Nameless share-to-share moves within the business membership.
+	{regexp.MustCompile(`(?i)Neg Share Xfer|To Share 0000|From Share|Share Transfer|^(Internet Banking )?Transfer\s+To Share \d{4}\s*$`), "transfer", ""},
 	{regexp.MustCompile(`(?i)Overdraft|ATM Fee|Fee Withdrawal|Service Charge|Monthly Fee|Returned Item|FUNDS COLLECTED`), "expense", "Fees"},
 	{regexp.MustCompile(`.`), "expense", ""},
 }
