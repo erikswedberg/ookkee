@@ -51,9 +51,15 @@ const headBase =
   'px-2 py-1 h-8 text-left align-middle font-medium text-muted-foreground text-xs whitespace-nowrap';
 
 /** Right-aligned money cell. `signed` colours negatives red. */
-const MoneyCell = ({ value, className = '', bold = false, alert = false }) => {
+const MoneyCell = ({
+  value,
+  className = '',
+  bold = false,
+  alert = false,
+  plain = false,
+}) => {
   const n = Number(value);
-  const negative = isNonZero(value) && n < 0;
+  const negative = !plain && isNonZero(value) && n < 0;
   return (
     <td
       className={`${cellBase} text-right font-mono tabular-nums ${
@@ -118,6 +124,7 @@ const BooksTable = ({
                       key={c.key}
                       value={value}
                       alert={c.alert ? c.alert(row) : false}
+                      plain={c.plain}
                       className={c.className || ''}
                     />
                   );
@@ -188,7 +195,7 @@ const BooksTable = ({
 };
 
 /** Download link for a view as CSV. */
-const CsvLink = ({ view, year }) => (
+const CsvLink = ({ view, year, label = 'CSV' }) => (
   <a
     href={viewUrl(view, year, 'csv')}
     download
@@ -197,12 +204,21 @@ const CsvLink = ({ view, year }) => (
     data-testid={`csv-${view}`}
   >
     <FileDown className="h-3 w-3" />
-    CSV
+    {label}
   </a>
 );
 
 /** One section of the Books page: title, optional doc, CSV link, body. */
-const Section = ({ id, title, doc, view, year, children, right = null }) => (
+const Section = ({
+  id,
+  title,
+  doc,
+  view,
+  year,
+  children,
+  right = null,
+  csvLabel = 'CSV',
+}) => (
   <Card data-testid={`books-section-${id}`} className="shadow-none">
     <CardHeader className="p-4 pb-2">
       <div className="flex items-start justify-between gap-4">
@@ -212,7 +228,7 @@ const Section = ({ id, title, doc, view, year, children, right = null }) => (
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {right}
-          {view && <CsvLink view={view} year={year} />}
+          {view && <CsvLink view={view} year={year} label={csvLabel} />}
         </div>
       </div>
     </CardHeader>
@@ -324,10 +340,25 @@ const PL_SECTION_ORDER = ['Income', 'Payroll', 'Contract labor', 'Expenses'];
 
 const PL_COLUMNS = [
   { key: 'line', label: 'Line', type: 'text', className: 'pl-6' },
-  { key: 'amount_usd', label: 'Amount (USD)', type: 'money' },
-  { key: 'paid_from_business', label: 'Paid from business', type: 'money' },
-  { key: 'paid_from_personal', label: 'Paid from personal', type: 'money' },
-  { key: 'lines', label: 'Lines', type: 'int' },
+  {
+    key: 'amount_usd',
+    label: 'Amount (USD)',
+    type: 'money',
+    headClassName: 'w-40',
+  },
+  {
+    key: 'paid_from_business',
+    label: 'Paid from business',
+    type: 'money',
+    headClassName: 'w-40',
+  },
+  {
+    key: 'paid_from_personal',
+    label: 'Paid from personal',
+    type: 'money',
+    headClassName: 'w-40',
+  },
+  { key: 'lines', label: 'Lines', type: 'int', headClassName: 'w-20' },
 ];
 
 const PL_SUMMARY_COLUMNS = [
@@ -374,7 +405,8 @@ const PLSection = ({ summary, detail, year }) => {
       doc="Cash basis, USD. Summary line first, then the detail by section and category, split by which account paid."
       view="pl"
       year={year}
-      right={<CsvLink view="pl_summary" year={year} />}
+      csvLabel="Detail CSV"
+      right={<CsvLink view="pl_summary" year={year} label="Summary CSV" />}
     >
       <BooksTable
         testId="pl-summary-table"
@@ -597,7 +629,10 @@ const GroupRows = ({ group, bs, cashRows }) => (
     </tr>
     {group === 'Assets' &&
       cashRows.map(r => (
-        <tr key={r.account} className="border-b text-muted-foreground">
+        <tr
+          key={`${r.year}-${r.account}`}
+          className="border-b text-muted-foreground"
+        >
           <td className={`${cellBase} pl-10 text-xs`}>{r.account}</td>
           <MoneyCell value={r.cash_eoy} className="text-xs" />
         </tr>
@@ -725,7 +760,7 @@ const CASH_TIE_COLUMNS = [
   { key: 'period_end', label: 'To', type: 'text' },
   { key: 'opening_balance', label: 'Opening', type: 'money' },
   { key: 'deposits', label: 'Deposits', type: 'money' },
-  { key: 'withdrawals', label: 'Withdrawals', type: 'money' },
+  { key: 'withdrawals', label: 'Withdrawals', type: 'money', plain: true },
   { key: 'closing_balance', label: 'Closing', type: 'money' },
   {
     key: 'tie_diff',
@@ -808,9 +843,20 @@ const YearSelector = ({ years, year, onChange }) => (
 );
 
 const BooksPage = () => {
-  const { years, year, setYear, views, rollforward, loading, error } =
-    useBooks();
+  const {
+    years,
+    year,
+    setYear,
+    views,
+    viewsYear,
+    rollforward,
+    loading,
+    error,
+  } = useBooks();
   const allYears = year === ALL_YEARS;
+  // Sections render against the year their data was fetched for, so a stale
+  // all-years payload is never drawn with single-year layout (or vice versa).
+  const dataYear = viewsYear;
 
   return (
     <Card className="h-[calc(100vh-50px)] overflow-hidden rounded-none border-0 shadow-none flex flex-col">
@@ -860,30 +906,32 @@ const BooksPage = () => {
           </p>
         )}
         <div className={`space-y-4 ${loading ? 'opacity-60' : ''}`}>
-          {views.checks && <ChecksSection view={views.checks} year={year} />}
+          {views.checks && (
+            <ChecksSection view={views.checks} year={dataYear} />
+          )}
           {rollforward && <RollforwardSection view={rollforward} year={year} />}
           {views.pl_summary && views.pl && (
             <PLSection
               summary={views.pl_summary}
               detail={views.pl}
-              year={year}
+              year={dataYear}
             />
           )}
           {views.contributions && (
-            <ContributionsSection view={views.contributions} year={year} />
+            <ContributionsSection view={views.contributions} year={dataYear} />
           )}
           {views.distributions && (
-            <DistributionsSection view={views.distributions} year={year} />
+            <DistributionsSection view={views.distributions} year={dataYear} />
           )}
           {views.balance_sheet && (
             <BalanceSheetSection
               view={views.balance_sheet}
               cashBalances={views.cash_balances}
-              year={year}
+              year={dataYear}
             />
           )}
           {views.cash_tie && (
-            <CashTieSection view={views.cash_tie} year={year} />
+            <CashTieSection view={views.cash_tie} year={dataYear} />
           )}
         </div>
       </CardContent>

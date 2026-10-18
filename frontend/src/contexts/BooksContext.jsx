@@ -53,6 +53,7 @@ const booksInitialValues = {
   year: ALL_YEARS,
   setYear: () => undefined,
   views: {},
+  viewsYear: ALL_YEARS,
   rollforward: null,
   loading: false,
   error: null,
@@ -74,6 +75,8 @@ export const BooksContextProvider = ({ children }) => {
   const [year, setYear] = useState(null); // null until years are loaded
   const [views, setViews] = useState({});
   const [rollforward, setRollforward] = useState(null);
+  // Year the current `views` were fetched for (lags `year` while loading).
+  const [viewsYear, setViewsYear] = useState(ALL_YEARS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [nonce, setNonce] = useState(0);
@@ -120,6 +123,7 @@ export const BooksContextProvider = ({ children }) => {
         });
         setRollforward(rf);
         setViews(next);
+        setViewsYear(year);
       } catch (err) {
         console.error('Failed to fetch books views:', err);
         if (!cancelled) setError(`Failed to load books: ${err.message}`);
@@ -140,12 +144,13 @@ export const BooksContextProvider = ({ children }) => {
       year: year === null ? ALL_YEARS : year,
       setYear,
       views,
+      viewsYear,
       rollforward,
       loading,
       error,
       refresh,
     }),
-    [years, year, views, rollforward, loading, error, refresh]
+    [years, year, views, viewsYear, rollforward, loading, error, refresh]
   );
 
   return (
