@@ -98,6 +98,12 @@ func main() {
 		r.Delete("/projects/{projectID}", handlers.DeleteProject)
 		r.Post("/projects/{projectID}/ai-categorize", handlers.AICategorizeExpenses)
 
+		// Books (ledger views + export)
+		r.Get("/books/views", handlers.ListBookViews)
+		r.Get("/books/views/{name}", handlers.GetBookView)
+		r.Get("/books/years", handlers.BookYears)
+		r.Get("/books/export", handlers.ExportBooks)
+
 		// Job endpoints
 		r.Get("/jobs/{jobID}", handlers.GetJobStatus)
 
