@@ -630,3 +630,16 @@ preparer left Schedule L / M-2 blank. The CPA needs the equity side.
 - Restored soft-deleted rows must never re-enter the P&L silently.
 - The patch and compaction tools rejected array arguments in this session;
   edits were made with python heredocs.
+
+**Review trail (Phase 10)**: a cold adversarial reviewer (subagent, own DB
+copy) found three blockers in the first pass — the parser dropped
+continuation lines after PDF page breaks, Gusto fee rows were booked as
+payroll, and the equity-vs-cash identity was being described as proving
+more than it does (it is blind to reclassification). All fixed in `ae5c985`
+and `2fe5937`; re-review verdict "mergeable with nits", nits applied. The
+compensating control for the identity's blind spot is the pair of "kind vs
+statement rule" checks in `v_books_checks` plus `rule_kind` on
+`bank_transaction`. Rolled out to the live DB with
+`CONFIRM=yes DB_NAME=ookkee scripts/books-apply-prod.sh` (backup
+`backups/ookkee-pre-books-20261018-121956.dump`). Only open blocking check:
+four 2025 "ACH PAYROLL TYPE: PAYROLL" rows awaiting a category from the owner.
