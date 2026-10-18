@@ -538,3 +538,95 @@ cd frontend && npm test
 - `frontend/src/App.jsx` - Project close handling
 
 **Current Status**: Virtual scroll has complete feature parity with regular table. All interactions work identically across both implementations with unified state management and real-time updates.
+
+## Phase 10: Books — ledger, statement reconciliation, P&L / equity / balance sheet (Commits: a3d479a → b270df4)
+
+**Goal**: Turn six years of categorized expense rows into books a CPA can use:
+per year, beginning/ending cash, P&L, contributions of capital, distributions,
+an equity rollforward and a balance sheet — living in the DB, exportable at will.
+
+**Why**: The S-corp's returns had been prepared from Ookkee yearly totals alone.
+Those totals are debit-only (no income, no transfers) and mix personal-card
+business expenses, Gusto payroll, contractor payments, and owner transfers. The
+preparer left Schedule L / M-2 blank. The CPA needs the equity side.
+
+**Model** (V11 `db/migrations/V11__Books_ledger.sql`):
+- `account` — one row per `expense.source`; `owner` business|personal;
+  `in_books=false` excludes an account everywhere (the Australian GSB accounts).
+- `expense.kind` — `expense | personal | payroll | contractor | income |
+  contribution | distribution | transfer | refund`. `is_personal` stays the UI
+  toggle; trigger `expense_sync_kind` keeps the two consistent for any writer.
+  The categorization UI only ever sees expense/personal/payroll/contractor
+  (`handlers/expense_filters.go` AppKinds/BusinessKinds/LedgerKinds); the
+  `ledger` view exposes the rest.
+- `expense.currency` lifted from raw_data; `fx_rate` holds IRS yearly averages.
+- Raw statement layer: `statement_period` (opening/closing per statement) and
+  `bank_transaction` (immutable lines, unique fingerprint). `expense.
+  bank_transaction_id` links a ledger row to the statement line behind it.
+- `invoice` / `invoice_payment` (Harvest), `tax_return_line` (prepared returns),
+  `books_close` (frozen year snapshots with content hash).
+
+**Amount conventions** (do not break these):
+- `expense.amount` positive = money OUT (app convention). Deposits imported
+  from statements are NEGATIVE expense rows.
+- `bank_transaction.amount` signed as printed: + deposit, − withdrawal.
+  For linked rows `expense.amount = −bank_transaction.amount`.
+- Views show money POSITIVE in USD; the column/section gives the direction.
+
+**Pipeline** (`backend/books`, CLI `backend/cmd/books`, `scripts/books-rebuild-dev.sh`):
+1. `ufcu.go` parses `pdftotext -layout` output of UFCU statements. Every line
+   is validated against the printed running balance and the opening→closing
+   tie; a parse slip fails loudly. The bank's own summary line is only a
+   warning (it nets same-day adjustment pairs).
+2. `import.go` loads periods and lines idempotently.
+3. `match.go` links each statement line to the categorized expense row (same
+   year project, same signed amount, date within 5 days; live rows beat
+   soft-deleted; description tokens break ties). Soft-deleted matches are
+   restored under a ledger kind (never back into the P&L; with no rule they
+   become distributions — the owner removed them from expenses, so the cash
+   left for the owner). Lines nothing explains become new rows with kind from
+   description rules (Gusto NET/TAX → payroll, FEE → expense; Hayes/Contractor
+   → contractor; To SWEDBERG/CASTLE, Ally, personal card payments, ATM cash,
+   bare "Internet Banking Transfer" → distribution; share moves → transfer;
+   P2P from owner, "From SWEDBERG", cash/branch deposits, anonymous wires →
+   contribution; adjustments/BVC → refund; else income for deposits, expense
+   for withdrawals). Orphan expense rows (claim the account, no statement
+   line) are reported.
+4. `invoices.go` allocates income deposits to Harvest invoices (ACH memo
+   invoice number, exact amount, subset sum, per-client batch waterfall).
+   A contribution-kind deposit explained by an invoice flips to income.
+   **Cash basis: income = `kind='income'` deposit rows. Invoices are labels;
+   Harvest "paid on" dates are hand-entered and unreliable.**
+
+**The books** (V12 views; export via `/api/books/*`, see `handlers/books.go`):
+`v_ledger`, `v_cash_tie`, `v_pl`, `v_pl_summary`, `v_contributions`,
+`v_distributions`, `v_cash_balances`, `v_equity_rollforward`, `v_balance_sheet`,
+`v_books_checks`, `v_return_compare` (V13).
+- Contributions = owner cash transferred in + business-kind rows on personal
+  accounts. Distributions = distribution + personal kinds on business accounts.
+- **Correctness claim**: `equity_eoy(y) = cash_boy(2020) + Σ≤y (net income +
+  contributions − distributions)` must equal the December statement balance.
+  On the owner's data it ties to the cent for 2020–2025. `v_books_checks`
+  must be empty (except unlabelled income deposits) before a year is closed.
+
+**Operations**:
+- Migrations here were applied with `scripts/apply-migration.sh` (psql + the
+  checksum Flyway computes) because the sandbox cannot run the Flyway
+  container. Flyway will validate cleanly later.
+- Dev loop: `DEV_DB=ookkee_books_dev scripts/books-rebuild-dev.sh` restores
+  the pre-V11 backup (`backups/`), applies V11+, imports `data/books/ufcu/`,
+  links, imports `data/books/harvest_invoices.csv`. Source documents live
+  under `data/books/` (gitignored; private).
+- Year close: `POST /api/books/close/{year}` freezes the pack; `GET
+  /api/books/close` reports drift. Export: `GET /api/books/export?year=`.
+
+**Lessons**:
+- Validate parsers with the data's own invariants (running balance), not
+  with summary lines; the bank's summary was the thing that lied.
+- Never let an import mutate categorized rows; link to them. The raw layer
+  makes the tie check prove the import, and the link makes coverage provable.
+- Match on amount+date within a year project, then tokens; descriptions in
+  the CSVs and on statements differ in boilerplate ("Debit Card Check Card").
+- Restored soft-deleted rows must never re-enter the P&L silently.
+- The patch and compaction tools rejected array arguments in this session;
+  edits were made with python heredocs.
