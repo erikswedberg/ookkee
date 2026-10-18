@@ -42,6 +42,8 @@ type Expense struct {
 	AcceptedCategoryID  *int64          `json:"accepted_category_id"`
 	IsPersonal          bool            `json:"is_personal"`
 	SuggestedIsPersonal *bool           `json:"suggested_is_personal"`
+	Kind                string          `json:"kind,omitempty"`     // books ledger kind (V11)
+	Currency            string          `json:"currency,omitempty"` // per-row currency (V11)
 }
 
 type Category struct {

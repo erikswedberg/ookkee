@@ -109,7 +109,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 
 	query := fmt.Sprintf(`
 		SELECT id, project_id, row_index, raw_data, source, date_text, date, description, amount, 
-		       suggested_category_id, accepted_category_id, is_personal, suggested_is_personal
+		       suggested_category_id, accepted_category_id, is_personal, suggested_is_personal, kind, currency
 		FROM expense 
 		WHERE project_id = $1%s
 		ORDER BY %s
@@ -128,7 +128,7 @@ func GetExpenses(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var expense models.Expense
 		err := rows.Scan(&expense.ID, &expense.ProjectID, &expense.RowIndex, &expense.RawData,
-			&expense.Source, &expense.DateText, &expense.Date, &expense.Description, &expense.Amount, &expense.SuggestedCategoryID, &expense.AcceptedCategoryID, &expense.IsPersonal, &expense.SuggestedIsPersonal)
+			&expense.Source, &expense.DateText, &expense.Date, &expense.Description, &expense.Amount, &expense.SuggestedCategoryID, &expense.AcceptedCategoryID, &expense.IsPersonal, &expense.SuggestedIsPersonal, &expense.Kind, &expense.Currency)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to scan expense: %v", err), http.StatusInternalServerError)
 			return
@@ -406,7 +406,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 		WHERE e.project_id = $1
 			AND e.accepted_category_id IS NOT NULL
 			AND e.deleted_at IS NULL
-			AND (e.is_personal IS NULL OR e.is_personal = FALSE)
+			AND e.kind IN ` + BusinessKinds + `
 		GROUP BY ec.id, ec.name, ec.sort_order
 		ORDER BY ec.sort_order ASC
 	`
@@ -421,7 +421,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1
 			AND e.deleted_at IS NULL
-			AND e.is_personal = TRUE
+			AND e.kind = 'personal'
 		GROUP BY ec.id, ec.name, ec.sort_order
 		ORDER BY sort_order ASC, category_name ASC
 	`
@@ -489,7 +489,7 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 			COUNT(CASE WHEN (is_personal IS NULL OR is_personal = false) AND accepted_category_id IS NULL AND suggested_category_id IS NULL THEN 1 END) as uncategorized_count,
 			COUNT(CASE WHEN suggested_is_personal = TRUE THEN 1 END) as pending_personal_count
 		FROM expense 
-		WHERE project_id = $1 AND deleted_at IS NULL
+		WHERE project_id = $1 AND deleted_at IS NULL AND kind IN ` + AppKinds + `
 	`, projectIDStr).Scan(&totalCount, &categorizedCount, &uncategorizedCount, &pendingPersonalCount)
 
 	if err != nil {
@@ -564,7 +564,7 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 		FROM expense e
 		JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1 AND e.accepted_category_id IS NOT NULL AND e.deleted_at IS NULL
-			AND (e.is_personal IS NULL OR e.is_personal = FALSE)
+			AND e.kind IN ` + BusinessKinds + `
 		GROUP BY ec.id, ec.name, ec.sort_order
 		ORDER BY ec.sort_order ASC`)
 	if err != nil {
@@ -575,7 +575,7 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name, SUM(e.amount) AS total_amount
 		FROM expense e
 		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
-		WHERE e.project_id = $1 AND e.deleted_at IS NULL AND e.is_personal = TRUE
+		WHERE e.project_id = $1 AND e.deleted_at IS NULL AND e.kind = 'personal'
 		GROUP BY ec.id, ec.name, ec.sort_order
 		ORDER BY COALESCE(ec.sort_order, 2147483647) ASC, category_name ASC`)
 	if err != nil {
@@ -659,9 +659,9 @@ func GetSimilarExpenses(w http.ResponseWriter, r *http.Request) {
 	var condition string
 	switch field {
 	case "personal":
-		condition = "AND (is_personal IS NULL OR is_personal = FALSE)"
+		condition = "AND kind IN " + BusinessKinds
 	default: // category
-		condition = "AND accepted_category_id IS NULL"
+		condition = "AND accepted_category_id IS NULL AND kind IN " + AppKinds
 	}
 
 	query := fmt.Sprintf(`

@@ -11,9 +11,18 @@ import (
 // always starts with "AND ..." pieces appended to a base query that already has
 // "WHERE project_id = $1 AND deleted_at IS NULL". argStart is the next $N index.
 type expenseFilter struct {
-	view   string // "all" | "business" | "personal"
+	view   string // "all" | "business" | "personal" | "removed" | "ledger"
 	search string
 }
+
+// Row kinds the categorization UI works on. Everything else (income,
+// contribution, distribution, transfer, refund) belongs to the books ledger
+// and is only visible through the "ledger" view and the books views.
+const (
+	AppKinds      = "('expense','personal','payroll','contractor')"
+	BusinessKinds = "('expense','payroll','contractor')"
+	LedgerKinds   = "('income','contribution','distribution','transfer','refund')"
+)
 
 // orderByClause maps a whitelisted sort key to a safe SQL ORDER BY clause.
 // Default (and any unknown value) is date ascending — the canonical view order.
@@ -31,7 +40,7 @@ func orderByClause(sort string) string {
 func parseExpenseFilter(r *http.Request) expenseFilter {
 	v := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("view")))
 	switch v {
-	case "business", "personal", "all", "removed":
+	case "business", "personal", "all", "removed", "ledger":
 	default:
 		v = "all"
 	}
@@ -58,9 +67,15 @@ func (f expenseFilter) clause(argStart int) (string, []interface{}) {
 
 	switch f.view {
 	case "business":
-		parts = append(parts, "(is_personal IS NULL OR is_personal = FALSE)")
+		parts = append(parts, "kind IN "+BusinessKinds)
 	case "personal":
-		parts = append(parts, "is_personal = TRUE")
+		parts = append(parts, "kind = 'personal'")
+	case "ledger":
+		parts = append(parts, "kind IN "+LedgerKinds)
+	case "removed":
+		// everything the user removed, whatever its kind
+	default: // all
+		parts = append(parts, "kind IN "+AppKinds)
 	}
 
 	if f.search != "" {

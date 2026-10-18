@@ -42,9 +42,9 @@ type CategorizeFullResponse struct {
 // AI processes the next visible rows rather than scattered ones. View scopes
 // business vs personal; "all"/"business" exclude personal rows.
 func GetUncategorizedExpenses(ctx context.Context, projectID int, limit int, view string) ([]ExpenseForAI, error) {
-	personalScope := "AND (is_personal IS NULL OR is_personal = FALSE)"
+	personalScope := "AND kind IN ('expense','payroll','contractor')"
 	if view == "personal" {
-		personalScope = "AND is_personal = TRUE"
+		personalScope = "AND kind = 'personal'"
 	}
 	query := `
 		SELECT id, COALESCE(description, '') as description, COALESCE(amount, 0) as amount
