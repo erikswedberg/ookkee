@@ -77,17 +77,9 @@ UPDATE expense e SET kind = 'contribution', kind_set_by = 'user'
 FROM bank_transaction bt
 WHERE bt.id = e.bank_transaction_id AND bt.posted_date = '2025-06-07' AND bt.amount = 859.57;
 
--- (c) Cash withdrawals from the business account that were categorized as
---     expenses: the owner agreed cash to the owner is a distribution by
---     default; individual rows can be set back to expense in the UI.
-UPDATE expense e SET kind = 'distribution', kind_set_by = 'rule',
-  raw_data = CASE WHEN e.accepted_category_id IS NULL THEN e.raw_data
-                  ELSE e.raw_data || jsonb_build_object('prior_category', (SELECT name FROM expense_category c WHERE c.id = e.accepted_category_id)) END,
-  accepted_category_id = NULL, accepted_at = NULL
-FROM bank_transaction bt
-WHERE bt.id = e.bank_transaction_id AND e.deleted_at IS NULL AND e.kind = 'expense'
-  AND e.kind_set_by IS NULL
-  AND bt.description ~* 'at ATM|Shared Branch' AND bt.description !~* 'INSURANCE';
+-- (c) Cash withdrawals from the business account that the owner categorized
+--     as expenses stay as categorized (owner's judgment; cash-paid business
+--     costs are real). v_books_checks lists them for the preparer.
 
 -- (d) Fixed assets: the 2024 mobile habitat for month-long client site visits.
 --     The vehicle purchase (three wires) and the camper (every Poptop Overland
