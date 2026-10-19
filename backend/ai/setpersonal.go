@@ -31,7 +31,7 @@ type SetPersonalFullResponse struct {
 // GetUnsortedExpenses retrieves the next batch of expenses that have not yet had
 // a business/personal decision made (neither confirmed personal nor an existing
 // suggestion). These are the rows AI Set Personal should classify.
-func GetUnsortedExpenses(ctx context.Context, projectID int, limit int) ([]ExpenseForAI, error) {
+func GetUnsortedExpenses(ctx context.Context, projectID int, limit int, sort string) ([]ExpenseForAI, error) {
 	query := `
 		SELECT id, COALESCE(description, '') as description, COALESCE(amount, 0) as amount
 		FROM expense
@@ -39,7 +39,8 @@ func GetUnsortedExpenses(ctx context.Context, projectID int, limit int) ([]Expen
 		  AND deleted_at IS NULL
 		  AND kind = 'expense'
 		  AND suggested_is_personal IS NULL
-		ORDER BY date ASC NULLS LAST, row_index ASC
+		  AND accepted_category_id IS NULL
+		ORDER BY ` + aiOrderBy(sort) + `
 		LIMIT $2
 	`
 	rows, err := database.Pool.Query(ctx, query, projectID, limit)

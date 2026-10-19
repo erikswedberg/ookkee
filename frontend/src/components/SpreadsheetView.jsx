@@ -331,15 +331,34 @@ const SpreadsheetViewContent = ({
     handleAiCategorization,
     toggleAutoplay,
     resolveAllPersonal,
+    resolveAllCategory,
     view,
     setView,
     search,
     setSearch,
+    searchField,
+    setSearchField,
+    uncatOnly,
+    setUncatOnly,
+    miscatOnly,
+    setMiscatOnly,
+    unsetOnly,
+    setUnsetOnly,
+    suggestedOnly,
+    setSuggestedOnly,
   } = useContext(SpreadsheetContext);
 
   // On the All tab the AI button sorts business/personal; on Business/Personal
   // it categorizes. Same async job mechanism either way.
   const isSortMode = view === 'all';
+
+  // If the pending suggestions are all resolved, drop the 'show only these'
+  // filter so the list doesn't get stuck showing nothing.
+  useEffect(() => {
+    if (suggestedOnly && progress.pending_personal_count === 0) {
+      setSuggestedOnly(false);
+    }
+  }, [suggestedOnly, progress.pending_personal_count, setSuggestedOnly]);
   const aiMode = isSortMode ? 'set_personal' : 'categorize';
 
   if (error) {
@@ -495,13 +514,57 @@ const SpreadsheetViewContent = ({
                     <TabsTrigger value="removed">Removed</TabsTrigger>
                   </TabsList>
                 </Tabs>
-                <Input
-                  type="text"
-                  placeholder="Filter by description..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="max-w-xs"
-                />
+                <div className="flex items-center gap-3">
+                  {view !== 'removed' && (
+                    <label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+                      <Checkbox
+                        checked={uncatOnly}
+                        onCheckedChange={v => setUncatOnly(!!v)}
+                      />
+                      Uncategorized Only
+                    </label>
+                  )}
+                  {view !== 'removed' && (
+                    <label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+                      <Checkbox
+                        checked={miscatOnly}
+                        onCheckedChange={v => setMiscatOnly(!!v)}
+                      />
+                      Miscategorized Only
+                    </label>
+                  )}
+                  {view === 'all' && (
+                    <label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+                      <Checkbox
+                        checked={unsetOnly}
+                        onCheckedChange={v => setUnsetOnly(!!v)}
+                      />
+                      Untriaged Only
+                    </label>
+                  )}
+                  <Input
+                    type="text"
+                    placeholder={
+                      searchField === 'amount'
+                        ? 'e.g. 255.74, >1000, <=50'
+                        : `Filter by ${searchField}...`
+                    }
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="max-w-xs"
+                  />
+                  <select
+                    value={searchField}
+                    onChange={e => setSearchField(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                    title="Field to search"
+                  >
+                    <option value="description">Description</option>
+                    <option value="source">Source</option>
+                    <option value="category">Category</option>
+                    <option value="amount">Amount</option>
+                  </select>
+                </div>
               </div>
               {/* Bulk approve/dismiss bar for pending AI personal suggestions */}
               {progress.pending_personal_count > 0 && (
@@ -509,7 +572,14 @@ const SpreadsheetViewContent = ({
                   <span className="text-sm text-amber-900">
                     AI suggests {progress.pending_personal_count} expense
                     {progress.pending_personal_count === 1 ? '' : 's'} as
-                    personal.
+                    personal.{' '}
+                    <button
+                      type="button"
+                      onClick={() => setSuggestedOnly(v => !v)}
+                      className="underline font-medium hover:text-amber-950"
+                    >
+                      {suggestedOnly ? 'Show all rows' : 'Show only these'}
+                    </button>
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -523,6 +593,31 @@ const SpreadsheetViewContent = ({
                       size="sm"
                       variant="outline"
                       onClick={() => resolveAllPersonal('dismiss')}
+                    >
+                      Dismiss all
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {/* Bulk approve/dismiss bar for pending AI category suggestions */}
+              {progress.pending_suggested_count > 0 && (
+                <div className="flex items-center justify-between gap-4 px-[25px] py-2 bg-blue-50 border-y border-blue-200">
+                  <span className="text-sm text-blue-900">
+                    AI suggests categories for {progress.pending_suggested_count}{' '}
+                    expense{progress.pending_suggested_count === 1 ? '' : 's'}.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => resolveAllCategory('approve')}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Accept all ({progress.pending_suggested_count})
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => resolveAllCategory('dismiss')}
                     >
                       Dismiss all
                     </Button>

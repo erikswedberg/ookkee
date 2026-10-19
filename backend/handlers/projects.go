@@ -286,6 +286,14 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 			args = append(args, req.AcceptedCategoryID)
 			argIndex++
 			updateFields = append(updateFields, "accepted_at = CURRENT_TIMESTAMP")
+			// Assigning a real category to a business-lane row is an implicit
+			// "this is business" decision, so dismiss any pending personal
+			// suggestion (FALSE = confirmed business, won't be reconsidered).
+			// Skip if the same request is also setting is_personal, which already
+			// clears the suggestion below.
+			if req.IsPersonal == nil {
+				updateFields = append(updateFields, "suggested_is_personal = FALSE")
+			}
 		}
 	}
 
@@ -361,9 +369,11 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Dismiss an AI business/personal suggestion without changing is_personal.
+	// Dismiss an AI personal suggestion = confirm business. Set FALSE (not NULL)
+	// so AI Set Personal won't reconsider and re-suggest the same row. Does not
+	// change is_personal or set a category — the row stays plain business.
 	if req.ClearPersonalSuggestion != nil && *req.ClearPersonalSuggestion {
-		updateFields = append(updateFields, "suggested_is_personal = NULL")
+		updateFields = append(updateFields, "suggested_is_personal = FALSE")
 	}
 
 	if len(updateFields) == 0 {
@@ -444,7 +454,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 
 	// Business: categorized, non-personal expenses grouped by category.
 	businessQuery := `
-		SELECT ec.name AS category_name, SUM(e.amount) AS total_amount
+		SELECT ec.name AS category_name, COALESCE(SUM(e.amount), 0) AS total_amount
 		FROM expense e
 		JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1
@@ -452,14 +462,14 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 			AND e.deleted_at IS NULL
 			AND e.kind IN ` + BusinessKinds + `
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY ec.sort_order ASC
+		ORDER BY ec.name ASC
 	`
 
 	// Personal: personal expenses grouped by their category, with an
 	// "Uncategorized" bucket for personal rows that have no category yet.
 	personalQuery := `
 		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name,
-		       SUM(e.amount) AS total_amount,
+		       COALESCE(SUM(e.amount), 0) AS total_amount,
 		       COALESCE(ec.sort_order, 2147483647) AS sort_order
 		FROM expense e
 		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
@@ -467,7 +477,7 @@ func GetProjectTotals(w http.ResponseWriter, r *http.Request) {
 			AND e.deleted_at IS NULL
 			AND e.kind = 'personal'
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY sort_order ASC, category_name ASC
+		ORDER BY category_name ASC
 	`
 
 	readTotals := func(query string, hasSort bool) ([]CategoryTotal, error) {
@@ -523,18 +533,27 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query to get total count, categorized count (for progress), uncategorized
-	// count (for AI button), and pending personal suggestions (for approve-all).
-	var totalCount, categorizedCount, uncategorizedCount, pendingPersonalCount int
-	err := database.Pool.QueryRow(ctx, `
+	// Scope progress to the current view (Business/Personal/All) so the bar on
+	// the Personal tab reflects personal categorization progress, not the whole
+	// project. The filter provides the view/search clause + deleted_at.
+	filter := parseExpenseFilter(r)
+	filterSQL, filterArgs := filter.clause(2)
+	progArgs := []interface{}{projectIDStr}
+	progArgs = append(progArgs, filterArgs...)
+
+	// Within the scoped set: a row counts as categorized when it has an accepted
+	// category; uncategorized when it has neither accepted nor suggested.
+	var totalCount, categorizedCount, uncategorizedCount, pendingPersonalCount, pendingSuggestedCount int
+	err := database.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT 
 			COUNT(*) as total_count,
-			COUNT(CASE WHEN (accepted_category_id IS NOT NULL OR is_personal = true) THEN 1 END) as categorized_count,
-			COUNT(CASE WHEN (is_personal IS NULL OR is_personal = false) AND accepted_category_id IS NULL AND suggested_category_id IS NULL THEN 1 END) as uncategorized_count,
-			COUNT(CASE WHEN suggested_is_personal = TRUE THEN 1 END) as pending_personal_count
+			COUNT(CASE WHEN accepted_category_id IS NOT NULL THEN 1 END) as categorized_count,
+			COUNT(CASE WHEN accepted_category_id IS NULL AND suggested_category_id IS NULL THEN 1 END) as uncategorized_count,
+			COUNT(CASE WHEN suggested_is_personal = TRUE THEN 1 END) as pending_personal_count,
+			COUNT(CASE WHEN suggested_category_id IS NOT NULL AND accepted_category_id IS NULL THEN 1 END) as pending_suggested_count
 		FROM expense 
-		WHERE project_id = $1 AND deleted_at IS NULL AND kind IN ` + AppKinds + `
-	`, projectIDStr).Scan(&totalCount, &categorizedCount, &uncategorizedCount, &pendingPersonalCount)
+		WHERE project_id = $1%s
+	`, filterSQL), progArgs...).Scan(&totalCount, &categorizedCount, &uncategorizedCount, &pendingPersonalCount, &pendingSuggestedCount)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch progress: %v", err), http.StatusInternalServerError)
@@ -542,12 +561,13 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type ProgressData struct {
-		TotalCount           int     `json:"total_count"`
-		CategorizedCount     int     `json:"categorized_count"`
-		UncategorizedCount   int     `json:"uncategorized_count"`
-		PendingPersonalCount int     `json:"pending_personal_count"`
-		Percentage           float64 `json:"percentage"`
-		IsComplete           bool    `json:"is_complete"`
+		TotalCount            int     `json:"total_count"`
+		CategorizedCount      int     `json:"categorized_count"`
+		UncategorizedCount    int     `json:"uncategorized_count"`
+		PendingPersonalCount  int     `json:"pending_personal_count"`
+		PendingSuggestedCount int     `json:"pending_suggested_count"`
+		Percentage            float64 `json:"percentage"`
+		IsComplete            bool    `json:"is_complete"`
 	}
 
 	percentage := 0.0
@@ -556,12 +576,13 @@ func GetProjectProgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	progress := ProgressData{
-		TotalCount:           totalCount,
-		CategorizedCount:     categorizedCount,
-		UncategorizedCount:   uncategorizedCount,
-		PendingPersonalCount: pendingPersonalCount,
-		Percentage:           percentage,
-		IsComplete:           categorizedCount == totalCount && totalCount > 0,
+		TotalCount:            totalCount,
+		CategorizedCount:      categorizedCount,
+		UncategorizedCount:    uncategorizedCount,
+		PendingPersonalCount:  pendingPersonalCount,
+		PendingSuggestedCount: pendingSuggestedCount,
+		Percentage:            percentage,
+		IsComplete:            categorizedCount == totalCount && totalCount > 0,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -604,24 +625,24 @@ func GetProjectTotalsCSV(w http.ResponseWriter, r *http.Request) {
 	}
 
 	business, businessTotal, err := readSection(`
-		SELECT ec.name AS category_name, SUM(e.amount) AS total_amount
+		SELECT ec.name AS category_name, COALESCE(SUM(e.amount), 0) AS total_amount
 		FROM expense e
 		JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1 AND e.accepted_category_id IS NOT NULL AND e.deleted_at IS NULL
 			AND e.kind IN ` + BusinessKinds + `
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY ec.sort_order ASC`)
+		ORDER BY ec.name ASC`)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch business totals: %v", err), http.StatusInternalServerError)
 		return
 	}
 	personal, personalTotal, err := readSection(`
-		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name, SUM(e.amount) AS total_amount
+		SELECT COALESCE(ec.name, 'Uncategorized') AS category_name, COALESCE(SUM(e.amount), 0) AS total_amount
 		FROM expense e
 		LEFT JOIN expense_category ec ON e.accepted_category_id = ec.id
 		WHERE e.project_id = $1 AND e.deleted_at IS NULL AND e.kind = 'personal'
 		GROUP BY ec.id, ec.name, ec.sort_order
-		ORDER BY COALESCE(ec.sort_order, 2147483647) ASC, category_name ASC`)
+		ORDER BY category_name ASC`)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch personal totals: %v", err), http.StatusInternalServerError)
 		return
@@ -749,6 +770,48 @@ func GetSimilarExpenses(w http.ResponseWriter, r *http.Request) {
 // business/personal suggestions for a project. action="approve" confirms each
 // suggestion (sets is_personal to the suggested value); action="dismiss" just
 // clears them. Returns how many were affected.
+// ResolveCategorySuggestions bulk-applies or dismisses ALL pending AI category
+// suggestions for a project (rows with a suggested category but no accepted one).
+// approve -> accepted = suggested; dismiss -> clear the suggestion.
+func ResolveCategorySuggestions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	projectID := chi.URLParam(r, "projectID")
+
+	var req struct {
+		Action string `json:"action"` // "approve" | "dismiss"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	var query string
+	switch req.Action {
+	case "approve":
+		query = `UPDATE expense
+			SET accepted_category_id = suggested_category_id, accepted_at = CURRENT_TIMESTAMP
+			WHERE project_id = $1 AND deleted_at IS NULL
+			  AND suggested_category_id IS NOT NULL AND accepted_category_id IS NULL`
+	case "dismiss":
+		query = `UPDATE expense
+			SET suggested_category_id = NULL, suggested_at = NULL
+			WHERE project_id = $1 AND deleted_at IS NULL
+			  AND suggested_category_id IS NOT NULL AND accepted_category_id IS NULL`
+	default:
+		http.Error(w, "action must be 'approve' or 'dismiss'", http.StatusBadRequest)
+		return
+	}
+
+	tag, err := database.Pool.Exec(ctx, query, projectID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to resolve suggestions: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"affected": tag.RowsAffected()})
+}
+
 func ResolvePersonalSuggestions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	projectID := chi.URLParam(r, "projectID")
@@ -771,8 +834,11 @@ func ResolvePersonalSuggestions(w http.ResponseWriter, r *http.Request) {
 			SET is_personal = TRUE, suggested_is_personal = NULL
 			WHERE project_id = $1 AND deleted_at IS NULL AND suggested_is_personal = TRUE`
 	case "dismiss":
+		// Dismiss = "no, this is business." Set FALSE (confirmed business) so the
+		// row is NOT reconsidered by AI Set Personal. NULL would return it to the
+		// undecided pool and it'd get re-suggested every run.
 		query = `UPDATE expense
-			SET suggested_is_personal = NULL
+			SET suggested_is_personal = FALSE
 			WHERE project_id = $1 AND deleted_at IS NULL AND suggested_is_personal = TRUE`
 	default:
 		http.Error(w, "action must be 'approve' or 'dismiss'", http.StatusBadRequest)

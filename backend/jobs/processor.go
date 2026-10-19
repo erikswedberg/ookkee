@@ -181,11 +181,13 @@ func (p *JobProcessor) runAICategorizationJob(ctx context.Context, job *AICatego
 		}, nil
 	}
 
-	// categorize mode (default): assign categories.
-	if len(categoryDetails) == 0 {
+	// categorize mode (default): assign categories, restricted to the lane's
+	// valid categories so the AI can't pick a cross-lane category.
+	laneCategories := ai.FilterCategoriesForLane(categoryDetails, job.View)
+	if len(laneCategories) == 0 {
 		return nil, JobError{Message: "No categories available for categorization"}
 	}
-	result, err := ai.ProcessCategorizationLogic(ctx, job.ProjectID, expenses, categoryDetails, job.Model)
+	result, err := ai.ProcessCategorizationLogic(ctx, job.ProjectID, expenses, laneCategories, job.Model, job.View)
 	if err != nil {
 		return nil, err
 	}

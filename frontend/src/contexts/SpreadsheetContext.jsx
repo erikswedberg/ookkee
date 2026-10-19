@@ -95,6 +95,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const autoplayModeRef = useRef(false);
   const aiModeRef = useRef('categorize'); // current AI mode for autoplay continuations
   const viewRef = useRef('all'); // current tab/view for AI scoping
+  const sortRef = useRef(''); // current sort so AI picks rows in view order
   const [isTableActive, setIsTableActive] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(null);
 
@@ -106,7 +107,20 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Sort order for the expense list. '' = default (date asc); 'amount_desc' /
   // 'amount_asc' for clicking the Amount header.
   const [sort, setSort] = useState('');
+  useEffect(() => {
+    sortRef.current = sort;
+  }, [sort]);
+  // Show only uncategorized rows when true.
+  const [uncatOnly, setUncatOnly] = useState(false);
+  // Show only miscategorized rows (category lean conflicts with lane) when true.
+  const [miscatOnly, setMiscatOnly] = useState(false);
+  // Show only rows never triaged into a lane (is_personal IS NULL) when true.
+  const [unsetOnly, setUnsetOnly] = useState(false);
+  // Show only rows with a pending personal suggestion when true.
+  const [suggestedOnly, setSuggestedOnly] = useState(false);
   const [search, setSearch] = useState('');
+  // Which field the search box matches: 'description' (default) | 'source' | 'category'.
+  const [searchField, setSearchField] = useState('description');
   const [filteredCount, setFilteredCount] = useState(0);
 
   // Pending propagation confirmation (manual category / personal toggle)
@@ -134,8 +148,12 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || '';
+      // Scope progress to the current tab (view) only — not search/checkbox
+      // filters — so the bar shows that lane's overall categorization progress.
+      const v = viewRef.current;
+      const qs = v && v !== 'all' && v !== 'removed' ? `?view=${v}` : '';
       const response = await fetch(
-        `${API_URL}/api/projects/${project.id}/progress`
+        `${API_URL}/api/projects/${project.id}/progress${qs}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -146,6 +164,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
           categorized_count: data.categorized_count || 0,
           uncategorized_count: data.uncategorized_count || 0,
           pending_personal_count: data.pending_personal_count || 0,
+          pending_suggested_count: data.pending_suggested_count || 0,
         });
       }
     } catch (error) {
@@ -157,10 +176,24 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   const filterParams = useCallback(() => {
     const params = new URLSearchParams();
     if (view && view !== 'all') params.set('view', view);
-    if (search) params.set('search', search);
+    if (search) {
+      params.set('search', search);
+      if (searchField !== 'description') params.set('searchField', searchField);
+    }
     if (sort) params.set('sort', sort);
+    if (uncatOnly) params.set('uncat', '1');
+    if (miscatOnly) params.set('miscat', '1');
+    if (unsetOnly) params.set('unset', '1');
+    if (suggestedOnly) params.set('suggested', '1');
     return params.toString();
-  }, [view, search, sort]);
+  }, [view, search, searchField, sort, uncatOnly, miscatOnly, unsetOnly, suggestedOnly]);
+
+  // Keep the current filter query string in a ref so AI runs (incl. autoplay
+  // continuations) categorize exactly the filtered set the user is viewing.
+  const filterParamsRef = useRef('');
+  useEffect(() => {
+    filterParamsRef.current = filterParams();
+  }, [filterParams]);
 
   // Fetch the filtered expense count (sizes the virtual scrollbar)
   const fetchFilteredCount = useCallback(async () => {
@@ -469,9 +502,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // edit we check for same-description rows and prompt the user to propagate.
   const updateExpenseCategory = useCallback(
     async (expenseId, categoryId, offerPropagation = false) => {
-      await updateExpense(expenseId, {
-        accepted_category_id: categoryId || null,
-      });
+      const updates = { accepted_category_id: categoryId || null };
+      // Setting a real category dismisses any pending personal suggestion
+      // (mirrors the backend), so the amber highlight clears immediately.
+      if (categoryId) updates.suggested_is_personal = false;
+      await updateExpense(expenseId, updates);
       if (offerPropagation && categoryId) {
         const sourceExpense = expenses.find(e => e.id === expenseId) || {
           id: expenseId,
@@ -561,10 +596,11 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     [updateStoreExpense, fetchProgress, fetchFilteredCount, checkAndOfferPropagation]
   );
 
-  // Dismiss a single AI personal suggestion without changing is_personal.
+  // Dismiss a single AI personal suggestion = confirm business (FALSE), so it
+  // isn't reconsidered by AI Set Personal. Doesn't change is_personal.
   const dismissPersonalSuggestion = useCallback(
     async expense => {
-      updateStoreExpense(expense.id, { suggested_is_personal: null });
+      updateStoreExpense(expense.id, { suggested_is_personal: false });
       try {
         const API_URL = import.meta.env.VITE_API_URL || '';
         await fetch(`${API_URL}/api/expenses/${expense.id}`, {
@@ -604,6 +640,36 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
         setRefreshNonce(n => n + 1);
       } catch (error) {
         console.error('Resolve all personal failed:', error);
+        toast.error('Failed to resolve suggestions');
+      }
+    },
+    [project?.id, fetchFilteredCount, fetchProgress]
+  );
+
+  // Bulk approve or dismiss ALL pending category suggestions in the project.
+  const resolveAllCategory = useCallback(
+    async action => {
+      if (!project?.id) return;
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(
+          `${API_URL}/api/projects/${project.id}/resolve-category`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+          }
+        );
+        if (!response.ok) throw new Error(`status ${response.status}`);
+        const data = await response.json();
+        toast.success(
+          `${action === 'approve' ? 'Accepted' : 'Dismissed'} ${data.affected} suggestion${data.affected === 1 ? '' : 's'}`
+        );
+        await fetchFilteredCount();
+        fetchProgress();
+        setRefreshNonce(n => n + 1);
+      } catch (error) {
+        console.error('Resolve all category failed:', error);
         toast.error('Failed to resolve suggestions');
       }
     },
@@ -658,12 +724,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || '';
+      const qs = filterParamsRef.current;
       const response = await fetch(
-        `${API_URL}/api/projects/${project.id}/ai-categorize`,
+        `${API_URL}/api/projects/${project.id}/ai-categorize${qs ? `?${qs}` : ''}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode, view: viewRef.current }),
+          body: JSON.stringify({ mode }),
         }
       );
 
@@ -863,12 +930,13 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     };
   }, [project?.id]);
 
-  // Fetch progress when project changes or expenses are updated
+  // Fetch progress when project changes, expenses update, or the tab (view)
+  // changes — so the bar rescopes to the current lane.
   useEffect(() => {
     if (project?.id) {
       fetchProgress();
     }
-  }, [fetchProgress, project?.id, expenses.length]);
+  }, [fetchProgress, project?.id, expenses.length, view]);
 
   // When the view/search filter changes, refetch the filtered count so the
   // scrollbar resizes. The store is cleared by ExpenseTableVirtual in a
@@ -877,7 +945,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   useEffect(() => {
     if (!project?.id) return;
     fetchFilteredCount();
-  }, [project?.id, view, search, sort]);
+  }, [project?.id, view, search, searchField, sort, uncatOnly, miscatOnly, unsetOnly, suggestedOnly]);
 
   // Handle autoplay mode activation - only trigger initial round
   useEffect(() => {
@@ -890,6 +958,10 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
   // Keyboard navigation handlers
   useEffect(() => {
     const handleKeyDown = e => {
+      // Never intercept OS/browser shortcuts (Cmd/Ctrl/Alt held) — e.g. Cmd-C to
+      // copy selected text was being caught as the 'C' (Computer) hotkey.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
       // Ignore when typing in a form field or inside an open dialog (e.g. the
       // category modal), otherwise category hotkeys hijack normal typing.
       const t = e.target;
@@ -972,6 +1044,8 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
                 getExpenseByIndex(activeRowIndex) || expenses[activeRowIndex];
               if (currentExpense) {
                 updateExpenseCategory(currentExpense.id, category.id, true);
+                // Advance like the 'A' key so you can mash category hotkeys.
+                advanceToNextRow();
               }
             }
           }
@@ -988,6 +1062,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     filteredCount,
     handleAcceptSuggestion,
     handleTogglePersonal,
+    advanceToNextRow,
     scrollActiveRowIntoView,
     setActiveRowWithTabIndex,
     getExpenseByIndex,
@@ -1023,8 +1098,18 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     setView,
     search,
     setSearch,
+    searchField,
+    setSearchField,
     sort,
     setSort,
+    uncatOnly,
+    setUncatOnly,
+    miscatOnly,
+    setMiscatOnly,
+    unsetOnly,
+    setUnsetOnly,
+    suggestedOnly,
+    setSuggestedOnly,
     filteredCount,
     fetchFilteredCount,
     filterParams,
@@ -1051,6 +1136,7 @@ export const SpreadsheetContextProvider = ({ children, project }) => {
     approvePersonalSuggestion,
     dismissPersonalSuggestion,
     resolveAllPersonal,
+    resolveAllCategory,
     fetchProgress,
     loadExpenses,
     setActiveRowWithTabIndex,
