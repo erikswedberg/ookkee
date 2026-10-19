@@ -249,6 +249,7 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		IsPersonal              *bool `json:"is_personal"`
 		Deleted                 *bool `json:"deleted"`
 		ClearPersonalSuggestion *bool `json:"clear_personal_suggestion"`
+		Kind                    *string `json:"kind"` // books ledger kind; a human decision
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -307,6 +308,27 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		argIndex++
 		// A confirmed decision clears any pending AI suggestion.
 		updateFields = append(updateFields, "suggested_is_personal = NULL")
+	}
+
+	if req.Kind != nil {
+		switch *req.Kind {
+		case "expense", "personal", "payroll", "contractor", "capital", "income", "contribution", "distribution", "transfer", "refund":
+		default:
+			http.Error(w, "invalid kind", http.StatusBadRequest)
+			return
+		}
+		updateFields = append(updateFields, fmt.Sprintf("kind = $%d", argIndex))
+		args = append(args, *req.Kind)
+		argIndex++
+		updateFields = append(updateFields, "kind_set_by = 'user'")
+		// A ledger-only kind must not carry a P&L category (it would look like
+		// an expense in disguise); remember it so the user can flip back.
+		switch *req.Kind {
+		case "income", "contribution", "distribution", "transfer":
+			updateFields = append(updateFields, `raw_data = CASE WHEN accepted_category_id IS NULL THEN raw_data
+				ELSE raw_data || jsonb_build_object('prior_category', (SELECT name FROM expense_category c WHERE c.id = expense.accepted_category_id)) END`)
+			updateFields = append(updateFields, "accepted_category_id = NULL", "accepted_at = NULL")
+		}
 	}
 
 	if req.Deleted != nil {

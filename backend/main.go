@@ -103,6 +103,8 @@ func main() {
 		r.Get("/books/views/{name}", handlers.GetBookView)
 		r.Get("/books/years", handlers.BookYears)
 		r.Get("/books/export", handlers.ExportBooks)
+		r.Get("/books/allocations", handlers.ListAllocations)
+		r.Put("/books/allocations/{categoryID}", handlers.PutAllocation)
 		r.Get("/books/close", handlers.ListBooksCloses)
 		r.Post("/books/close/{year}", handlers.CloseBooksYear)
 		r.Get("/books/close/{year}", handlers.GetBooksClose)

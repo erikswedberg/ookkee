@@ -374,7 +374,7 @@ func getUncategorizedExpenses(ctx context.Context, projectID int, limit int) ([]
 		WHERE project_id = $1 
 		  AND accepted_category_id IS NULL 
 		  AND suggested_category_id IS NULL
-		  AND kind IN ('expense','payroll','contractor')
+		  AND kind IN ('expense','payroll','contractor','capital')
 		  AND deleted_at IS NULL
 		ORDER BY row_index ASC
 		LIMIT $2

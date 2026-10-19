@@ -19,8 +19,8 @@ type expenseFilter struct {
 // contribution, distribution, transfer, refund) belongs to the books ledger
 // and is only visible through the "ledger" view and the books views.
 const (
-	AppKinds      = "('expense','personal','payroll','contractor')"
-	BusinessKinds = "('expense','payroll','contractor')"
+	AppKinds      = "('expense','personal','payroll','contractor','capital')"
+	BusinessKinds = "('expense','payroll','contractor','capital')"
 	LedgerKinds   = "('income','contribution','distribution','transfer','refund')"
 )
 

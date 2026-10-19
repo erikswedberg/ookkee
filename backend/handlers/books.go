@@ -35,6 +35,7 @@ var bookViews = []struct {
 	{"distributions", "v_distributions", "Distributions", "Business cash to the owner by destination; includes personal spending charged to the business account.", true},
 	{"cash_tie", "v_cash_tie", "Cash tie", "Per statement: opening + lines = closing, and every line explained.", true},
 	{"cash_balances", "v_cash_balances", "Year-end cash", "Closing balance per business account from the last statement of the year.", true},
+	{"fixed_assets", "v_fixed_assets", "Fixed assets", "Capital purchases carried on the balance sheet at cost (depreciation is the preparer's call).", true},
 	{"return_compare", "v_return_compare", "Books vs prepared return", "Books-side numbers next to the lines of the previously prepared 1120-S, per year.", true},
 	{"ledger", "v_ledger", "Ledger", "Every ledger line with kind, account owner, USD amount (positive = money out).", true},
 }
@@ -405,6 +406,86 @@ func ReopenBooksYear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := database.Pool.Exec(r.Context(), `DELETE FROM books_close WHERE year = $1`, year); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ---------------------------------------------------------- allocations
+
+// ListAllocations: GET /api/books/allocations — every category with its
+// default business-use % and any per-year overrides.
+func ListAllocations(w http.ResponseWriter, r *http.Request) {
+	rows, err := database.Pool.Query(r.Context(), `
+		SELECT c.id, c.name, c.sort_order,
+		       COALESCE((SELECT business_pct FROM category_allocation a WHERE a.category_id = c.id AND a.year IS NULL), 100) AS default_pct,
+		       (SELECT note FROM category_allocation a WHERE a.category_id = c.id AND a.year IS NULL) AS default_note,
+		       COALESCE((SELECT jsonb_object_agg(a.year, jsonb_build_object('business_pct', a.business_pct, 'note', a.note))
+		                 FROM category_allocation a WHERE a.category_id = c.id AND a.year IS NOT NULL), '{}'::jsonb) AS years
+		FROM expense_category c WHERE c.deleted_at IS NULL ORDER BY c.sort_order, c.name`)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	type alloc struct {
+		CategoryID  int64           `json:"category_id"`
+		Name        string          `json:"name"`
+		SortOrder   int             `json:"sort_order"`
+		DefaultPct  float64         `json:"default_pct"`
+		DefaultNote *string         `json:"default_note"`
+		Years       json.RawMessage `json:"years"`
+	}
+	out := []alloc{}
+	for rows.Next() {
+		var a alloc
+		var pct pgtype.Numeric
+		if err := rows.Scan(&a.CategoryID, &a.Name, &a.SortOrder, &pct, &a.DefaultNote, &a.Years); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		f, _ := pct.Float64Value()
+		a.DefaultPct = f.Float64
+		out = append(out, a)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
+}
+
+// PutAllocation: PUT /api/books/allocations/{categoryID}
+// body {"year": 2024|null, "business_pct": 60, "note": "..."}; business_pct
+// null deletes the override (a year) or resets the default to 100.
+func PutAllocation(w http.ResponseWriter, r *http.Request) {
+	catID, err := strconv.ParseInt(chi.URLParam(r, "categoryID"), 10, 64)
+	if err != nil {
+		http.Error(w, "bad category id", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Year        *int     `json:"year"`
+		BusinessPct *float64 `json:"business_pct"`
+		Note        string   `json:"note"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	if body.BusinessPct == nil {
+		_, err = database.Pool.Exec(ctx, `DELETE FROM category_allocation WHERE category_id = $1 AND year IS NOT DISTINCT FROM $2`, catID, body.Year)
+	} else {
+		if *body.BusinessPct < 0 || *body.BusinessPct > 100 {
+			http.Error(w, "business_pct must be 0..100", http.StatusBadRequest)
+			return
+		}
+		_, err = database.Pool.Exec(ctx, `
+			INSERT INTO category_allocation (category_id, year, business_pct, note)
+			VALUES ($1, $2, $3, NULLIF($4, ''))
+			ON CONFLICT (category_id, COALESCE(year, 0)) DO UPDATE SET business_pct = EXCLUDED.business_pct, note = EXCLUDED.note, updated_at = NOW()`,
+			catID, body.Year, *body.BusinessPct, body.Note)
+	}
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

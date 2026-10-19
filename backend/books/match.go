@@ -87,9 +87,12 @@ var depositRules = []kindRule{
 }
 
 var withdrawalRules = []kindRule{
+	// Insurance premiums paid by bill-pay mention the insurer (USAA...) and
+	// would otherwise look like a personal-account payment below.
+	{regexp.MustCompile(`(?i)INSURANCE`), "expense", ""},
 	{regexp.MustCompile(`(?i)GUSTO[\s\S]*TYPE:\s*(NET|TAX)\b`), "payroll", "Payroll"},
 	{regexp.MustCompile(`(?i)GUSTO[\s\S]*TYPE:\s*(FEE|BBV|EBV|BVC|INV)\b`), "expense", "Fees"}, // fees and penny verifications
-	{regexp.MustCompile(`(?i)HAYES|Contractor`), "contractor", "Payroll"},
+	{regexp.MustCompile(`(?i)HAYES|Contractor|ACH PAYROLL[\s\S]*CO:\s*PAYROLL`), "contractor", "Payroll"},
 	{regexp.MustCompile(`(?i)To SWEDBERG|TO SWEDBERG|To CASTLE|To R\.? ERIK|ALLY BANK|PAYPAL \*Swedberg|Swedberg Erik|at ATM|Shared Branch|Cash Withdrawal|Domestic Wire Out`), "distribution", ""},
 	// A bare "Internet Banking Transfer" out of the business account with no
 	// printed counterparty is a share-to-share move to the owner.
