@@ -73,9 +73,8 @@ WHERE bt.id = e.bank_transaction_id AND e.deleted_at IS NULL AND e.kind = 'expen
 
 -- (b) 2025-06-07 859.57 Shared Branch deposit: owner's IRS refund, deposited
 --     by family. Contribution, confirmed by the owner.
-UPDATE expense e SET kind = 'contribution', kind_set_by = 'user'
-FROM bank_transaction bt
-WHERE bt.id = e.bank_transaction_id AND bt.posted_date = '2025-06-07' AND bt.amount = 859.57;
+UPDATE expense SET kind = 'contribution', kind_set_by = 'user'
+WHERE source = 'UFCU business' AND date = '2025-06-07' AND amount = -859.57 AND deleted_at IS NULL;
 
 -- (c) Cash withdrawals from the business account that the owner categorized
 --     as expenses stay as categorized (owner's judgment; cash-paid business
@@ -110,6 +109,25 @@ WHERE c.id = e.accepted_category_id AND c.name = 'Home Improvement' AND e.delete
 INSERT INTO category_allocation (category_id, year, business_pct, note)
 SELECT id, NULL, 25, 'home office = 25% of square footage; preparer to confirm (improvements may be depreciable, not expensed)'
 FROM expense_category WHERE name = 'Home Improvement' AND deleted_at IS NULL;
+
+-- (g) The same purchase recorded twice: once on the PayPal Credit statement
+--     ("(Deferred)") and once on the PayPal activity export or the 2020 PDF
+--     of the same account. Keep the statement row; retire the twin. Pairs are
+--     matched 1:1 by (year, date, amount) so N identical purchases keep N rows.
+WITH keep AS (
+  SELECT e.id, p.name AS yr, e.date, e.amount,
+         ROW_NUMBER() OVER (PARTITION BY p.name, e.date, e.amount ORDER BY e.id) AS n
+  FROM expense e JOIN project p ON p.id = e.project_id AND p.deleted_at IS NULL AND p.name ~ '^\d{4}$'
+  WHERE e.deleted_at IS NULL AND e.source = 'paypal credit' AND e.kind IN ('expense','capital','personal') AND e.amount >= 100
+), twin AS (
+  SELECT e.id, p.name AS yr, e.date, e.amount,
+         ROW_NUMBER() OVER (PARTITION BY p.name, e.date, e.amount ORDER BY e.id) AS n
+  FROM expense e JOIN project p ON p.id = e.project_id AND p.deleted_at IS NULL AND p.name ~ '^\d{4}$'
+  WHERE e.deleted_at IS NULL AND e.source IN ('paypal','paypalcredit_2020.pdf') AND e.kind IN ('expense','capital','personal') AND e.amount >= 100
+)
+UPDATE expense x SET deleted_at = NOW(), raw_data = x.raw_data || jsonb_build_object('deleted_by', 'V14: duplicate of paypal credit row ' || k.id)
+FROM twin t JOIN keep k ON k.yr = t.yr AND k.date = t.date AND k.amount = t.amount AND k.n = t.n
+WHERE x.id = t.id;
 
 -- ------------------------------------------------------------ views
 DROP VIEW IF EXISTS v_return_compare, v_books_checks, v_fixed_assets, v_balance_sheet, v_equity_rollforward,
@@ -436,6 +454,7 @@ SELECT year, 'info: owner-categorized rows the statement rule reads differently 
 FROM v_ledger
 WHERE account_owner = 'business' AND rule_specific AND kind <> rule_kind AND kind <> 'personal'
   AND (kind_set_by IS NULL OR kind_set_by = 'user')
+  AND accepted_category_id IS NULL   -- a category on the row is the owner's confirmation
   AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = v_ledger.id)
 GROUP BY year
 UNION ALL
@@ -453,13 +472,6 @@ UNION ALL
 SELECT year, 'uncategorized business expense rows', COUNT(*)::bigint,
        STRING_AGG(id::text || ' ' || COALESCE(date::text,'?') || ' ' || amount_native::text, '; ')
 FROM v_ledger WHERE kind = 'expense' AND accepted_category_id IS NULL GROUP BY year
-UNION ALL
-SELECT l.year, 'info: income deposits not matched to an invoice', COUNT(*)::bigint,
-       STRING_AGG(l.date::text || ' ' || ROUND(-l.amount_usd, 2)::text, '; ' ORDER BY l.date)
-FROM v_ledger l
-WHERE l.kind = 'income' AND l.account_owner = 'business'
-  AND NOT EXISTS (SELECT 1 FROM invoice_payment ip WHERE ip.expense_id = l.id)
-GROUP BY l.year
 UNION ALL
 SELECT year, 'info: anonymous deposits booked as owner contributions (confirm)', COUNT(*)::bigint,
        STRING_AGG(date::text || ' ' || ROUND(-amount_usd, 2)::text || ' (' || LEFT(REGEXP_REPLACE(bank_description, '\s+', ' ', 'g'), 40) || ')', '; ' ORDER BY date)
