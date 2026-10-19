@@ -118,12 +118,12 @@ WITH keep AS (
   SELECT e.id, p.name AS yr, e.date, e.amount,
          ROW_NUMBER() OVER (PARTITION BY p.name, e.date, e.amount ORDER BY e.id) AS n
   FROM expense e JOIN project p ON p.id = e.project_id AND p.deleted_at IS NULL AND p.name ~ '^\d{4}$'
-  WHERE e.deleted_at IS NULL AND e.source = 'paypal credit' AND e.kind IN ('expense','capital','personal') AND e.amount >= 100
+  WHERE e.deleted_at IS NULL AND e.source = 'paypal credit' AND e.kind IN ('expense','capital','personal') AND e.amount > 0
 ), twin AS (
   SELECT e.id, p.name AS yr, e.date, e.amount,
          ROW_NUMBER() OVER (PARTITION BY p.name, e.date, e.amount ORDER BY e.id) AS n
   FROM expense e JOIN project p ON p.id = e.project_id AND p.deleted_at IS NULL AND p.name ~ '^\d{4}$'
-  WHERE e.deleted_at IS NULL AND e.source IN ('paypal','paypalcredit_2020.pdf') AND e.kind IN ('expense','capital','personal') AND e.amount >= 100
+  WHERE e.deleted_at IS NULL AND e.source IN ('paypal','paypalcredit_2020.pdf') AND e.kind IN ('expense','capital','personal') AND e.amount > 0
 )
 UPDATE expense x SET deleted_at = NOW(), raw_data = x.raw_data || jsonb_build_object('deleted_by', 'V14: duplicate of paypal credit row ' || k.id)
 FROM twin t JOIN keep k ON k.yr = t.yr AND k.date = t.date AND k.amount = t.amount AND k.n = t.n
@@ -434,6 +434,7 @@ SELECT year, 'kind and sign disagree', COUNT(*)::bigint,
 FROM v_ledger
 WHERE (kind IN ('income','contribution','refund') AND amount_native > 0)
    OR (kind IN ('expense','payroll','contractor','distribution','capital') AND amount_native < 0)
+   OR (kind = 'personal' AND account_owner = 'business' AND amount_native < 0)
 GROUP BY year
 UNION ALL
 SELECT year, 'ledger-kind rows carrying a P&L category', COUNT(*)::bigint,
@@ -484,7 +485,7 @@ UNION ALL
 SELECT a.year, 'info: possible duplicate rows (same date and amount on two personal sources)', COUNT(*)::bigint,
        STRING_AGG(a.id::text || '/' || b.id::text || ' ' || a.date::text || ' ' || a.amount_native::text || ' ' || a.source || ' vs ' || b.source, '; ')
 FROM v_ledger a JOIN v_ledger b ON b.year = a.year AND b.date = a.date AND b.amount_native = a.amount_native AND b.id > a.id AND b.source <> a.source
-WHERE a.account_owner = 'personal' AND b.account_owner = 'personal' AND a.amount_native >= 100
+WHERE a.account_owner = 'personal' AND b.account_owner = 'personal' AND a.amount_native > 0
   AND a.kind IN ('expense','capital') AND b.kind IN ('expense','capital')
 GROUP BY a.year
 UNION ALL

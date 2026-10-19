@@ -317,6 +317,28 @@ func UpdateExpense(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid kind", http.StatusBadRequest)
 			return
 		}
+		// A kind must agree with the row's sign: deposit-side kinds on money
+		// in, money-out kinds on money out. Otherwise income can be cancelled
+		// by relabelling a deposit.
+		var amt *float64
+		if err := database.Pool.QueryRow(ctx, `SELECT amount FROM expense WHERE id = $1`, expenseID).Scan(&amt); err != nil {
+			http.Error(w, "Expense not found", http.StatusNotFound)
+			return
+		}
+		if amt != nil {
+			switch *req.Kind {
+			case "income", "contribution", "refund":
+				if *amt > 0 {
+					http.Error(w, *req.Kind+" is a deposit-side kind; this row is money out", http.StatusBadRequest)
+					return
+				}
+			case "expense", "personal", "payroll", "contractor", "capital", "distribution":
+				if *amt < 0 {
+					http.Error(w, *req.Kind+" is a money-out kind; this row is a deposit", http.StatusBadRequest)
+					return
+				}
+			}
+		}
 		updateFields = append(updateFields, fmt.Sprintf("kind = $%d", argIndex))
 		args = append(args, *req.Kind)
 		argIndex++
