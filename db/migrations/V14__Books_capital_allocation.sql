@@ -97,14 +97,19 @@ WHERE c.id = e.accepted_category_id AND p.id = e.project_id AND p.name = '2024'
 UPDATE expense SET deleted_at = NOW(), raw_data = raw_data || '{"deleted_by": "V14: duplicate of the PayPal Credit row"}'::jsonb
 WHERE deleted_at IS NULL AND source = 'paypal' AND date = '2024-05-15' AND amount = 3684.25 AND description ~* 'POPTOP';
 
--- (f) Home Improvement is the owner's house (mostly 2019 work financed by a
---     personal SoFi loan whose repayments were used as the proxy; Nov 2021 -
---     Mar 2022 was prepping the house for sale). Never a business expense.
-UPDATE expense_category SET lean = 'personal', updated_at = NOW() WHERE name = 'Home Improvement' AND deleted_at IS NULL;
+-- (f) Home Improvement: the owner's house, of which 25% of the square footage
+--     was claimed as the office. Rows stay as the owner categorized them so
+--     the preparer sees the gross; the home-office share is the default
+--     business-use % (preparer to confirm; improvements may have to be
+--     depreciated rather than expensed). The SoFi rows are repayments of a
+--     personal loan (principal), not improvements: personal.
 UPDATE expense e SET kind = 'personal', kind_set_by = 'user'
 FROM expense_category c
 WHERE c.id = e.accepted_category_id AND c.name = 'Home Improvement' AND e.deleted_at IS NULL
-  AND e.kind IN ('expense','capital');
+  AND e.kind IN ('expense','capital') AND e.description ~* 'SOFI';
+INSERT INTO category_allocation (category_id, year, business_pct, note)
+SELECT id, NULL, 25, 'home office = 25% of square footage; preparer to confirm (improvements may be depreciable, not expensed)'
+FROM expense_category WHERE name = 'Home Improvement' AND deleted_at IS NULL;
 
 -- ------------------------------------------------------------ views
 DROP VIEW IF EXISTS v_return_compare, v_books_checks, v_fixed_assets, v_balance_sheet, v_equity_rollforward,
